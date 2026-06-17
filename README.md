@@ -91,8 +91,9 @@ frontend/
 │       └── profile/            # Profile tabs & sub-forms
 │
 ├── context/
-│   ├── auth-context.tsx        # Vendor auth state & token management
-│   └── chat-context.tsx        # Chat sessions, messages, Socket.IO state
+│   └── vendor/
+│       ├── auth-context.tsx    # Vendor auth state & token management
+│       └── chat-context.tsx    # Chat sessions, messages, Socket.IO state
 │
 ├── hooks/                      # Custom React hooks
 ├── utils/                      # API client (apiClient.ts) & helpers

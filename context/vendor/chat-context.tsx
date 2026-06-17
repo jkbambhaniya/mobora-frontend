@@ -14,7 +14,7 @@ interface ChatContextType {
   setChats: React.Dispatch<React.SetStateAction<ChatSession[]>>;
   activeChatMessages: ChatMessage[];
   setActiveChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  fetchMessages: (chatId: string) => Promise<void>;
+  fetchMessages: (chatId: string, limit?: number, offset?: number) => Promise<{ messages: ChatMessage[]; hasMore: boolean } | null>;
   sendMessage: (chatId: string, text: string, attachment?: Attachment) => void;
   uploadFile: (file: File) => Promise<Attachment | null>;
   createChatSession: (data: {
@@ -75,7 +75,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const fetchSessions = async () => {
     if (!vendor) return;
     try {
-      const res = await apiClient.get("/chat/sessions");
+      const res = await apiClient.get("/vendor/chat/sessions");
       if (res?.data?.success) {
         setChats(res.data.chats || []);
       }
@@ -85,15 +85,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Fetch message history for a specific session
-  const fetchMessages = async (chatId: string) => {
-    if (!vendor) return;
+  const fetchMessages = async (chatId: string, limit = 15, offset = 0) => {
+    if (!vendor) return null;
     try {
-      const res = await apiClient.get(`/chat/sessions/${chatId}/messages`);
+      const res = await apiClient.get(`/vendor/chat/sessions/${chatId}/messages?limit=${limit}&offset=${offset}`);
       if (res?.data?.success) {
-        setActiveChatMessages(res.data.messages || []);
+        const newMessages = res.data.messages || [];
+        const hasMore = res.data.hasMore || false;
+        if (offset === 0) {
+          setActiveChatMessages(newMessages);
+        } else {
+          setActiveChatMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id));
+            const filteredNew = newMessages.filter((m: any) => !existingIds.has(m.id));
+            return [...filteredNew, ...prev];
+          });
+        }
+        return { messages: newMessages, hasMore };
       }
+      return null;
     } catch (err: any) {
       console.error("[ChatContext] Error fetching messages:", err.message);
+      return null;
     }
   };
 
@@ -115,7 +128,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         type = "video";
       }
 
-      const res = await apiClient.post("/chat/upload", {
+      const res = await apiClient.post("/vendor/chat/upload", {
         name: file.name,
         type,
         base64: base64String
@@ -161,7 +174,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     memberIds?: number[];
   }): Promise<string | null> => {
     try {
-      const res = await apiClient.post("/chat/sessions", data);
+      const res = await apiClient.post("/vendor/chat/sessions", data);
       if (res?.data?.success) {
         const newChatId = res.data.chatId;
         await fetchSessions();
@@ -179,7 +192,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // Fetch list of other registered vendors
   const fetchVendors = async (): Promise<any[]> => {
     try {
-      const res = await apiClient.get("/chat/vendors");
+      const res = await apiClient.get("/vendor/chat/vendors");
       if (res?.data?.success) {
         return res.data.vendors || [];
       }
@@ -388,9 +401,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChats,
         activeChatMessages,
         setActiveChatMessages,
-        fetchMessages: async (chatId) => {
+        fetchMessages: async (chatId, limit, offset) => {
           joinChatRoom(chatId);
-          await fetchMessages(chatId);
+          return await fetchMessages(chatId, limit, offset);
         },
         sendMessage,
         uploadFile,

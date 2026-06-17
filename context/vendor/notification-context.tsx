@@ -35,7 +35,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // ── Load notifications from backend on mount ─────────────────────────────
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await apiClient.get("/notifications");
+      const res = await apiClient.get("/vendor/notifications");
       if (res?.data?.success && isMounted.current) {
         setNotifications(res.data.notifications || []);
       }
@@ -73,7 +73,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     // Persist
     try {
-      await apiClient.patch(`/notifications/${id}/read`);
+      await apiClient.patch(`/vendor/notifications/${id}/read`);
     } catch (err: any) {
       console.warn("[NotificationContext] markRead failed:", err?.message);
     }
@@ -83,7 +83,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const markAllRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     try {
-      await apiClient.patch("/notifications/read-all");
+      await apiClient.patch("/vendor/notifications/read-all");
     } catch (err: any) {
       console.warn("[NotificationContext] markAllRead failed:", err?.message);
     }
@@ -93,7 +93,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const clearNotification = useCallback(async (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     try {
-      await apiClient.delete(`/notifications/${id}`);
+      await apiClient.delete(`/vendor/notifications/${id}`);
     } catch (err: any) {
       console.warn("[NotificationContext] clearNotification failed:", err?.message);
     }
@@ -103,7 +103,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const clearAll = useCallback(async () => {
     setNotifications([]);
     try {
-      await apiClient.delete("/notifications");
+      await apiClient.delete("/vendor/notifications");
     } catch (err: any) {
       console.warn("[NotificationContext] clearAll failed:", err?.message);
     }

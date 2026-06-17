@@ -5,10 +5,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { useDashboard } from "@/context/dashboard-context";
+import { useDashboard } from "@/context/vendor/dashboard-context";
+import { logoutAction } from "@/actions/auth";
+import { confirmLogout } from "@/utils/confirm";
 
 export default function Sidebar() {
-	const { exchanges, vendor, chats } = useDashboard();
+	const { exchanges, vendor, chats, setVendor } = useDashboard();
+
+	const handleLogout = () => {
+		confirmLogout(async () => {
+			try {
+				await logoutAction();
+			} catch (err) {
+				console.error("Logout failed:", err);
+			}
+			setVendor(null);
+			window.location.href = "/login";
+		});
+	};
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 	const activeExchanges = exchanges.filter(
 		(e) => e.status === "Pending",
@@ -169,7 +183,7 @@ export default function Sidebar() {
 									d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
 								/>
 							</svg>
-							Customers Desk
+							Customers
 						</Link>
 
 						<Link
@@ -198,7 +212,7 @@ export default function Sidebar() {
 									<span className="absolute -top-0.5 -right-0.5 flex h-2 w-2 rounded-full bg-primary animate-pulse" />
 								)}
 							</div>
-							Messages Desk
+							Messages
 						</Link>
 					</nav>
 				</div>
@@ -227,15 +241,14 @@ export default function Sidebar() {
 							</strong>
 						</div>
 					</div>
-					<Link href="/">
-						<Button
-							variant="outline"
-							size="sm"
-							className="w-full text-xs"
-						>
-							Log Out
-						</Button>
-					</Link>
+					<Button
+						variant="outline"
+						size="sm"
+						className="w-full text-xs"
+						onClick={handleLogout}
+					>
+						Log Out
+					</Button>
 				</div>
 			</aside>
 
@@ -594,14 +607,16 @@ export default function Sidebar() {
 									{contactPerson}
 								</strong>
 							</div>
-							<Link href="/">
-								<Button
-									variant="outline"
-									className="w-full py-2.5 rounded-2xl text-xs font-bold mt-2"
-								>
-									Log Out
-								</Button>
-							</Link>
+							<Button
+								variant="outline"
+								className="w-full py-2.5 rounded-2xl text-xs font-bold mt-2"
+								onClick={() => {
+									setIsMobileMenuOpen(false);
+									handleLogout();
+								}}
+							>
+								Log Out
+							</Button>
 						</div>
 					</div>
 				</div>
