@@ -11,6 +11,7 @@ import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import { toast } from "react-hot-toast";
 import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
+import { DataTable, Column } from "@/components/ui/DataTable";
 
 const customerSchema = yup.object().shape({
 	name: yup.string().trim().required("Full Name is required."),
@@ -245,8 +246,193 @@ export default function CustomerPage() {
 	const averageLTV =
 		totalCustomers > 0 ? Math.round(totalSpentAll / totalCustomers) : 0;
 
-	// Filter & Search Logic (dynamic server-side)
 	const filteredCustomers = customers;
+
+	const getSortDir = (colKey: string) => {
+		if (sortBy === colKey) return sortOrder;
+		return null;
+	};
+
+	const columns: Column<Customer>[] = [
+		{
+			key: "name",
+			title: "Customer Details",
+			sortable: true,
+			render: (cust) => {
+				const profileImgUrl = cust.profileImg || (cust as any).profile_img;
+				return (
+					<div className="flex items-center gap-3">
+						{profileImgUrl ? (
+							<img
+								src={profileImgUrl}
+								alt={cust.name}
+								className="h-9 w-9 rounded-xl object-cover shadow-sm shrink-0 border border-zinc-200 dark:border-zinc-800"
+							/>
+						) : (
+							<div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300 shadow-sm shrink-0 uppercase">
+								{cust.name
+									.split(" ")
+									.map((n) => n[0])
+									.join("")
+									.slice(0, 2)}
+							</div>
+						)}
+						<div>
+							<div className="font-bold text-zinc-900 dark:text-white leading-tight">
+								{cust.name}
+							</div>
+							<div className="text-[11px] text-zinc-400 mt-0.5 max-w-[200px] truncate">
+								{cust.address
+									? cust.address.split(",")[0]
+									: "No address specified"}
+							</div>
+						</div>
+					</div>
+				);
+			},
+		},
+		{
+			key: "phone",
+			title: "Contact Info",
+			sortable: false,
+			render: (cust) => (
+				<>
+					<div className="text-zinc-700 dark:text-zinc-300 font-medium">
+						{cust.phone}
+					</div>
+					<div className="text-xs text-zinc-400 mt-0.5">
+						{cust.email || "—"}
+					</div>
+				</>
+			),
+		},
+		{
+			key: "totalOrders",
+			title: "Orders",
+			sortable: false,
+			headerClassName: "text-center",
+			className: "text-center font-bold text-zinc-700 dark:text-zinc-300",
+		},
+		{
+			key: "totalSpent",
+			title: "Total Spent",
+			sortable: true,
+			headerClassName: "text-right",
+			className: "text-right font-extrabold text-zinc-900 dark:text-zinc-100",
+			render: (cust) => (
+				<span suppressHydrationWarning>
+					₹{cust.totalSpent.toLocaleString()}
+				</span>
+			),
+		},
+		{
+			key: "joinedDate",
+			title: "Joined",
+			sortable: true,
+			headerClassName: "text-center",
+			className: "text-center text-xs text-zinc-500 dark:text-zinc-400 font-medium",
+			render: (cust) => (
+				<span>
+					{new Date(cust.joinedDate).toLocaleDateString("en-IN", {
+						day: "numeric",
+						month: "short",
+						year: "numeric",
+					})}
+				</span>
+			),
+		},
+		{
+			key: "status",
+			title: "Status",
+			sortable: false,
+			headerClassName: "text-center",
+			className: "text-center",
+			render: (cust) => (
+				<span
+					className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${
+						cust.status === "Active"
+							? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+							: "bg-zinc-500/15 text-zinc-500 dark:text-zinc-400"
+					}`}
+				>
+					{cust.status}
+				</span>
+			),
+		},
+		{
+			key: "actions",
+			title: "Actions",
+			sortable: false,
+			headerClassName: "text-center",
+			className: "text-center",
+			render: (cust) => (
+				<div className="flex items-center justify-center gap-2">
+					<button
+						onClick={() => handleOpenDetails(cust)}
+						className="p-1.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary transition-colors cursor-pointer"
+						title="View customer details"
+					>
+						<svg
+							className="w-4.5 h-4.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+							/>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+							/>
+						</svg>
+					</button>
+					<button
+						onClick={(e) => handleOpenEdit(cust, e)}
+						className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors cursor-pointer"
+						title="Edit profile"
+					>
+						<svg
+							className="w-4.5 h-4.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+							/>
+						</svg>
+					</button>
+					<button
+						onClick={(e) => handleDelete(cust.id, cust.name, e)}
+						className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
+						title="Delete customer"
+					>
+						<svg
+							className="w-4.5 h-4.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+							/>
+						</svg>
+					</button>
+				</div>
+			),
+		},
+	];
 
 	return (
 		<>
@@ -468,331 +654,53 @@ export default function CustomerPage() {
 
 				{/* CUSTOMER DATATABLE */}
 				<div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden shadow-sm">
-					{isLoading ? (
-						<div className="text-center py-20">
-							<svg
-								className="animate-spin h-8 w-8 text-primary mx-auto"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<circle
-									className="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									strokeWidth="4"
-								></circle>
-								<path
-									className="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								></path>
-							</svg>
-							<span className="text-xs text-zinc-400 mt-3 block font-semibold animate-pulse">
-								Loading customer profiles...
-							</span>
-						</div>
-					) : filteredCustomers.length > 0 ? (
-						<div className="overflow-x-auto">
-							<table className="w-full text-left text-sm border-collapse">
-								<thead>
-									<tr className="bg-zinc-50/50 dark:bg-zinc-900/20 text-zinc-400 font-semibold text-xs uppercase select-none border-b border-zinc-200/40 dark:border-zinc-800/40">
-										<th
-											className="py-4 px-6 cursor-pointer hover:text-zinc-900 dark:hover:text-white"
-											onClick={() => handleSort("name")}
-										>
-											<div className="flex items-center gap-1.5">
-												<span>Customer Details</span>
-												{sortBy === "name" && (
-													<span>
-														{sortOrder === "asc"
-															? "▲"
-															: "▼"}
-													</span>
-												)}
-											</div>
-										</th>
-										<th className="py-4 px-6">
-											Contact Info
-										</th>
-										<th className="py-4 px-6 text-center">
-											Orders
-										</th>
-										<th
-											className="py-4 px-6 text-right cursor-pointer hover:text-zinc-900 dark:hover:text-white"
-											onClick={() =>
-												handleSort("totalSpent")
-											}
-										>
-											<div className="flex items-center justify-end gap-1.5">
-												<span>Total Spent</span>
-												{sortBy === "totalSpent" && (
-													<span>
-														{sortOrder === "asc"
-															? "▲"
-															: "▼"}
-													</span>
-												)}
-											</div>
-										</th>
-										<th
-											className="py-4 px-6 text-center cursor-pointer hover:text-zinc-900 dark:hover:text-white"
-											onClick={() =>
-												handleSort("joinedDate")
-											}
-										>
-											<div className="flex items-center justify-center gap-1.5">
-												<span>Joined</span>
-												{sortBy === "joinedDate" && (
-													<span>
-														{sortOrder === "asc"
-															? "▲"
-															: "▼"}
-													</span>
-												)}
-											</div>
-										</th>
-										<th className="py-4 px-6 text-center">
-											Status
-										</th>
-										<th className="py-4 px-6 text-center">
-											Actions
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{filteredCustomers.map((cust) => {
-										const profileImgUrl =
-											cust.profileImg ||
-											(cust as any).profile_img;
-										return (
-											<tr
-												key={cust.id}
-												className="border-b border-zinc-100 dark:border-zinc-850/40 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors"
-											>
-												{/* Name Details column */}
-												<td className="py-4 px-6">
-													<div className="flex items-center gap-3">
-														{profileImgUrl ? (
-															<img
-																src={
-																	profileImgUrl
-																}
-																alt={cust.name}
-																className="h-9 w-9 rounded-xl object-cover shadow-sm shrink-0 border border-zinc-200 dark:border-zinc-800"
-															/>
-														) : (
-															<div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300 shadow-sm shrink-0 uppercase">
-																{cust.name
-																	.split(" ")
-																	.map(
-																		(n) =>
-																			n[0],
-																	)
-																	.join("")
-																	.slice(
-																		0,
-																		2,
-																	)}
-															</div>
-														)}
-														<div>
-															<div className="font-bold text-zinc-900 dark:text-white leading-tight">
-																{cust.name}
-															</div>
-															<div className="text-[11px] text-zinc-400 mt-0.5 max-w-[200px] truncate">
-																{cust.address
-																	? cust.address.split(
-																		  ",",
-																	  )[0]
-																	: "No address specified"}
-															</div>
-														</div>
-													</div>
-												</td>
-
-												{/* Contact Info Column */}
-												<td className="py-4 px-6">
-													<div className="text-zinc-700 dark:text-zinc-300 font-medium">
-														{cust.phone}
-													</div>
-													<div className="text-xs text-zinc-400 mt-0.5">
-														{cust.email || "—"}
-													</div>
-												</td>
-
-												{/* Orders Count Column */}
-												<td className="py-4 px-6 text-center font-bold text-zinc-700 dark:text-zinc-300">
-													{cust.totalOrders}
-												</td>
-
-												{/* Total Spent Column */}
-												<td
-													className="py-4 px-6 text-right font-extrabold text-zinc-900 dark:text-zinc-100"
-													suppressHydrationWarning
-												>
-													₹
-													{cust.totalSpent.toLocaleString()}
-												</td>
-
-												{/* Joined Date Column */}
-												<td className="py-4 px-6 text-center text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-													{new Date(
-														cust.joinedDate,
-													).toLocaleDateString(
-														"en-IN",
-														{
-															day: "numeric",
-															month: "short",
-															year: "numeric",
-														},
-													)}
-												</td>
-
-												{/* Status Column */}
-												<td className="py-4 px-6 text-center">
-													<span
-														className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${
-															cust.status ===
-															"Active"
-																? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-																: "bg-zinc-500/15 text-zinc-500 dark:text-zinc-400"
-														}`}
-													>
-														{cust.status}
-													</span>
-												</td>
-
-												{/* Actions Column */}
-												<td className="py-4 px-6 text-center">
-													<div className="flex items-center justify-center gap-2">
-														<button
-															onClick={() =>
-																handleOpenDetails(
-																	cust,
-																)
-															}
-															className="p-1.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary transition-colors cursor-pointer"
-															title="View customer details"
-														>
-															<svg
-																className="w-4.5 h-4.5"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-																strokeWidth="2"
-															>
-																<path
-																	strokeLinecap="round"
-																	strokeLinejoin="round"
-																	d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-																/>
-																<path
-																	strokeLinecap="round"
-																	strokeLinejoin="round"
-																	d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-																/>
-															</svg>
-														</button>
-														<button
-															onClick={(e) =>
-																handleOpenEdit(
-																	cust,
-																	e,
-																)
-															}
-															className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors cursor-pointer"
-															title="Edit profile"
-														>
-															<svg
-																className="w-4.5 h-4.5"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-																strokeWidth="2"
-															>
-																<path
-																	strokeLinecap="round"
-																	strokeLinejoin="round"
-																	d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-																/>
-															</svg>
-														</button>
-														<button
-															onClick={(e) =>
-																handleDelete(
-																	cust.id,
-																	cust.name,
-																	e,
-																)
-															}
-															className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
-															title="Delete customer"
-														>
-															<svg
-																className="w-4.5 h-4.5"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke="currentColor"
-																strokeWidth="2"
-															>
-																<path
-																	strokeLinecap="round"
-																	strokeLinejoin="round"
-																	d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-																/>
-															</svg>
-														</button>
-													</div>
-												</td>
-											</tr>
-										);
-									})}
-								</tbody>
-							</table>
-						</div>
-					) : (
-						<div className="text-center py-16 space-y-3">
-							<div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
-								<svg
-									className="w-6 h-6"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth="2"
-										d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-									/>
-								</svg>
+					<DataTable
+						columns={columns}
+						data={filteredCustomers}
+						loading={isLoading}
+						onSort={handleSort}
+						sortDir={getSortDir}
+						emptyMessage={
+							<div className="text-center py-16 space-y-3">
+								<div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">
+									<svg
+										className="w-6 h-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth="2"
+											d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+										/>
+									</svg>
+								</div>
+								<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
+									No Customers Found
+								</h4>
+								<p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
+									We couldn&apos;t find any customers matching
+									&quot;{searchTerm}&quot;. Try refining your
+									search query or clear filters.
+								</p>
+								<div className="pt-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											setSearchTerm("");
+											setStatusFilter("All");
+											setSpentFilter("All");
+										}}
+									>
+										Clear All Filters
+									</Button>
+								</div>
 							</div>
-							<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
-								No Customers Found
-							</h4>
-							<p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
-								We couldn&apos;t find any customers matching
-								&quot;{searchTerm}&quot;. Try refining your
-								search query or clear filters.
-							</p>
-							<div className="pt-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => {
-										setSearchTerm("");
-										setStatusFilter("All");
-										setSpentFilter("All");
-									}}
-								>
-									Clear All Filters
-								</Button>
-							</div>
-						</div>
-					)}
+						}
+					/>
 
 					{/* DataTable Footer Controls */}
 					<div className="px-6 py-4 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-850/40 text-xs text-zinc-400 font-semibold bg-zinc-50/20 dark:bg-zinc-900/10 select-none">
