@@ -16,7 +16,7 @@ interface TransactionContextType {
   setInvoices: React.Dispatch<React.SetStateAction<InvoiceRecord[]>>;
   handleAcceptExchange: (id: string, name: string, offer: number, target: string, price: number) => void;
   handleRejectExchange: (id: string) => void;
-  handleAddTradeTransaction: (transaction: Omit<TradeTransaction, "id">) => Promise<any>;
+  handleAddTradeTransaction: (transaction: Omit<TradeTransaction, "id">, suppressToast?: boolean) => Promise<any>;
   handleAddInvoice: (invoice: Omit<InvoiceRecord, "id">) => void;
   refreshTrades: () => Promise<void>;
 }
@@ -61,7 +61,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     triggerToast("Exchange request declined.");
   };
 
-  const handleAddTradeTransaction = async (transaction: Omit<TradeTransaction, "id">) => {
+  const handleAddTradeTransaction = async (transaction: Omit<TradeTransaction, "id">, suppressToast = false) => {
     const existingListing = devices.find(
       (item) =>
         (transaction.imei && item.imei === transaction.imei) ||
@@ -90,7 +90,9 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     try {
       const res = await createTransactionAction(payload);
       if (res.success && res.data && res.data.success) {
-        triggerToast(`Successfully recorded ${transaction.type.toLowerCase()} transaction.`);
+        if (!suppressToast) {
+          triggerToast(`Successfully recorded ${transaction.type.toLowerCase()} transaction.`);
+        }
         await refreshDevices(undefined, true);
         await refreshMetrics();
         await refreshTrades();

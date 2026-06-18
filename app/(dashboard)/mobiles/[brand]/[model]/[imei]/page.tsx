@@ -249,9 +249,9 @@ export default function ImeiDetailsPage() {
 					color: device.color,
 					condition: device.condition,
 					batteryHealth: device.batteryHealth,
-				});
+				}, true);
 				setIsSellOpen(false);
-				hotToast.success("Device sale recorded successfully.");
+				hotToast.success(`Device sale recorded successfully! Sold to ${sellCustomer} for ₹${priceNum.toLocaleString()}.`);
 				await refreshDevices();
 				await refreshMetrics();
 				await refreshTrades();
@@ -305,15 +305,12 @@ export default function ImeiDetailsPage() {
 					color: device.color,
 					condition: buybackCondition,
 					batteryHealth: parseInt(buybackBattery) || 90,
-				});
+				}, true);
 				setIsBuybackOpen(false);
-				hotToast.success("Device buyback recorded successfully.");
+				hotToast.success(`Device buyback recorded successfully! Re-acquired from ${buybackCustomer} for ₹${priceNum.toLocaleString()}.`);
 				await refreshDevices();
 				await refreshMetrics();
 				await refreshTrades();
-				if (tx && tx.id) {
-					streamInvoice(tx.id);
-				}
 			} else {
 				hotToast.error(result.message || "Failed to record buyback.");
 			}
