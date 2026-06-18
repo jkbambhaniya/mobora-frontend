@@ -13,7 +13,7 @@ import { SpecificationsProvider } from "./specifications-context";
 // Re-export types for backward compatibility
 export type {
 	VendorProfile,
-	MobileListing,
+	Mobile,
 	ExchangeRequest,
 	OrderRecord,
 	TradeTransaction,
@@ -30,17 +30,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 	return (
 		<UiProvider>
 			<AuthProvider>
-				<InventoryProvider>
-					<TransactionProvider>
-						<CustomerProvider>
-							<SpecificationsProvider>
+				<SpecificationsProvider>
+					<InventoryProvider>
+						<TransactionProvider>
+							<CustomerProvider>
 								<NotificationProvider>
 									<ChatProvider>{children}</ChatProvider>
 								</NotificationProvider>
-							</SpecificationsProvider>
-						</CustomerProvider>
-					</TransactionProvider>
-				</InventoryProvider>
+							</CustomerProvider>
+						</TransactionProvider>
+					</InventoryProvider>
+				</SpecificationsProvider>
 			</AuthProvider>
 		</UiProvider>
 	);

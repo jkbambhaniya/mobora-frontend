@@ -10,6 +10,8 @@ interface PhoneInputFieldProps {
   error?: string;
   placeholder?: string;
   id?: string;
+  disabled?: boolean;
+  size?: "sm" | "md";
 }
 
 export function PhoneInputField({
@@ -18,9 +20,11 @@ export function PhoneInputField({
   error,
   placeholder = "98765 43210",
   id = "phone-input",
+  disabled = false,
+  size = "md",
 }: PhoneInputFieldProps) {
   return (
-    <div id={id} style={{ width: "100%" }}>
+    <div id={id} style={{ width: "100%" }} className={disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : ""}>
       <PhoneInput
         defaultCountry="in"
         value={value}
@@ -29,6 +33,7 @@ export function PhoneInputField({
         disableCountryGuess
         disableDialCodePrefill
         forceDialCode
+        disabled={disabled}
       />
 
       {error && (
@@ -43,11 +48,11 @@ export function PhoneInputField({
           display: flex;
           align-items: stretch;
           width: 100%;
-          border-radius: 0.75rem;
+          border-radius: ${size === "sm" ? "0.75rem" : "0.75rem"};
           border: 1.5px solid ${error ? "#ef4444" : "#e4e4e7"};
           box-shadow: ${error ? "0 0 0 2px rgb(239 68 68 / 0.2)" : "none"};
           background: transparent;
-          font-size: 0.875rem;
+          font-size: ${size === "sm" ? "0.75rem" : "0.875rem"};
           transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
@@ -62,12 +67,12 @@ export function PhoneInputField({
         #${id} .react-international-phone-country-selector-button {
           display: flex;
           align-items: center;
-          padding: 0 0.6rem 0 0.75rem;
+          padding: ${size === "sm" ? "0 0.4rem 0 0.5rem" : "0 0.6rem 0 0.75rem"};
           background: transparent;
           border: none;
           border-right: 1.5px solid ${error ? "#ef4444" : "#e4e4e7"};
           border-radius: 0.7rem 0 0 0.7rem;
-          min-height: 2.52rem;
+          min-height: ${size === "sm" ? "1.75rem" : "2.52rem"};
           flex-shrink: 0;
           /* Make non-interactive — static flag only */
           pointer-events: none;
@@ -102,12 +107,12 @@ export function PhoneInputField({
         /* ── Text input ─────────────────────────────────── */
         #${id} .react-international-phone-input {
           flex: 1;
-          padding: 0.625rem 1rem;
+          padding: ${size === "sm" ? "0.36rem 0.75rem" : "0.625rem 1rem"};
           background: transparent;
           border: none;
           border-radius: 0 0.7rem 0.7rem 0;
           outline: none;
-          font-size: 0.875rem;
+          font-size: ${size === "sm" ? "0.75rem" : "0.875rem"};
           color: inherit;
           min-width: 0;
           line-height: 1.5;

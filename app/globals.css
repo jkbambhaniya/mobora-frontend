@@ -75,3 +75,21 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Set pointer cursor on all links, custom link elements, and elements acting as links */
+a,
+[role="link"],
+.link {
+  cursor: pointer !important;
+}
+
+/* Disable interaction on textboxes, selects, textareas, and other clickable elements when a loading spinner is active */
+body:has(.animate-spin) input,
+body:has(.animate-spin) select,
+body:has(.animate-spin) textarea,
+body:has(.animate-spin) button:not(.animate-spin):not(:has(.animate-spin)) {
+  pointer-events: none !important;
+  opacity: 0.65;
+  cursor: not-allowed !important;
+}
+

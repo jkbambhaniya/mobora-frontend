@@ -41,7 +41,7 @@ export default function Home() {
             </Button>
           </Link>
           <Link href="/register">
-            <Button variant="gradient" size="sm">
+            <Button variant="gradient" size="sm" shape="pill">
               Vendor Register
             </Button>
           </Link>
@@ -54,7 +54,7 @@ export default function Home() {
           ✨ Premium Vendor Dashboard
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
+        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-55 leading-tight">
           Manage Your Old Mobile Buy, Sell &{" "}
           <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Exchange Business
@@ -67,12 +67,12 @@ export default function Home() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-md pt-4">
           <Link href="/register" className="w-full sm:w-auto">
-            <Button variant="gradient" size="lg" className="w-full sm:w-auto shadow-xl shadow-primary/20">
+            <Button variant="gradient" size="lg" shape="pill" className="w-full sm:w-auto">
               Create Vendor Account
             </Button>
           </Link>
           <Link href="/login" className="w-full sm:w-auto">
-            <Button variant="outline" size="lg" className="w-full sm:w-auto">
+            <Button variant="outline" size="lg" shape="pill" className="w-full sm:w-auto">
               Sign In to Portal
             </Button>
           </Link>

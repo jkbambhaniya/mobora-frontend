@@ -2,6 +2,7 @@ import React from "react";
 import { Tab } from "@/types/specifications";
 import { Button } from "@/components/ui/button";
 import SearchBar from "./SearchBar";
+import { Select } from "@/components/ui/select";
 
 interface SpecificationHeaderProps {
 	activeTab: Tab;
@@ -64,18 +65,16 @@ export default function SpecificationHeader({
 			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
 				{/* Models: brand filter */}
 				{activeTab === "models" && (
-					<select
+					<Select
 						value={brandId}
 						onChange={(e) => onBrandFilterChange(e.target.value)}
-						className="px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-					>
-						<option value="">All Brands</option>
-						{allBrands.map((b) => (
-							<option key={b.id} value={b.id}>
-								{b.name}
-							</option>
-						))}
-					</select>
+						options={[
+							{ value: "", label: "All Brands" },
+							...allBrands.map((b) => ({ value: b.id, label: b.name })),
+						]}
+						size="sm"
+						className="w-40"
+					/>
 				)}
 
 				{/* Search */}
@@ -90,7 +89,8 @@ export default function SpecificationHeader({
 					id="spec-add-btn"
 					variant="gradient"
 					size="sm"
-					className="whitespace-nowrap"
+					shape="pill"
+					className="whitespace-nowrap font-bold"
 					onClick={onAddClick}
 				>
 					<span className="flex items-center gap-2">

@@ -161,6 +161,7 @@ export const ResetPasswordForm: React.FC = () => {
                 if (errors.password) setErrors({ ...errors, password: undefined });
               }}
               error={errors.password}
+              disabled={isLoading}
               leftIcon={
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -218,6 +219,7 @@ export const ResetPasswordForm: React.FC = () => {
                 if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
               }}
               error={errors.confirmPassword}
+              disabled={isLoading}
               leftIcon={
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

@@ -137,10 +137,11 @@ interface SpecificationsContextType {
 	removeRam: (id: number) => Promise<boolean>;
 
 	// Dropdown lists (unpaginated, for selects in inventory/trades/etc.)
-	allBrands: { id: number; name: string }[];
+	allBrands: { id: number; name: string; slug: string }[];
 	allModels: {
 		id: number;
 		name: string;
+		slug: string;
 		brand_id: number;
 		brand_name: string;
 	}[];
@@ -171,11 +172,11 @@ export function SpecificationsProvider({
 
 	const [specMetrics, setSpecMetrics] =
 		useState<SpecMetrics>(DEFAULT_METRICS);
-	const [allBrands, setAllBrands] = useState<{ id: number; name: string }[]>(
+	const [allBrands, setAllBrands] = useState<{ id: number; name: string; slug: string }[]>(
 		[],
 	);
 	const [allModels, setAllModels] = useState<
-		{ id: number; name: string; brand_id: number; brand_name: string }[]
+		{ id: number; name: string; slug: string; brand_id: number; brand_name: string }[]
 	>([]);
 	const [allStorages, setAllStorages] = useState<
 		{ id: number; value: string }[]

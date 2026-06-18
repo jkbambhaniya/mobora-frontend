@@ -1,13 +1,39 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { MobileListing } from "./types";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Mobile } from "./types";
 import { useUi } from "./ui-context";
 import { useAuth } from "./auth-context";
+import { useSpecifications } from "./specifications-context";
+import {
+	getMobilesAction,
+	getMobileMetricsAction,
+	createMobileAction,
+	updateMobileAction,
+	deleteMobileAction,
+	MobileFilters,
+} from "@/actions/mobiles";
+
+interface InventoryMetrics {
+	totalUniqueModels: number;
+	activeStock: number;
+	totalSold: number;
+	totalTracedDevices: number;
+}
 
 interface InventoryContextType {
-	devices: MobileListing[];
-	setDevices: React.Dispatch<React.SetStateAction<MobileListing[]>>;
+	devices: Mobile[];
+	setDevices: React.Dispatch<React.SetStateAction<Mobile[]>>;
+	isLoading: boolean;
+	total: number;
+	metrics: InventoryMetrics;
+	refreshDevices: (filters?: MobileFilters, force?: boolean) => Promise<void>;
+	refreshMetrics: () => Promise<void>;
+	addDevice: (data: any) => Promise<{ success: boolean; message?: string }>;
+	editDevice: (id: string | number, data: any) => Promise<{ success: boolean; message?: string }>;
+	removeDevice: (id: string | number) => Promise<boolean>;
+
+	// Backward-compatible specification states mapped to database specifications
 	brands: string[];
 	setBrands: React.Dispatch<React.SetStateAction<string[]>>;
 	models: { brand: string; name: string }[];
@@ -18,6 +44,8 @@ interface InventoryContextType {
 	setStorages: React.Dispatch<React.SetStateAction<string[]>>;
 	rams: string[];
 	setRams: React.Dispatch<React.SetStateAction<string[]>>;
+
+	// Spec modifiers
 	handleAddBrand: (brand: string) => void;
 	handleAddModel: (brand: string, name: string) => void;
 	handleAddStorage: (capacity: string) => void;
@@ -41,232 +69,224 @@ const InventoryContext = createContext<InventoryContextType | undefined>(
 	undefined,
 );
 
+const DEFAULT_METRICS: InventoryMetrics = {
+	totalUniqueModels: 0,
+	activeStock: 0,
+	totalSold: 0,
+	totalTracedDevices: 0,
+};
+
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
 	const { triggerToast } = useUi();
 	const { vendor } = useAuth();
+	const specs = useSpecifications();
 
-	const [devices, setDevices] = useState<MobileListing[]>([
-		{
-			id: "LIST-1",
-			brand: "Apple",
-			model: "iPhone 13 Pro",
-			storage: "128GB",
-			ram: "6GB",
-			color: "Graphite",
-			imei: "359283748291827",
-			condition: "Mint",
-			price: 58000,
-			purchasePrice: 47000,
-			stock: 3,
-			batteryHealth: 92,
-			status: "Active",
-			description:
-				"No scratches, fully original, complete box and accessories available.",
-		},
-		{
-			id: "LIST-2",
-			brand: "Samsung",
-			model: "Galaxy S22 Ultra",
-			storage: "256GB",
-			ram: "12GB",
-			color: "Phantom Black",
-			imei: "358764029481947",
-			condition: "Good",
-			price: 49000,
-			purchasePrice: 38000,
-			stock: 2,
-			batteryHealth: 88,
-			status: "Active",
-			description:
-				"Minor scuffs on the bottom bezel. Screen has a light protector, original cable.",
-		},
-		{
-			id: "LIST-3",
-			brand: "OnePlus",
-			model: "OnePlus 10 Pro",
-			storage: "128GB",
-			ram: "8GB",
-			color: "Emerald Forest",
-			imei: "357284910283746",
-			condition: "Excellent",
-			price: 34000,
-			purchasePrice: 28000,
-			stock: 4,
-			batteryHealth: 90,
-			status: "Active",
-			description:
-				"Clean condition. Retail bill available. 6-month store warranty remaining.",
-		},
-		{
-			id: "LIST-4",
-			brand: "Apple",
-			model: "iPhone 12 Mini",
-			storage: "64GB",
-			ram: "4GB",
-			color: "Blue",
-			imei: "356192837482910",
-			condition: "Fair",
-			price: 24500,
-			purchasePrice: 19000,
-			stock: 1,
-			batteryHealth: 79,
-			status: "Sold",
-			description:
-				"Slight battery degradation. Back glass has hairline cracks. Fully functional.",
-		},
-		{
-			id: "LIST-5",
-			brand: "Google",
-			model: "Pixel 6 Pro",
-			storage: "128GB",
-			ram: "12GB",
-			color: "Stormy Black",
-			imei: "354928102938475",
-			condition: "Good",
-			price: 29000,
-			purchasePrice: 22000,
-			stock: 2,
-			batteryHealth: 85,
-			status: "Active",
-			description:
-				"Light screen burn, camera glass is clean. Works with all networks.",
-		},
-	]);
-
-	const [brands, setBrands] = useState<string[]>([
-		"Apple",
-		"Samsung",
-		"OnePlus",
-		"Google",
-	]);
-	const [models, setModels] = useState<{ brand: string; name: string }[]>([
-		{ brand: "Apple", name: "iPhone 13 Pro" },
-		{ brand: "Apple", name: "iPhone 12 Mini" },
-		{ brand: "Samsung", name: "Galaxy S22 Ultra" },
-		{ brand: "OnePlus", name: "OnePlus 10 Pro" },
-		{ brand: "Google", name: "Pixel 6 Pro" },
-	]);
-	const [storages, setStorages] = useState<string[]>([
-		"64GB",
-		"128GB",
-		"256GB",
-		"512GB",
-		"1TB",
-	]);
-	const [rams, setRams] = useState<string[]>([
-		"4GB",
-		"6GB",
-		"8GB",
-		"12GB",
-		"16GB",
-	]);
-
-	const handleAddBrand = (brandName: string) => {
-		if (brandName && !brands.includes(brandName)) {
-			setBrands((prev) => [...prev, brandName]);
-			triggerToast(`Added Brand: ${brandName}`);
+	const [devices, setDevices] = useState<Mobile[]>([]);
+	const [total, setTotal] = useState<number>(0);
+	const [isLoading, setIsLoading] = useState<boolean>(false);
+	const [metrics, setMetrics] = useState<InventoryMetrics>(DEFAULT_METRICS);
+	const activeFiltersRef = useRef<string | null>(null);
+ 
+	// Fetch mobiles list from backend
+	const refreshDevices = useCallback(async (filters?: MobileFilters, force = false) => {
+		if (!vendor) return;
+ 
+		const currentFilters = { ...filters };
+		const filtersStr = JSON.stringify(currentFilters);
+		if (!force && activeFiltersRef.current === filtersStr) return; // Skip duplicate loads
+ 
+		setIsLoading(true);
+		try {
+			const res = await getMobilesAction(currentFilters);
+			if (res.success && res.data && res.data.success) {
+				setDevices(res.data.mobiles || []);
+				setTotal(res.data.total || (res.data.mobiles ? res.data.mobiles.length : 0));
+				activeFiltersRef.current = filtersStr;
+			} else {
+				console.warn("[InventoryContext] Failed to load devices:", res.message);
+			}
+		} catch (err) {
+			console.error("[InventoryContext] Error loading devices:", err);
+		} finally {
+			setIsLoading(false);
+		}
+	}, [vendor]);
+ 
+	// Fetch metrics
+	const refreshMetrics = useCallback(async () => {
+		if (!vendor) return;
+		try {
+			const res = await getMobileMetricsAction();
+			if (res.success && res.data && res.data.success) {
+				setMetrics(res.data.metrics || DEFAULT_METRICS);
+			}
+		} catch (err) {
+			console.error("[InventoryContext] Error loading metrics:", err);
+		}
+	}, [vendor]);
+ 
+	// Initialize on vendor login
+	useEffect(() => {
+		if (vendor) {
+			refreshDevices(undefined, true);
+			refreshMetrics();
+		} else {
+			setDevices([]);
+			setTotal(0);
+			setMetrics(DEFAULT_METRICS);
+			activeFiltersRef.current = null;
+		}
+	}, [vendor, refreshMetrics, refreshDevices]);
+ 
+	// CRUD wrappers
+	const addDevice = async (data: any) => {
+		setIsLoading(true);
+		try {
+			const res = await createMobileAction(data);
+			if (res.success && res.data && res.data.success) {
+				const parsedFilters = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
+				await refreshDevices(parsedFilters, true);
+				await refreshMetrics();
+				return { success: true };
+			} else {
+				return { success: false, message: res.message || "Failed to create device listing." };
+			}
+		} catch (err: any) {
+			return { success: false, message: err.message || "Failed to create device listing." };
+		} finally {
+			setIsLoading(false);
+		}
+	};
+ 
+	const editDevice = async (id: string | number, data: any) => {
+		setIsLoading(true);
+		try {
+			const res = await updateMobileAction(id, data);
+			if (res.success && res.data && res.data.success) {
+				const parsedFilters = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
+				await refreshDevices(parsedFilters, true);
+				await refreshMetrics();
+				return { success: true };
+			} else {
+				return { success: false, message: res.message || "Failed to update device listing." };
+			}
+		} catch (err: any) {
+			return { success: false, message: err.message || "Failed to update device listing." };
+		} finally {
+			setIsLoading(false);
+		}
+	};
+ 
+	const removeDevice = async (id: string | number) => {
+		setIsLoading(true);
+		try {
+			const res = await deleteMobileAction(id);
+			if (res.success && res.data && res.data.success) {
+				const parsedFilters = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
+				await refreshDevices(parsedFilters, true);
+				await refreshMetrics();
+				return true;
+			} else {
+				return false;
+			}
+		} catch (err) {
+			console.error("[InventoryContext] Error deleting listing:", err);
+			return false;
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
+	// ─────────────────────────────────────────────
+	// SPECIFICATIONS BACKWARD COMPATIBILITY
+	// ─────────────────────────────────────────────
+	const brands = useMemo(() => specs.allBrands.map((b) => b.name), [specs.allBrands]);
+	const models = useMemo(() => specs.allModels.map((m) => ({ brand: m.brand_name, name: m.name })), [specs.allModels]);
+	const storages = useMemo(() => specs.allStorages.map((s) => s.value), [specs.allStorages]);
+	const rams = useMemo(() => specs.allRams.map((r) => r.value), [specs.allRams]);
+
+	// Mock React setStates to prevent breaking compiler imports
+	const [/*_brands*/, setBrands] = useState<string[]>([]);
+	const [/*_models*/, setModels] = useState<{ brand: string; name: string }[]>([]);
+	const [/*_storages*/, setStorages] = useState<string[]>([]);
+	const [/*_rams*/, setRams] = useState<string[]>([]);
+
+	const handleAddBrand = (brandName: string) => {
+		specs.addBrand(brandName);
+	};
+
 	const handleAddModel = (brandName: string, modelName: string) => {
-		if (
-			brandName &&
-			modelName &&
-			!models.some((m) => m.brand === brandName && m.name === modelName)
-		) {
-			setModels((prev) => [
-				...prev,
-				{ brand: brandName, name: modelName },
-			]);
-			triggerToast(`Added Model: ${modelName} under ${brandName}`);
+		const matchedBrand = specs.allBrands.find((b) => b.name.toLowerCase() === brandName.toLowerCase());
+		if (matchedBrand) {
+			specs.addModel(modelName, matchedBrand.id);
+		} else {
+			triggerToast("Select a valid approved brand before adding a model.");
 		}
 	};
 
 	const handleAddStorage = (capacity: string) => {
-		if (capacity && !storages.includes(capacity)) {
-			setStorages((prev) => [...prev, capacity]);
-			triggerToast(`Added Storage: ${capacity}`);
-		}
+		specs.addStorage(capacity);
 	};
 
 	const handleAddRam = (size: string) => {
-		if (size && !rams.includes(size)) {
-			setRams((prev) => [...prev, size]);
-			triggerToast(`Added RAM: ${size}`);
-		}
+		specs.addRam(size);
 	};
 
 	const handleDeleteBrand = (brandName: string) => {
-		setBrands((prev) => prev.filter((b) => b !== brandName));
-		setModels((prev) => prev.filter((m) => m.brand !== brandName));
-		triggerToast(`Deleted Brand: ${brandName}`);
+		const matchedBrand = specs.allBrands.find((b) => b.name.toLowerCase() === brandName.toLowerCase());
+		if (matchedBrand) specs.removeBrand(matchedBrand.id);
 	};
 
 	const handleDeleteModel = (brandName: string, modelName: string) => {
-		setModels((prev) =>
-			prev.filter(
-				(m) => !(m.brand === brandName && m.name === modelName),
-			),
+		const matchedModel = specs.allModels.find(
+			(m) => m.brand_name.toLowerCase() === brandName.toLowerCase() && m.name.toLowerCase() === modelName.toLowerCase()
 		);
-		triggerToast(`Deleted Model: ${modelName}`);
+		if (matchedModel) specs.removeModel(matchedModel.id);
 	};
 
 	const handleDeleteStorage = (capacity: string) => {
-		setStorages((prev) => prev.filter((s) => s !== capacity));
-		triggerToast(`Deleted Storage: ${capacity}`);
+		const matchedStorage = specs.allStorages.find((s) => s.value === capacity);
+		if (matchedStorage) specs.removeStorage(matchedStorage.id);
 	};
 
 	const handleDeleteRam = (size: string) => {
-		setRams((prev) => prev.filter((r) => r !== size));
-		triggerToast(`Deleted RAM: ${size}`);
+		const matchedRam = specs.allRams.find((r) => r.value === size);
+		if (matchedRam) specs.removeRam(matchedRam.id);
 	};
 
-	const handleEditBrand = (oldBrandName: string, newBrandName: string) => {
-		if (!newBrandName) return;
-		setBrands((prev) =>
-			prev.map((b) => (b === oldBrandName ? newBrandName : b)),
-		);
-		setModels((prev) =>
-			prev.map((m) =>
-				m.brand === oldBrandName ? { ...m, brand: newBrandName } : m,
-			),
-		);
-		triggerToast(`Renamed Brand: ${oldBrandName} to ${newBrandName}`);
+	// Mock edit functions mapping to specs-context triggers
+	const handleEditBrand = (oldBrand: string, newBrand: string) => {
+		const matchedBrand = specs.allBrands.find((b) => b.name === oldBrand);
+		if (matchedBrand) specs.editBrand(matchedBrand.id, newBrand);
 	};
 
-	const handleEditModel = (
-		brandName: string,
-		oldModelName: string,
-		newModelName: string,
-	) => {
-		if (!newModelName) return;
-		setModels((prev) =>
-			prev.map((m) =>
-				m.brand === brandName && m.name === oldModelName
-					? { ...m, name: newModelName }
-					: m,
-			),
+	const handleEditModel = (brandName: string, oldModel: string, newModel: string) => {
+		const matchedModel = specs.allModels.find(
+			(m) => m.brand_name.toLowerCase() === brandName.toLowerCase() && m.name.toLowerCase() === oldModel.toLowerCase()
 		);
-		triggerToast(`Renamed Model: ${oldModelName} to ${newModelName}`);
+		const matchedBrand = specs.allBrands.find((b) => b.name.toLowerCase() === brandName.toLowerCase());
+		if (matchedModel && matchedBrand) {
+			specs.editModel(matchedModel.id, { name: newModel, brand_id: matchedBrand.id });
+		}
 	};
 
 	const handleEditStorage = (oldCapacity: string, newCapacity: string) => {
-		if (!newCapacity) return;
-		setStorages((prev) =>
-			prev.map((s) => (s === oldCapacity ? newCapacity : s)),
-		);
-		triggerToast(`Updated Storage: ${oldCapacity} to ${newCapacity}`);
+		const matchedStorage = specs.allStorages.find((s) => s.value === oldCapacity);
+		if (matchedStorage) specs.editStorage(matchedStorage.id, newCapacity);
 	};
 
 	const handleEditRam = (oldSize: string, newSize: string) => {
-		if (!newSize) return;
-		setRams((prev) => prev.map((r) => (r === oldSize ? newSize : r)));
-		triggerToast(`Updated RAM: ${oldSize} to ${newSize}`);
+		const matchedRam = specs.allRams.find((r) => r.value === oldSize);
+		if (matchedRam) specs.editRam(matchedRam.id, newSize);
 	};
 
-	const handleDeleteListing = (id: string, name: string) => {
-		setDevices((prev) => prev.filter((item) => item.id !== id));
-		triggerToast(`Deleted ${name} from inventory.`);
+	const handleDeleteListing = async (id: string, name: string) => {
+		const success = await removeDevice(id);
+		if (success) {
+			triggerToast(`Deleted ${name} from inventory.`);
+		} else {
+			triggerToast(`Failed to delete ${name}.`);
+		}
 	};
 
 	return (
@@ -274,6 +294,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 			value={{
 				devices,
 				setDevices,
+				isLoading,
+				total,
+				metrics,
+				refreshDevices,
+				refreshMetrics,
+				addDevice,
+				editDevice,
+				removeDevice,
+
 				brands,
 				setBrands,
 				models,
@@ -282,6 +311,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 				setStorages,
 				rams,
 				setRams,
+
 				handleAddBrand,
 				handleAddModel,
 				handleAddStorage,

@@ -262,6 +262,7 @@ export const LoginForm: React.FC = () => {
 								setErrors({ ...errors, email: undefined });
 						}}
 						error={errors.email}
+						disabled={isLoading}
 						leftIcon={
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -290,6 +291,7 @@ export const LoginForm: React.FC = () => {
 								setErrors({ ...errors, password: undefined });
 						}}
 						error={errors.password}
+						disabled={isLoading}
 						leftIcon={
 							<svg
 								xmlns="http://www.w3.org/2050/svg"
@@ -316,6 +318,7 @@ export const LoginForm: React.FC = () => {
 							type="checkbox"
 							checked={rememberMe}
 							onChange={(e) => setRememberMe(e.target.checked)}
+							disabled={isLoading}
 							className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary bg-transparent"
 						/>
 						Remember me

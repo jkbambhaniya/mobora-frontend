@@ -14,6 +14,9 @@ import {
 
 interface CustomerContextType {
   customers: Customer[];
+  total: number;
+  page: number;
+  limit: number;
   metrics: {
     totalCustomers: number;
     activeCustomers: number;
@@ -27,6 +30,8 @@ interface CustomerContextType {
       spent?: string;
       sortBy?: string;
       sortOrder?: string;
+      page?: number;
+      limit?: number;
     },
     force?: boolean
   ) => Promise<void>;
@@ -45,12 +50,17 @@ const DEFAULT_FILTERS = {
   status: "All",
   spent: "All",
   sortBy: "name",
-  sortOrder: "asc"
+  sortOrder: "asc",
+  page: 1,
+  limit: 10
 };
 
 export function CustomerProvider({ children }: { children: React.ReactNode }) {
   const { vendor } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(10);
   const [metrics, setMetrics] = useState({ totalCustomers: 0, activeCustomers: 0, totalSpent: 0 });
   const [activeFilters, setActiveFilters] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -62,6 +72,8 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
       spent?: string;
       sortBy?: string;
       sortOrder?: string;
+      page?: number;
+      limit?: number;
     },
     force = false
   ) => {
@@ -76,6 +88,9 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
       const res = await getCustomersAction(currentFilters);
       if (res.success && res.data && res.data.success) {
         setCustomers(res.data.customers);
+        setTotal(res.data.total || res.data.customers.length);
+        setPage(res.data.page || 1);
+        setLimit(res.data.limit || 10);
         if (res.data.metrics) {
           setMetrics(res.data.metrics);
         }
@@ -107,7 +122,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
       if (res.success && res.data && res.data.success) {
         const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
         await refreshCustomers(parsed, true);
-        return { success: true };
+        return { success: true, customer: res.data.customer };
       } else {
         console.error("[CustomerContext] Create customer failed:", res.message);
         return { success: false, message: res.message || "Failed to create customer." };
@@ -204,6 +219,9 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     <CustomerContext.Provider
       value={{
         customers,
+        total,
+        page,
+        limit,
         metrics,
         isLoading,
         refreshCustomers,

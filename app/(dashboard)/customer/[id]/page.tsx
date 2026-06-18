@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -15,6 +15,9 @@ import {
 import { toast as hotToast } from "react-hot-toast";
 import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
+import { Select } from "@/components/ui/select";
+import { getCustomerByIdAction } from "@/actions/customer";
+import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 
 const customerSchema = yup.object().shape({
 	name: yup.string().trim().required("Full Name is required."),
@@ -68,12 +71,33 @@ export default function CustomerDetailPage() {
 	const params = useParams();
 	const customerId = params.id as string;
 
-	const { customers, editCustomer, removeCustomer } = useDashboard();
-	const customer = customers.find((c) => c.id === customerId);
+	const { editCustomer, removeCustomer } = useDashboard();
+	const [customer, setCustomer] = useState<Customer | null>(null);
+	const [loadingDetails, setLoadingDetails] = useState(true);
+
+	const fetchCustomerDetails = async () => {
+		try {
+			const res = await getCustomerByIdAction(customerId);
+			if (res.success && res.data && res.data.success) {
+				setCustomer(res.data.customer);
+			}
+		} catch (err) {
+			console.error("Error fetching customer details:", err);
+		} finally {
+			setLoadingDetails(false);
+		}
+	};
+
+	useEffect(() => {
+		if (customerId) {
+			fetchCustomerDetails();
+		}
+	}, [customerId]);
 
 	/* ── Local state for the page ── */
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+	const [historyTab, setHistoryTab] = useState<"purchases" | "sales">("purchases");
 
 	/* Edit form fields */
 	const [formName, setFormName] = useState("");
@@ -97,6 +121,15 @@ export default function CustomerDetailPage() {
 	const triggerToast = (msg: string) => {
 		hotToast.success(msg);
 	};
+
+	if (loadingDetails) {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+				<div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+				<p className="text-zinc-500 text-sm font-semibold">Loading customer profile...</p>
+			</div>
+		);
+	}
 
 	/* ── Not found guard ── */
 	if (!customer) {
@@ -172,6 +205,7 @@ export default function CustomerDetailPage() {
 		if (result.success) {
 			setIsEditModalOpen(false);
 			triggerToast("Customer profile updated successfully.");
+			fetchCustomerDetails();
 		} else {
 			hotToast.error(
 				result.message || "Failed to update customer profile.",
@@ -292,25 +326,19 @@ export default function CustomerDetailPage() {
 							/>
 						</div>
 					</div>
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Status
-						</label>
-						<select
-							value={formStatus}
-							onChange={(e) =>
-								setFormStatus(
-									e.target.value as "Active" | "Inactive",
-								)
-							}
-							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-						>
-							<option value="Active">Active Account</option>
-							<option value="Inactive">
-								Inactive / Suspended
-							</option>
-						</select>
-					</div>
+					<Select
+						label="Status"
+						value={formStatus}
+						onChange={(e) =>
+							setFormStatus(
+								e.target.value as "Active" | "Inactive",
+							)
+						}
+						options={[
+							{ value: "Active", label: "Active Account" },
+							{ value: "Inactive", label: "Inactive / Suspended" },
+						]}
+					/>
 					<div className="space-y-1">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 							Address
@@ -579,11 +607,11 @@ export default function CustomerDetailPage() {
 
 				{/* ── Main Content Grid ── */}
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					{/* ── Purchase History (2/3 width) ── */}
+					{/* ── Transaction History (2/3 width) ── */}
 					<div className="lg:col-span-2 space-y-4">
 						<div className="flex items-center justify-between">
 							<h2 className="text-base font-bold text-zinc-900 dark:text-white">
-								Purchase History
+								History
 							</h2>
 							<span className="text-xs text-zinc-400 font-semibold">
 								{customer.purchases.length} transaction
@@ -601,11 +629,15 @@ export default function CustomerDetailPage() {
 										{/* Timeline dot */}
 										<div className="flex flex-col items-center gap-1 flex-shrink-0">
 											<div
-												className={`w-3 h-3 rounded-full border-2 ${p.type === "Exchange" ? "border-cyan-500 bg-cyan-500/20" : "border-primary bg-primary/20"}`}
+												className={`w-3 h-3 rounded-full border-2 ${
+													p.type === "Exchange"
+														? "border-cyan-500 bg-cyan-500/20"
+														: p.type === "Sale"
+														? "border-primary bg-primary/20"
+														: "border-emerald-500 bg-emerald-500/20"
+												}`}
 											/>
-											{i <
-												customer.purchases.length -
-													1 && (
+											{i < customer.purchases.length - 1 && (
 												<div className="w-0.5 h-8 bg-zinc-200 dark:bg-zinc-800" />
 											)}
 										</div>
@@ -615,14 +647,10 @@ export default function CustomerDetailPage() {
 												{p.device}
 											</div>
 											<div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 mt-1 font-semibold">
-												<span className="font-mono">
-													{p.id}
-												</span>
+												<span className="font-mono">{p.id}</span>
 												<span>•</span>
 												<span suppressHydrationWarning>
-													{new Date(
-														p.date,
-													).toLocaleDateString(
+													{new Date(p.date).toLocaleDateString(
 														"en-IN",
 														{
 															day: "numeric",
@@ -633,25 +661,54 @@ export default function CustomerDetailPage() {
 												</span>
 												<span>•</span>
 												<span
-													className={`font-bold ${p.type === "Exchange" ? "text-cyan-500" : "text-emerald-500"}`}
+													className={`font-bold ${
+														p.type === "Exchange"
+															? "text-cyan-500"
+															: p.type === "Sale"
+															? "text-primary"
+															: "text-emerald-500"
+													}`}
 												>
 													{p.type}
 												</span>
 											</div>
 										</div>
 
-										<div className="text-right flex-shrink-0">
+										<div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
 											<div
 												className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50"
 												suppressHydrationWarning
 											>
 												₹{p.amount.toLocaleString()}
 											</div>
-											<span
-												className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1 ${orderStatusStyle(p.status)}`}
-											>
-												{p.status}
-											</span>
+											<div className="flex items-center gap-2">
+												<span
+													className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${orderStatusStyle(
+														p.status,
+													)}`}
+												>
+													{p.status}
+												</span>
+												<button
+													onClick={() => streamInvoice(p.id)}
+													title="View Invoice"
+													className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 hover:text-primary transition-all duration-200 cursor-pointer shadow-sm text-zinc-500"
+												>
+													<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+														<path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+														<path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+													</svg>
+												</button>
+												<button
+													onClick={() => downloadInvoice(p.id, p.device)}
+													title="Download Invoice"
+													className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 hover:text-primary transition-all duration-200 cursor-pointer shadow-sm text-zinc-500"
+												>
+													<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+														<path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+													</svg>
+												</button>
+											</div>
 										</div>
 									</div>
 								))}
@@ -675,8 +732,7 @@ export default function CustomerDetailPage() {
 									No transactions yet
 								</p>
 								<p className="text-xs text-zinc-300 dark:text-zinc-600">
-									This customer hasn&apos;t made any
-									purchases.
+									This customer hasn&apos;t made any transactions.
 								</p>
 							</div>
 						)}

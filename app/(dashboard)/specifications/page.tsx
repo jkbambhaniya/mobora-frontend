@@ -16,10 +16,10 @@ import {
 	RamTable,
 	SpecificationHeader,
 	MetricsCards,
-	Pagination,
 	AddModal,
 	EditModal,
 } from "@/components/vendor/specifications";
+import Pagination from "@/components/ui/Pagination";
 
 export default function SpecificationsPage() {
 	const {

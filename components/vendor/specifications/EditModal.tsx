@@ -9,6 +9,7 @@ import {
 	ramValidationSchema,
 } from "@/utils/validation";
 import * as yup from "yup";
+import { Select } from "@/components/ui/select";
 
 interface EditModalData {
 	tab: Tab;
@@ -137,37 +138,22 @@ export default function EditModal({
 		>
 			<form onSubmit={handleSubmit} className="space-y-4" noValidate>
 				{editData.tab === "models" && (
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
-							Brand *
-						</label>
-						<select
-							value={brandId}
-							onChange={(e) => {
-								setBrandId(Number(e.target.value));
-								setErrors((prev) => {
-									const next = { ...prev };
-									delete next.brand_id;
-									return next;
-								});
-							}}
-							required
-							className={`w-full px-4 py-2.5 rounded-xl border bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:outline-none transition-all ${
-								errors.brand_id
-									? "border-red-500 focus:ring-red-500/20"
-									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary/20 focus:border-primary/40"
-							}`}
-						>
-							{allBrands.map((b) => (
-								<option key={b.id} value={b.id}>
-									{b.name}
-								</option>
-							))}
-						</select>
-						{errors.brand_id && (
-							<p className="text-xs text-red-500 mt-1">{errors.brand_id}</p>
-						)}
-					</div>
+					<Select
+						label="Brand *"
+						value={brandId}
+						onChange={(e) => {
+							setBrandId(Number(e.target.value));
+							setErrors((prev) => {
+								const next = { ...prev };
+								delete next.brand_id;
+								return next;
+							});
+						}}
+						required
+						error={errors.brand_id}
+						placeholder="— Select Brand —"
+						options={allBrands.map((b) => ({ value: b.id, label: b.name }))}
+					/>
 				)}
 
 				<div className="space-y-1">

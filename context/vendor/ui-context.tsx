@@ -7,7 +7,7 @@ interface UiContextType {
   activeTab: "overview" | "device" | "exchanges" | "orders" | "settings" | "trades";
   setActiveTab: (tab: "overview" | "device" | "exchanges" | "orders" | "settings" | "trades") => void;
   toastMessage: string | null;
-  triggerToast: (msg: string) => void;
+  triggerToast: (msg: string, type?: "success" | "error") => void;
 }
 
 const UiContext = createContext<UiContextType | undefined>(undefined);
@@ -15,8 +15,12 @@ const UiContext = createContext<UiContextType | undefined>(undefined);
 export function UiProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<"overview" | "device" | "exchanges" | "orders" | "settings" | "trades">("overview");
 
-  const triggerToast = (msg: string) => {
-    toast.success(msg);
+  const triggerToast = (msg: string, type: "success" | "error" = "success") => {
+    if (type === "error") {
+      toast.error(msg);
+    } else {
+      toast.success(msg);
+    }
   };
 
   return (

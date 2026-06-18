@@ -1,5 +1,5 @@
 import React from "react";
-import { DataTable, Column } from "./DataTable";
+import { DataTable, Column } from "@/components/ui/DataTable";
 import { SpecModel } from "@/context/vendor/specifications-context";
 import { formatDate } from "@/utils/date";
 import { EditIcon, DeleteIcon } from "./icons";

@@ -1,47 +1,73 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDeleteModal } from "@/components/ui/confirm-modal";
+import { Select } from "@/components/ui/select";
+import Pagination from "@/components/ui/Pagination";
+import { PhoneInputField } from "@/components/ui/PhoneInputField";
+import * as yup from "yup";
+import { mobileValidationSchema } from "@/utils/validation";
 import {
 	useDashboard,
-	MobileListing,
+	Mobile,
 	Customer,
 	slugify,
 } from "@/context/vendor/dashboard-context";
+import { useSpecifications } from "@/context/vendor/specifications-context";
+import { useInventory } from "@/context/vendor/inventory-context";
+import { MobileFilters } from "@/actions/mobiles";
+import { isValidPhoneNumber } from "libphonenumber-js";
+
+const quickCustomerSchema = yup.object().shape({
+	name: yup.string().trim().required("Full Name is required."),
+	phone: yup
+		.string()
+		.trim()
+		.required("Phone Number is required.")
+		.test(
+			"is-valid-phone",
+			"Please enter a valid international phone number.",
+			(value) => !!value && isValidPhoneNumber(value),
+		),
+	address: yup.string().trim().nullable().notRequired(),
+});
 
 export default function InventoryPage() {
 	const {
 		devices,
-		setDevices,
-		brands,
-		models,
-		storages,
-		rams,
-		handleAddBrand,
-		handleAddModel,
-		handleAddStorage,
-		handleAddRam,
-		triggerToast,
+		isLoading,
+		total,
+		refreshDevices,
+		addDevice,
+		editDevice,
+		removeDevice,
 		customers,
 		setCustomers,
 		handleAddTradeTransaction,
 		trades,
 		orders,
+		triggerToast,
+		addCustomer,
 	} = useDashboard();
+
+	const specs = useSpecifications();
+	const { metrics, refreshMetrics } = useInventory();
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState("All");
 	const [brandFilter, setBrandFilter] = useState("All");
 	const [conditionFilter, setConditionFilter] = useState("All");
+	const [sortBy, setSortBy] = useState("createdAt");
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+	const [page, setPage] = useState(1);
+	const [limit, setLimit] = useState(10);
 
 	// Modal State
 	const [isFormOpen, setIsFormOpen] = useState(false);
-	const [editingDevice, setEditingDevice] = useState<MobileListing | null>(
-		null,
-	);
+	const [editingDevice, setEditingDevice] = useState<Mobile | null>(null);
 
 	// Delete Modal State
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -52,9 +78,7 @@ export default function InventoryPage() {
 
 	// Sell Modal State
 	const [isSellFormOpen, setIsSellFormOpen] = useState(false);
-	const [sellingDevice, setSellingDevice] = useState<MobileListing | null>(
-		null,
-	);
+	const [sellingDevice, setSellingDevice] = useState<Mobile | null>(null);
 	const [sellPrice, setSellPrice] = useState("");
 	const [sellCustomer, setSellCustomer] = useState("");
 	const [sellDate, setSellDate] = useState(
@@ -64,9 +88,7 @@ export default function InventoryPage() {
 
 	// Buyback Modal State
 	const [isBuybackFormOpen, setIsBuybackFormOpen] = useState(false);
-	const [buybackDevice, setBuybackDevice] = useState<MobileListing | null>(
-		null,
-	);
+	const [buybackDevice, setBuybackDevice] = useState<Mobile | null>(null);
 	const [buybackPrice, setBuybackPrice] = useState("");
 	const [buybackCustomer, setBuybackCustomer] = useState("");
 	const [buybackCondition, setBuybackCondition] = useState<
@@ -82,6 +104,8 @@ export default function InventoryPage() {
 	const [isAddingCust, setIsAddingCust] = useState(false);
 	const [newCustName, setNewCustName] = useState("");
 	const [newCustPhone, setNewCustPhone] = useState("");
+	const [newCustAddress, setNewCustAddress] = useState("");
+	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
 
 	// Form Fields
 	const [formImei, setFormImei] = useState("");
@@ -95,22 +119,82 @@ export default function InventoryPage() {
 	>("Excellent");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
-	const [formPrice, setFormPrice] = useState("");
-	const [formStock, setFormStock] = useState(1);
 	const [formDescription, setFormDescription] = useState("");
+	const [formCustomerId, setFormCustomerId] = useState("");
 
 	// Dynamic Add Dialog States
 	const [isAddingBrand, setIsAddingBrand] = useState(false);
 	const [newBrandVal, setNewBrandVal] = useState("");
-
 	const [isAddingModel, setIsAddingModel] = useState(false);
 	const [newModelVal, setNewModelVal] = useState("");
-
 	const [isAddingStorage, setIsAddingStorage] = useState(false);
 	const [newStorageVal, setNewStorageVal] = useState("");
-
 	const [isAddingRam, setIsAddingRam] = useState(false);
 	const [newRamVal, setNewRamVal] = useState("");
+
+	// Submission States
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
+	const [isSubmittingModel, setIsSubmittingModel] = useState(false);
+	const [isSubmittingStorage, setIsSubmittingStorage] = useState(false);
+	const [isSubmittingRam, setIsSubmittingRam] = useState(false);
+
+	// Field Validation Errors
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+	const clearFieldError = (field: string) =>
+		setFieldErrors((prev) => {
+			const n = { ...prev };
+			delete n[field];
+			return n;
+		});
+
+	// Fetch dynamic items on filter changes
+	useEffect(() => {
+		const filters: MobileFilters = {
+			search: searchTerm.trim() || undefined,
+			brand: brandFilter !== "All" ? brandFilter : undefined,
+			condition: conditionFilter !== "All" ? conditionFilter : undefined,
+			status: statusFilter !== "All" ? statusFilter : undefined,
+			sortBy: sortBy || undefined,
+			sortOrder: sortOrder || undefined,
+			page,
+			limit,
+		};
+		refreshDevices(filters, true);
+	}, [searchTerm, brandFilter, conditionFilter, statusFilter, sortBy, sortOrder, page, limit, refreshDevices]);
+
+	// Fetch metrics on mount
+	useEffect(() => {
+		refreshMetrics();
+	}, [refreshMetrics]);
+
+	// Reset page when filters change
+	useEffect(() => {
+		setPage(1);
+	}, [searchTerm, brandFilter, statusFilter, conditionFilter, sortBy, sortOrder]);
+
+	const isAppleSelected = useMemo(() => {
+		const brandObj = specs.allBrands.find((b) => b.id.toString() === formBrand);
+		return brandObj?.name.toLowerCase() === "apple";
+	}, [formBrand, specs.allBrands]);
+
+	// Spec resolvers for fallbacks
+	const getBrandIdByName = (name: string) => {
+		return specs.allBrands.find((b) => b.name.toLowerCase() === name.toLowerCase())?.id.toString() || "";
+	};
+	const getModelIdByName = (name: string, brandIdStr: string) => {
+		return specs.allModels.find(
+			(m) =>
+				m.name.toLowerCase() === name.toLowerCase() &&
+				m.brand_id.toString() === brandIdStr
+		)?.id.toString() || "";
+	};
+	const getStorageIdByValue = (val: string) => {
+		return specs.allStorages.find((s) => s.value.toLowerCase() === val.toLowerCase())?.id.toString() || "";
+	};
+	const getRamIdByValue = (val: string) => {
+		return specs.allRams.find((r) => r.value.toLowerCase() === val.toLowerCase())?.id.toString() || "";
+	};
 
 	// Open Handlers
 	const handleOpenAdd = () => {
@@ -124,32 +208,35 @@ export default function InventoryPage() {
 		setFormCondition("Excellent");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
-		setFormPrice("");
-		setFormStock(1);
 		setFormDescription("");
+		setFormCustomerId("");
+		setFieldErrors({});
 		setIsFormOpen(true);
 	};
 
-	const handleOpenEdit = (device: MobileListing) => {
+	const handleOpenEdit = (device: Mobile) => {
 		setEditingDevice(device);
 		setFormImei(device.imei || "");
-		setFormBrand(device.brand);
-		setFormModel(device.model);
-		setFormStorage(device.storage);
-		setFormRam(device.ram);
+
+		const bId = device.brandId?.toString() || getBrandIdByName(device.brand);
+		setFormBrand(bId);
+		setFormModel(device.modelId?.toString() || getModelIdByName(device.model, bId));
+		setFormStorage(device.storageId?.toString() || getStorageIdByValue(device.storage));
+		setFormRam(device.ramId?.toString() || getRamIdByValue(device.ram));
+
 		setFormColor(device.color);
 		setFormCondition(device.condition);
-		setFormBatteryHealth(device.batteryHealth);
+		setFormBatteryHealth(device.batteryHealth || 90);
 		setFormPurchasePrice(
 			device.purchasePrice ? device.purchasePrice.toString() : "",
 		);
-		setFormPrice(device.price.toString());
-		setFormStock(device.stock);
-		setFormDescription(device.description);
+		setFormDescription(device.description || "");
+		setFormCustomerId("");
+		setFieldErrors({});
 		setIsFormOpen(true);
 	};
 
-	const handleOpenSell = (device: MobileListing) => {
+	const handleOpenSell = (device: Mobile) => {
 		setSellingDevice(device);
 		setSellPrice(device.price.toString());
 		setSellCustomer(customers[0]?.name || "");
@@ -158,54 +245,65 @@ export default function InventoryPage() {
 		setIsAddingCust(false);
 		setNewCustName("");
 		setNewCustPhone("");
+		setNewCustAddress("");
+		setCustErrors({});
 		setIsSellFormOpen(true);
 	};
 
-	const handleSellSubmit = (e: React.FormEvent) => {
+	const handleSellSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!sellingDevice) return;
 		if (!sellCustomer) {
-			alert("Please select a customer or quick-add a new one.");
+			triggerToast("Please select a customer or quick-add a new one.");
 			return;
 		}
 		if (!sellPrice) {
-			alert("Please specify the selling price.");
+			triggerToast("Please specify the selling price.");
 			return;
 		}
 
-		const priceNum = parseFloat(sellPrice);
+		setIsSubmitting(true);
+		try {
+			const priceNum = parseFloat(sellPrice);
 
-		handleAddTradeTransaction({
-			imei: sellingDevice.imei || "N/A",
-			deviceBrand: sellingDevice.brand,
-			deviceModel: sellingDevice.model,
-			type: "Sale",
-			customerName: sellCustomer,
-			amount: priceNum,
-			date: sellDate,
-			notes: sellNotes || `Sold from inventory catalog.`,
-			storage: sellingDevice.storage,
-			ram: sellingDevice.ram,
-			color: sellingDevice.color,
-			condition: sellingDevice.condition,
-			batteryHealth: sellingDevice.batteryHealth,
-		});
+			const result = await editDevice(sellingDevice.id, {
+				status: "Sold",
+				price: priceNum,
+				description: sellNotes || `Sold to ${sellCustomer}.`
+			});
 
-		setDevices((prev) =>
-			prev.map((d) =>
-				d.id === sellingDevice.id
-					? { ...d, status: "Sold", stock: 0 }
-					: d,
-			),
-		);
+			if (result.success) {
+				handleAddTradeTransaction({
+					imei: sellingDevice.imei || "N/A",
+					deviceBrand: sellingDevice.brand,
+					deviceModel: sellingDevice.model,
+					type: "Sale",
+					customerName: sellCustomer,
+					amount: priceNum,
+					date: sellDate,
+					notes: sellNotes || `Sold from inventory catalog.`,
+					storage: sellingDevice.storage,
+					ram: sellingDevice.ram,
+					color: sellingDevice.color,
+					condition: sellingDevice.condition,
+					batteryHealth: sellingDevice.batteryHealth,
+				});
 
-		setIsSellFormOpen(false);
-		triggerToast(
-			`Recorded sale of ${sellingDevice.brand} ${sellingDevice.model} to ${sellCustomer}.`,
-		);
+				setIsSellFormOpen(false);
+				triggerToast(
+					`Recorded sale of ${sellingDevice.brand} ${sellingDevice.model} to ${sellCustomer}.`,
+				);
+			} else {
+				triggerToast(result.message || "Failed to record sale.");
+			}
+		} catch (err) {
+			triggerToast("An unexpected error occurred while recording sale.");
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
-	const handleOpenBuyback = (device: MobileListing) => {
+	const handleOpenBuyback = (device: Mobile) => {
 		setBuybackDevice(device);
 		setBuybackPrice(
 			device.purchasePrice
@@ -213,7 +311,6 @@ export default function InventoryPage() {
 				: "",
 		);
 
-		// Trace original buyer from trades or orders
 		let originalBuyer = "";
 		if (device.imei) {
 			const saleTrade = trades
@@ -222,9 +319,7 @@ export default function InventoryPage() {
 					(a, b) =>
 						new Date(b.date).getTime() - new Date(a.date).getTime(),
 				)[0];
-			if (saleTrade) {
-				originalBuyer = saleTrade.customerName;
-			}
+			if (saleTrade) originalBuyer = saleTrade.customerName;
 		}
 		if (!originalBuyer) {
 			const saleTrade = trades
@@ -240,145 +335,145 @@ export default function InventoryPage() {
 					(a, b) =>
 						new Date(b.date).getTime() - new Date(a.date).getTime(),
 				)[0];
-			if (saleTrade) {
-				originalBuyer = saleTrade.customerName;
-			}
-		}
-		if (!originalBuyer) {
-			const matchingOrder = orders.find(
-				(o) =>
-					o.device
-						.toLowerCase()
-						.includes(device.model.toLowerCase()) ||
-					(device.imei && o.device.includes(device.imei)),
-			);
-			if (matchingOrder) {
-				originalBuyer = matchingOrder.customerName;
-			}
+			if (saleTrade) originalBuyer = saleTrade.customerName;
 		}
 
 		if (originalBuyer) {
-			const exists = customers.some(
-				(c) => c.name.toLowerCase() === originalBuyer.toLowerCase(),
-			);
-			if (!exists) {
-				const newCust: Customer = {
-					id: `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
-					name: originalBuyer,
-					phone: "+91 99999 88888",
-					email: `${originalBuyer.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-					status: "Active",
-					totalOrders: 1,
-					totalSpent: device.price,
-					joinedDate: new Date().toISOString().split("T")[0],
-					address: "Registered from sales history",
-					notes: "Automatically registered during device buyback.",
-					purchases: [],
-				};
-				setCustomers((prev) => [newCust, ...prev]);
-			}
 			setBuybackCustomer(originalBuyer);
 		} else {
 			setBuybackCustomer(customers[0]?.name || "");
 		}
 
 		setBuybackCondition(device.condition);
-		setBuybackBatteryHealth(device.batteryHealth);
+		setBuybackBatteryHealth(device.batteryHealth || 90);
 		setBuybackDate(new Date().toISOString().split("T")[0]);
 		setBuybackNotes(`Re-acquired device from customer.`);
 		setIsAddingCust(false);
 		setNewCustName("");
 		setNewCustPhone("");
+		setNewCustAddress("");
+		setCustErrors({});
 		setIsBuybackFormOpen(true);
 	};
 
-	const handleBuybackSubmit = (e: React.FormEvent) => {
+	const handleBuybackSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!buybackDevice) return;
 		if (!buybackCustomer) {
-			alert("Please select a customer or quick-add a new one.");
+			triggerToast("Please select a customer or quick-add a new one.");
 			return;
 		}
 		if (!buybackPrice) {
-			alert("Please specify the buyback price.");
+			triggerToast("Please specify the buyback price.");
 			return;
 		}
 
-		const priceNum = parseFloat(buybackPrice);
+		setIsSubmitting(true);
+		try {
+			const priceNum = parseFloat(buybackPrice);
 
-		handleAddTradeTransaction({
-			imei: buybackDevice.imei || "N/A",
-			deviceBrand: buybackDevice.brand,
-			deviceModel: buybackDevice.model,
-			type: "Purchase",
-			customerName: buybackCustomer,
-			amount: priceNum,
-			date: buybackDate,
-			notes:
-				buybackNotes ||
-				`Re-acquired via buyback from ${buybackCustomer}.`,
-			storage: buybackDevice.storage,
-			ram: buybackDevice.ram,
-			color: buybackDevice.color,
-			condition: buybackCondition,
-			batteryHealth: buybackBatteryHealth,
-		});
+			const result = await editDevice(buybackDevice.id, {
+				status: "Active",
+				purchase_price: priceNum,
+				price: Math.round(priceNum * 1.2), // Auto markup price by 20%
+				condition: buybackCondition,
+				battery_health: buybackBatteryHealth,
+				description: buybackNotes || `Re-acquired via buyback from ${buybackCustomer}.`,
+			});
 
-		setDevices((prev) =>
-			prev.map((d) =>
-				d.id === buybackDevice.id
-					? {
-						  ...d,
-						  status: "Active",
-						  stock: 1,
-						  purchasePrice: priceNum,
-						  price: Math.round(priceNum * 1.2), // Auto markup price by 20%
-						  condition: buybackCondition,
-						  batteryHealth: buybackBatteryHealth,
-						  description:
-							  buybackNotes ||
-							  `Re-acquired via buyback from ${buybackCustomer}.`,
-					  }
-					: d,
-			),
-		);
+			if (result.success) {
+				handleAddTradeTransaction({
+					imei: buybackDevice.imei || "N/A",
+					deviceBrand: buybackDevice.brand,
+					deviceModel: buybackDevice.model,
+					type: "Purchase",
+					customerName: buybackCustomer,
+					amount: priceNum,
+					date: buybackDate,
+					notes:
+						buybackNotes ||
+						`Re-acquired via buyback from ${buybackCustomer}.`,
+					storage: buybackDevice.storage,
+					ram: buybackDevice.ram,
+					color: buybackDevice.color,
+					condition: buybackCondition,
+					batteryHealth: buybackBatteryHealth,
+				});
 
-		setIsBuybackFormOpen(false);
-		triggerToast(
-			`Recorded buyback of ${buybackDevice.brand} ${buybackDevice.model} from ${buybackCustomer}.`,
-		);
+				setIsBuybackFormOpen(false);
+				triggerToast(
+					`Recorded buyback of ${buybackDevice.brand} ${buybackDevice.model} from ${buybackCustomer}.`,
+				);
+			} else {
+				triggerToast(result.message || "Failed to record buyback.");
+			}
+		} catch (err) {
+			triggerToast("An unexpected error occurred while recording buyback.");
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
-	const handleCreateCustomer = () => {
-		if (!newCustName || !newCustPhone) {
-			alert("Customer name and phone number are required.");
+	const handleCreateCustomer = async () => {
+		setCustErrors({});
+		try {
+			await quickCustomerSchema.validate(
+				{
+					name: newCustName,
+					phone: newCustPhone,
+					address: newCustAddress || null,
+				},
+				{ abortEarly: false },
+			);
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setCustErrors(errors);
+			} else {
+				triggerToast("Validation failed.");
+			}
 			return;
 		}
-		const newCust: Customer = {
-			id: `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
-			name: newCustName,
-			phone: newCustPhone,
-			email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-			status: "Active",
-			totalOrders: 0,
-			totalSpent: 0,
-			joinedDate: new Date().toISOString().split("T")[0],
-			address: "Store Walk-in Registration",
-			notes: "Quick registered during transaction from inventory catalog.",
-			purchases: [],
-		};
-		setCustomers((prev) => [newCust, ...prev]);
 
-		if (isSellFormOpen) {
-			setSellCustomer(newCustName);
-		} else if (isBuybackFormOpen) {
-			setBuybackCustomer(newCustName);
+		setIsSubmitting(true);
+		try {
+			const res = await addCustomer({
+				name: newCustName,
+				phone: newCustPhone,
+				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
+				status: "Active",
+				address: newCustAddress || "Store Walk-in Registration",
+				notes: "Quick registered during transaction from inventory catalog.",
+			});
+
+			if (res.success) {
+				if (isSellFormOpen) {
+					setSellCustomer(newCustName);
+				} else if (isBuybackFormOpen) {
+					setBuybackCustomer(newCustName);
+				} else if (isFormOpen) {
+					// @ts-ignore
+					setFormCustomerId(res.customer?.id?.toString() || "");
+				}
+				setIsAddingCust(false);
+				setNewCustName("");
+				setNewCustPhone("");
+				setNewCustAddress("");
+				setCustErrors({});
+				triggerToast(`Customer ${newCustName} registered.`);
+			} else {
+				triggerToast(res.message || "Failed to register customer.");
+			}
+		} catch (err) {
+			triggerToast("An unexpected error occurred registering customer.");
+		} finally {
+			setIsSubmitting(false);
 		}
-
-		setIsAddingCust(false);
-		setNewCustName("");
-		setNewCustPhone("");
-		triggerToast(`Customer ${newCustName} quick-registered.`);
 	};
 
 	const handleDelete = (id: string, name: string) => {
@@ -386,159 +481,237 @@ export default function InventoryPage() {
 		setDeleteConfirmOpen(true);
 	};
 
-	const handleConfirmDelete = () => {
+	const handleConfirmDelete = async () => {
 		if (!deletingDevice) return;
-		setDevices((prev) => prev.filter((d) => d.id !== deletingDevice.id));
-		triggerToast(`Deleted ${deletingDevice.name} listing.`);
-		setDeleteConfirmOpen(false);
-		setDeletingDevice(null);
+		setIsSubmitting(true);
+		try {
+			const success = await removeDevice(deletingDevice.id);
+			if (success) {
+				triggerToast(`Deleted ${deletingDevice.name} listing.`);
+				await refreshMetrics();
+			} else {
+				triggerToast("Failed to delete listing.");
+			}
+		} catch (err) {
+			triggerToast("Failed to delete listing.");
+		} finally {
+			setIsSubmitting(false);
+			setDeleteConfirmOpen(false);
+			setDeletingDevice(null);
+		}
 	};
 
-	// Submit Handler
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (
-			!formBrand ||
-			!formModel ||
-			!formStorage ||
-			!formRam ||
-			!formPurchasePrice
-		) {
-			alert(
-				"Please enter brand, model, storage, RAM, and purchase price.",
+		setFieldErrors({});
+		setIsSubmitting(true);
+
+		try {
+			const selectedBrandName = specs.allBrands.find(b => b.id.toString() === formBrand)?.name || "";
+			const selectedModelName = specs.allModels.find(m => m.id.toString() === formModel)?.name || "";
+			const selectedStorageValue = specs.allStorages.find(s => s.id.toString() === formStorage)?.value || "";
+			const selectedRamValue = specs.allRams.find(r => r.id.toString() === formRam)?.value || "";
+
+			await mobileValidationSchema.validate(
+				{
+					brand: selectedBrandName,
+					model: selectedModelName,
+					storage: selectedStorageValue,
+					ram: selectedRamValue,
+					color: formColor,
+					imei: formImei || null,
+					condition: formCondition,
+					batteryHealth: selectedBrandName.toLowerCase() === "apple" ? formBatteryHealth : null,
+					purchasePrice: formPurchasePrice ? parseFloat(formPurchasePrice) : undefined,
+					description: formDescription || null,
+				},
+				{ abortEarly: false },
 			);
+		} catch (err: any) {
+			setIsSubmitting(false);
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setFieldErrors(errors);
+			} else {
+				triggerToast("Form validation failed.");
+			}
 			return;
 		}
 
-		const purchasePriceNum = parseFloat(formPurchasePrice);
-		const priceNum = Math.round(purchasePriceNum * 1.2); // Auto markup selling price by 20%
+		try {
+			const purchasePriceNum = parseFloat(formPurchasePrice);
+			const priceNum = Math.round(purchasePriceNum * 1.2);
 
-		if (editingDevice) {
-			// Edit
-			setDevices((prev) =>
-				prev.map((d) =>
-					d.id === editingDevice.id
-						? {
-							  ...d,
-							  brand: formBrand,
-							  model: formModel,
-							  storage: formStorage,
-							  ram: formRam,
-							  color: formColor,
-							  imei: formImei || undefined,
-							  condition: formCondition,
-							  price: priceNum,
-							  purchasePrice: purchasePriceNum,
-							  stock: 1, // Set to 1 since pre-owned devices are listed individually
-							  batteryHealth: formBatteryHealth,
-							  description: formDescription,
-						  }
-						: d,
-				),
-			);
-			triggerToast(`Updated ${formBrand} ${formModel}`);
-		} else {
-			// Add
-			const newDevice: MobileListing = {
-				id: `LIST-${Math.floor(1000 + Math.random() * 9000)}`,
-				brand: formBrand,
-				model: formModel,
-				storage: formStorage,
-				ram: formRam,
+			const data = {
+				brand_id: Number(formBrand),
+				model_id: Number(formModel),
+				storage_id: Number(formStorage),
+				ram_id: Number(formRam),
 				color: formColor || "Space Gray",
-				imei: formImei || undefined,
+				imei: formImei || null,
 				condition: formCondition,
 				price: priceNum,
-				purchasePrice: purchasePriceNum,
-				stock: 1, // Set to 1 since pre-owned devices are listed individually
-				batteryHealth: formBatteryHealth,
-				status: "Active",
-				description:
-					formDescription ||
-					`Manually registered ${formBrand} ${formModel} in stock.`,
+				purchase_price: purchasePriceNum,
+				battery_health: isAppleSelected ? formBatteryHealth : null,
+				status: editingDevice ? editingDevice.status : "Active",
+				description: formDescription || null,
+				customer_id: formCustomerId ? Number(formCustomerId) : null,
 			};
-			setDevices((prev) => [newDevice, ...prev]);
-			triggerToast(`Added ${formBrand} ${formModel} to stock.`);
+
+			let res;
+			if (editingDevice) {
+				res = await editDevice(editingDevice.id, data);
+			} else {
+				res = await addDevice(data);
+			}
+
+			if (res.success) {
+				triggerToast(editingDevice ? "Stock listing updated." : "Stock device registered.");
+				setIsFormOpen(false);
+				await refreshMetrics();
+			} else {
+				triggerToast(res.message || "Failed to save device details.");
+			}
+		} catch (err) {
+			triggerToast("An unexpected error occurred while saving device.");
+		} finally {
+			setIsSubmitting(false);
 		}
-		setIsFormOpen(false);
 	};
 
-	// Dynamic spec helpers
-	const handleCreateBrand = () => {
+	const handleCreateBrand = async () => {
 		if (newBrandVal.trim()) {
-			handleAddBrand(newBrandVal.trim());
-			setFormBrand(newBrandVal.trim());
-			setNewBrandVal("");
-			setIsAddingBrand(false);
+			setIsSubmittingBrand(true);
+			try {
+				const res = await specs.addBrand(newBrandVal.trim());
+				if (res.success) {
+					triggerToast("Brand request submitted and is pending approval.");
+					await specs.refreshAllSpecs();
+					setNewBrandVal("");
+					setIsAddingBrand(false);
+				} else {
+					triggerToast(res.message || "Failed to submit brand request.");
+				}
+			} catch (err) {
+				triggerToast("Failed to submit brand request.");
+			} finally {
+				setIsSubmittingBrand(false);
+			}
 		}
 	};
 
-	const handleCreateModel = () => {
+	const handleCreateModel = async () => {
 		if (!formBrand) {
-			alert("Please choose a brand first.");
+			triggerToast("Please choose a brand first.");
 			return;
 		}
 		if (newModelVal.trim()) {
-			handleAddModel(formBrand, newModelVal.trim());
-			setFormModel(newModelVal.trim());
-			setNewModelVal("");
-			setIsAddingModel(false);
+			setIsSubmittingModel(true);
+			try {
+				const res = await specs.addModel(newModelVal.trim(), Number(formBrand));
+				if (res.success) {
+					triggerToast("Model created successfully.");
+					await specs.refreshAllSpecs();
+					setNewModelVal("");
+					setIsAddingModel(false);
+					clearFieldError("model");
+				} else {
+					triggerToast(res.message || "Failed to add model.");
+				}
+			} catch (err) {
+				triggerToast("Failed to add model.");
+			} finally {
+				setIsSubmittingModel(false);
+			}
 		}
 	};
 
-	const handleCreateStorage = () => {
+	const handleCreateStorage = async () => {
 		if (newStorageVal.trim()) {
-			handleAddStorage(newStorageVal.trim());
-			setFormStorage(newStorageVal.trim());
-			setNewStorageVal("");
-			setIsAddingStorage(false);
+			setIsSubmittingStorage(true);
+			try {
+				const res = await specs.addStorage(newStorageVal.trim());
+				if (res.success) {
+					triggerToast("Storage capacity request submitted.");
+					await specs.refreshAllSpecs();
+					setNewStorageVal("");
+					setIsAddingStorage(false);
+					clearFieldError("storage");
+				} else {
+					triggerToast(res.message || "Failed to add storage.");
+				}
+			} catch (err) {
+				triggerToast("Failed to add storage.");
+			} finally {
+				setIsSubmittingStorage(false);
+			}
 		}
 	};
 
-	const handleCreateRam = () => {
+	const handleCreateRam = async () => {
 		if (newRamVal.trim()) {
-			handleAddRam(newRamVal.trim());
-			setFormRam(newRamVal.trim());
-			setNewRamVal("");
-			setIsAddingRam(false);
+			setIsSubmittingRam(true);
+			try {
+				const res = await specs.addRam(newRamVal.trim());
+				if (res.success) {
+					triggerToast("RAM capacity request submitted.");
+					await specs.refreshAllSpecs();
+					setNewRamVal("");
+					setIsAddingRam(false);
+					clearFieldError("ram");
+				} else {
+					triggerToast(res.message || "Failed to add RAM.");
+				}
+			} catch (err) {
+				triggerToast("Failed to add RAM.");
+			} finally {
+				setIsSubmittingRam(false);
+			}
 		}
 	};
 
-	// Metrics
-	const activeStockCount = devices
-		.filter((d) => d.status === "Active")
-		.reduce((sum, d) => sum + d.stock, 0);
-	const soldCount = devices.filter((d) => d.status === "Sold").length;
-	const avgPrice =
-		devices.length > 0
-			? Math.round(
-				  devices.reduce((sum, d) => sum + d.price, 0) / devices.length,
-			  )
-			: 0;
-	const uniqueModelsCount = Array.from(
-		new Set(devices.map((d) => d.brand + " " + d.model)),
-	).length;
+	const handleSortClick = (field: string) => {
+		if (sortBy === field) {
+			setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+		} else {
+			setSortBy(field);
+			setSortOrder("asc");
+		}
+		setPage(1);
+	};
 
-	// Filter
-	const filteredDevices = devices.filter((d) => {
-		const query = searchTerm.toLowerCase();
-		const matchesSearch =
-			d.brand.toLowerCase().includes(query) ||
-			d.model.toLowerCase().includes(query) ||
-			d.color.toLowerCase().includes(query) ||
-			(d.imei && d.imei.includes(query)) ||
-			d.id.toLowerCase().includes(query);
-
-		const matchesStatus =
-			statusFilter === "All" || d.status === statusFilter;
-		const matchesBrand = brandFilter === "All" || d.brand === brandFilter;
-		const matchesCondition =
-			conditionFilter === "All" || d.condition === conditionFilter;
-
+	const renderSortableHeader = (field: string, label: string, align: "left" | "center" | "right" = "left") => {
+		const isSorted = sortBy === field;
+		const alignClasses = {
+			left: "justify-start",
+			center: "justify-center text-center",
+			right: "justify-end text-right",
+		};
 		return (
-			matchesSearch && matchesStatus && matchesBrand && matchesCondition
+			<th
+				onClick={() => handleSortClick(field)}
+				className={`py-4 px-6 cursor-pointer select-none hover:text-zinc-750 dark:hover:text-zinc-200 transition-colors uppercase font-bold text-xs ${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"}`}
+			>
+				<div className={`flex items-center gap-1.5 ${alignClasses[align]}`}>
+					<span>{label}</span>
+					{isSorted ? (
+						sortOrder === "asc" ? (
+							<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
+						) : (
+							<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+						)
+					) : (
+						<svg className="w-3.5 h-3.5 opacity-20 hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+					)}
+				</div>
+			</th>
 		);
-	});
+	};
 
 	return (
 		<div className="space-y-8 animate-fadeIn">
@@ -551,7 +724,7 @@ export default function InventoryPage() {
 					</span>
 					<div className="flex items-baseline gap-2 mt-2">
 						<span className="text-2xl font-extrabold tracking-tight">
-							{activeStockCount}
+							{metrics.activeStock}
 						</span>
 						<span className="text-xs text-zinc-400 dark:text-zinc-500">
 							Units in hand
@@ -566,28 +739,10 @@ export default function InventoryPage() {
 					</span>
 					<div className="flex items-baseline gap-2 mt-2">
 						<span className="text-2xl font-extrabold tracking-tight">
-							{soldCount}
+							{metrics.totalSold}
 						</span>
 						<span className="text-xs text-zinc-400 dark:text-zinc-500">
 							Completed sales
-						</span>
-					</div>
-				</div>
-
-				<div className="p-6 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/50 backdrop-blur-md shadow-sm relative group overflow-hidden">
-					<div className="absolute top-0 left-0 w-1.5 h-full bg-secondary" />
-					<span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
-						Avg Selling Price
-					</span>
-					<div className="flex items-baseline gap-2 mt-2">
-						<span
-							className="text-2xl font-extrabold tracking-tight"
-							suppressHydrationWarning
-						>
-							₹{avgPrice.toLocaleString()}
-						</span>
-						<span className="text-xs text-zinc-400 dark:text-zinc-500">
-							Catalog average
 						</span>
 					</div>
 				</div>
@@ -599,10 +754,25 @@ export default function InventoryPage() {
 					</span>
 					<div className="flex items-baseline gap-2 mt-2">
 						<span className="text-2xl font-extrabold tracking-tight">
-							{uniqueModelsCount}
+							{metrics.totalUniqueModels}
 						</span>
 						<span className="text-xs text-zinc-400 dark:text-zinc-500">
 							Specs cataloged
+						</span>
+					</div>
+				</div>
+
+				<div className="p-6 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/50 backdrop-blur-md shadow-sm relative group overflow-hidden">
+					<div className="absolute top-0 left-0 w-1.5 h-full bg-violet-500" />
+					<span className="text-xs font-semibold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">
+						Tracked Lifecycles
+					</span>
+					<div className="flex items-baseline gap-2 mt-2">
+						<span className="text-2xl font-extrabold tracking-tight">
+							{metrics.totalTracedDevices}
+						</span>
+						<span className="text-xs text-zinc-400 dark:text-zinc-500">
+							IMEI Logged
 						</span>
 					</div>
 				</div>
@@ -631,51 +801,54 @@ export default function InventoryPage() {
 							type="text"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							placeholder="Search by brand, model, color, IMEI..."
-							className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+							placeholder="Search by color, IMEI..."
+							className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
 						/>
 					</div>
 
 					<div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
-						<select
+						<Select
 							value={brandFilter}
 							onChange={(e) => setBrandFilter(e.target.value)}
-							className="px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary"
-						>
-							<option value="All">All Brands</option>
-							{brands.map((b) => (
-								<option key={b} value={b}>
-									{b}
-								</option>
-							))}
-						</select>
+							options={[
+								{ value: "All", label: "All Brands" },
+								...specs.allBrands.map((b) => ({ value: b.id.toString(), label: b.name })),
+							]}
+							className="w-40"
+						/>
 
-						<select
+						<Select
 							value={statusFilter}
 							onChange={(e) => setStatusFilter(e.target.value)}
-							className="px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary"
-						>
-							<option value="All">All Statuses</option>
-							<option value="Active">Active Stock</option>
-							<option value="Sold">Sold</option>
-						</select>
+							options={[
+								{ value: "All", label: "All Statuses" },
+								{ value: "Active", label: "Active Stock" },
+								{ value: "Sold", label: "Sold" },
+							]}
+							className="w-40"
+						/>
 
-						<select
+						<Select
 							value={conditionFilter}
-							onChange={(e) => setConditionFilter(e.target.value)}
-							className="px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary"
-						>
-							<option value="All">All Conditions</option>
-							<option value="Mint">Mint</option>
-							<option value="Excellent">Excellent</option>
-							<option value="Good">Good</option>
-							<option value="Fair">Fair</option>
-						</select>
+							onChange={(e) => {
+								setPage(1);
+								setConditionFilter(e.target.value);
+							}}
+							options={[
+								{ value: "All", label: "All Conditions" },
+								{ value: "Mint", label: "Mint" },
+								{ value: "Excellent", label: "Excellent" },
+								{ value: "Good", label: "Good" },
+								{ value: "Fair", label: "Fair" },
+							]}
+							className="w-40"
+						/>
 
 						<Button
 							variant="gradient"
 							size="sm"
 							onClick={handleOpenAdd}
+							className="cursor-pointer"
 						>
 							<span className="flex items-center gap-2">
 								<svg
@@ -700,38 +873,43 @@ export default function InventoryPage() {
 
 			{/* CATALOG DATA TABLE */}
 			<div className="bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden shadow-sm">
-				{filteredDevices.length > 0 ? (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-sm border-collapse">
-							<thead>
-								<tr className="bg-zinc-50/50 dark:bg-zinc-900/20 text-zinc-400 font-semibold text-xs uppercase border-b border-zinc-200/40 dark:border-zinc-800/40">
-									<th className="py-4 px-6">ID</th>
-									<th className="py-4 px-6">
-										Inventory Specifications
-									</th>
-									<th className="py-4 px-6">IMEI</th>
-									<th className="py-4 px-6 text-center">
-										Condition
-									</th>
-									<th className="py-4 px-6 text-center">
-										Battery
-									</th>
-									<th className="py-4 px-6 text-right">
-										Cost Price
-									</th>
-									<th className="py-4 px-6 text-right">
-										Sell Price
-									</th>
-									<th className="py-4 px-6 text-center">
-										Status
-									</th>
-									<th className="py-4 px-6 text-center">
-										Actions
-									</th>
-								</tr>
-							</thead>
+				<div className="overflow-x-auto">
+					<table className="w-full text-left text-sm border-collapse">
+						<thead>
+							<tr className="bg-zinc-50/50 dark:bg-zinc-900/20 text-zinc-455 font-semibold border-b border-zinc-200/40 dark:border-zinc-800/40">
+								{renderSortableHeader("id", "ID", "left")}
+								{renderSortableHeader("model", "Inventory Specifications", "left")}
+								{renderSortableHeader("imei", "IMEI", "left")}
+								{renderSortableHeader("condition", "Condition", "center")}
+								{renderSortableHeader("batteryHealth", "Battery", "center")}
+								{renderSortableHeader("purchasePrice", "Cost Price", "right")}
+								{renderSortableHeader("price", "Sell Price", "right")}
+								{renderSortableHeader("status", "Status", "center")}
+								<th className="py-4 px-6 text-center uppercase font-bold text-xs text-zinc-400">Actions</th>
+							</tr>
+						</thead>
+						{isLoading ? (
 							<tbody>
-								{filteredDevices.map((d) => (
+								{[...Array(limit)].map((_, idx) => (
+									<tr key={idx} className="border-b border-zinc-100 dark:border-zinc-850/40 animate-pulse">
+										<td className="py-4 px-6"><div className="h-4 w-12 bg-zinc-250 dark:bg-zinc-800 rounded" /></td>
+										<td className="py-4 px-6">
+											<div className="h-4 w-36 bg-zinc-250 dark:bg-zinc-800 rounded mb-2" />
+											<div className="h-3 w-28 bg-zinc-150 dark:bg-zinc-850 rounded" />
+										</td>
+										<td className="py-4 px-6"><div className="h-4 w-28 bg-zinc-250 dark:bg-zinc-800 rounded" /></td>
+										<td className="py-4 px-6 text-center"><div className="h-4 w-16 bg-zinc-250 dark:bg-zinc-800 rounded mx-auto" /></td>
+										<td className="py-4 px-6 text-center"><div className="h-4 w-8 bg-zinc-250 dark:bg-zinc-800 rounded mx-auto" /></td>
+										<td className="py-4 px-6 text-right"><div className="h-4 w-16 bg-zinc-250 dark:bg-zinc-800 rounded ml-auto" /></td>
+										<td className="py-4 px-6 text-right"><div className="h-4 w-16 bg-zinc-250 dark:bg-zinc-800 rounded ml-auto" /></td>
+										<td className="py-4 px-6 text-center"><div className="h-6 w-16 bg-zinc-250 dark:bg-zinc-800 rounded-full mx-auto" /></td>
+										<td className="py-4 px-6 text-center"><div className="h-8 w-24 bg-zinc-250 dark:bg-zinc-800 rounded-xl mx-auto" /></td>
+									</tr>
+								))}
+							</tbody>
+						) : devices.length > 0 ? (
+							<tbody>
+								{devices.map((d) => (
 									<tr
 										key={d.id}
 										className="border-b border-zinc-100 dark:border-zinc-850/40 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors"
@@ -753,8 +931,8 @@ export default function InventoryPage() {
 										<td className="py-4 px-6 font-mono text-xs text-zinc-650 dark:text-zinc-300">
 											{d.imei ? (
 												<Link
-													href={`/mobiles/${encodeURIComponent(d.brand)}/${slugify(d.model)}/${d.imei}`}
-													className="text-primary hover:text-primary/80 hover:underline font-semibold transition-colors"
+													href={`/mobiles/${specs.allBrands.find(b => b.id === d.brandId)?.slug || slugify(d.brand)}/${specs.allModels.find(m => m.id === d.modelId)?.slug || slugify(d.model)}/${d.imei}`}
+													className="text-primary hover:text-primary/80 hover:underline font-semibold transition-colors cursor-pointer"
 												>
 													{d.imei}
 												</Link>
@@ -768,7 +946,7 @@ export default function InventoryPage() {
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center font-semibold text-zinc-700 dark:text-zinc-300">
-											{d.batteryHealth}%
+											{d.batteryHealth ? `${d.batteryHealth}%` : "-"}
 										</td>
 										<td
 											className="py-4 px-6 text-right text-zinc-500 font-medium"
@@ -782,9 +960,7 @@ export default function InventoryPage() {
 											className="py-4 px-6 text-right font-extrabold text-zinc-900 dark:text-zinc-100"
 											suppressHydrationWarning
 										>
-											{d.status === "Sold"
-												? `₹${d.price.toLocaleString()}`
-												: "-"}
+											₹{d.price.toLocaleString()}
 										</td>
 										<td className="py-4 px-6 text-center">
 											<span
@@ -803,11 +979,12 @@ export default function InventoryPage() {
 											<div className="flex items-center justify-center gap-2">
 												{d.status === "Active" && (
 													<button
+														disabled={isSubmitting}
 														onClick={() =>
 															handleOpenSell(d)
 														}
 														title="Record Outgoing Sale"
-														className="p-1.5 rounded-lg border border-emerald-250 dark:border-emerald-900/50 bg-emerald-500/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:scale-105 transition-all cursor-pointer shadow-sm animate-fadeIn"
+														className="p-1.5 rounded-lg border border-emerald-250 dark:border-emerald-900/50 bg-emerald-500/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:scale-105 transition-all cursor-pointer shadow-sm animate-fadeIn disabled:opacity-50"
 													>
 														<svg
 															className="w-4 h-4"
@@ -826,11 +1003,12 @@ export default function InventoryPage() {
 												)}
 												{d.status === "Sold" && (
 													<button
+														disabled={isSubmitting}
 														onClick={() =>
 															handleOpenBuyback(d)
 														}
 														title="Record Buyback (Re-acquire)"
-														className="p-1.5 rounded-lg border border-indigo-250 dark:border-indigo-900/50 bg-indigo-500/5 hover:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-all cursor-pointer shadow-sm animate-fadeIn"
+														className="p-1.5 rounded-lg border border-indigo-250 dark:border-indigo-900/50 bg-indigo-500/5 hover:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-all cursor-pointer shadow-sm animate-fadeIn disabled:opacity-50"
 													>
 														<svg
 															className="w-4 h-4"
@@ -848,11 +1026,12 @@ export default function InventoryPage() {
 													</button>
 												)}
 												<button
+													disabled={isSubmitting}
 													onClick={() =>
 														handleOpenEdit(d)
 													}
 													title="Edit Device"
-													className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-primary hover:scale-105 transition-all cursor-pointer"
+													className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-primary hover:scale-105 transition-all cursor-pointer disabled:opacity-50"
 												>
 													<svg
 														className="w-4 h-4"
@@ -869,6 +1048,7 @@ export default function InventoryPage() {
 													</svg>
 												</button>
 												<button
+													disabled={isSubmitting}
 													onClick={() =>
 														handleDelete(
 															d.id,
@@ -878,7 +1058,7 @@ export default function InventoryPage() {
 														)
 													}
 													title="Delete Device"
-													className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-650 dark:text-zinc-400 hover:text-red-500 hover:scale-105 transition-all cursor-pointer"
+													className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-855 text-zinc-650 dark:text-zinc-400 hover:text-red-500 hover:scale-105 transition-all cursor-pointer disabled:opacity-50"
 												>
 													<svg
 														className="w-4 h-4"
@@ -899,25 +1079,38 @@ export default function InventoryPage() {
 									</tr>
 								))}
 							</tbody>
-						</table>
-					</div>
-				) : (
-					<div className="text-center py-16 space-y-3">
-						<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
-							No Inventory Items Listed
-						</h4>
-						<p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
-							We couldn&apos;t find any inventory items matching
-							your filters. Try clearing search query.
-						</p>
-					</div>
+						) : (
+							<tbody>
+								<tr>
+									<td colSpan={9} className="text-center py-16 space-y-3">
+										<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
+											No Inventory Items Listed
+										</h4>
+										<p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
+											We couldn&apos;t find any inventory items matching
+											your filters. Try clearing search query.
+										</p>
+									</td>
+								</tr>
+							</tbody>
+						)}
+					</table>
+				</div>
+				{!isLoading && total > 0 && (
+					<Pagination
+						page={page}
+						total={total}
+						limit={limit}
+						onPageChange={setPage}
+						onLimitChange={(l) => { setLimit(l); setPage(1); }}
+					/>
 				)}
 			</div>
 
 			{/* MODAL FORM WITH INLINE CREATION */}
 			<Modal
 				isOpen={isFormOpen}
-				onClose={() => setIsFormOpen(false)}
+				onClose={() => !isSubmitting && setIsFormOpen(false)}
 				title={
 					editingDevice
 						? `Edit Inventory Item: ${editingDevice.brand} ${editingDevice.model}`
@@ -926,42 +1119,58 @@ export default function InventoryPage() {
 				size="lg"
 			>
 				<form onSubmit={handleSubmit} className="space-y-4">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
 						{/* IMEI */}
 						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-450 uppercase tracking-wide">
+							<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
 								IMEI (15 digits)
 							</label>
 							<input
 								type="text"
 								maxLength={15}
+								disabled={isSubmitting}
 								value={formImei}
-								onChange={(e) =>
-									setFormImei(
-										e.target.value.replace(/\D/g, ""),
-									)
-								}
+								onChange={(e) => {
+									setFormImei(e.target.value.replace(/\D/g, ""));
+									clearFieldError("imei");
+								}}
 								placeholder="e.g. 359283748291827"
-								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono"
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono disabled:opacity-50 disabled:cursor-not-allowed
+									${fieldErrors.imei ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
 							/>
+							{fieldErrors.imei && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.imei}
+								</p>
+							)}
 						</div>
 
 						{/* Color */}
 						<div className="space-y-1">
 							<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-								Color
+								Color *
 							</label>
 							<input
 								type="text"
+								disabled={isSubmitting}
 								value={formColor}
-								onChange={(e) => setFormColor(e.target.value)}
+								onChange={(e) => {
+									setFormColor(e.target.value);
+									clearFieldError("color");
+								}}
 								placeholder="e.g. Phantom Black"
-								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+									${fieldErrors.color ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
 							/>
+							{fieldErrors.color && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.color}
+								</p>
+							)}
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
 						{/* BRAND SELECTION & INLINE CREATOR */}
 						<div className="space-y-1 relative">
 							<div className="flex justify-between items-center">
@@ -970,12 +1179,11 @@ export default function InventoryPage() {
 								</label>
 								<button
 									type="button"
-									onClick={() =>
-										setIsAddingBrand(!isAddingBrand)
-									}
-									className="text-[10px] text-primary hover:underline font-bold"
+									disabled={isSubmitting || isSubmittingBrand}
+									onClick={() => setIsAddingBrand(!isAddingBrand)}
+									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
 								>
-									{isAddingBrand ? "Cancel" : "+ Add Brand"}
+									{isAddingBrand ? "Cancel" : "Request Brand"}
 								</button>
 							</div>
 
@@ -983,38 +1191,45 @@ export default function InventoryPage() {
 								<div className="flex gap-2 animate-scaleUp">
 									<input
 										type="text"
+										disabled={isSubmittingBrand || isSubmitting}
 										value={newBrandVal}
-										onChange={(e) =>
-											setNewBrandVal(e.target.value)
-										}
+										onChange={(e) => setNewBrandVal(e.target.value)}
 										placeholder="New Brand Name"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none"
+										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
 									/>
 									<button
 										type="button"
+										disabled={isSubmittingBrand || isSubmitting}
 										onClick={handleCreateBrand}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl"
+										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
 									>
-										Save
+										{isSubmittingBrand ? (
+											<>
+												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+												</svg>
+												<span>Saving...</span>
+											</>
+										) : (
+											"Save"
+										)}
 									</button>
 								</div>
 							) : (
-								<select
+								<Select
 									value={formBrand}
+									disabled={isSubmitting}
 									onChange={(e) => {
 										setFormBrand(e.target.value);
 										setFormModel("");
+										clearFieldError("brand");
 									}}
 									required
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-								>
-									<option value="">-- Choose Brand --</option>
-									{brands.map((b) => (
-										<option key={b} value={b}>
-											{b}
-										</option>
-									))}
-								</select>
+									placeholder="-- Choose Brand --"
+									options={specs.allBrands.map((b) => ({ value: b.id.toString(), label: b.name }))}
+									error={fieldErrors.brand}
+								/>
 							)}
 						</div>
 
@@ -1026,11 +1241,9 @@ export default function InventoryPage() {
 								</label>
 								<button
 									type="button"
-									disabled={!formBrand}
-									onClick={() =>
-										setIsAddingModel(!isAddingModel)
-									}
-									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline"
+									disabled={!formBrand || isSubmitting || isSubmittingModel}
+									onClick={() => setIsAddingModel(!isAddingModel)}
+									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
 								>
 									{isAddingModel ? "Cancel" : "+ Add Model"}
 								</button>
@@ -1040,45 +1253,51 @@ export default function InventoryPage() {
 								<div className="flex gap-2 animate-scaleUp">
 									<input
 										type="text"
+										disabled={isSubmittingModel || isSubmitting}
 										value={newModelVal}
-										onChange={(e) =>
-											setNewModelVal(e.target.value)
-										}
-										placeholder={`Model for ${formBrand}`}
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none"
+										onChange={(e) => setNewModelVal(e.target.value)}
+										placeholder="Model Name"
+										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
 									/>
 									<button
 										type="button"
+										disabled={isSubmittingModel || isSubmitting}
 										onClick={handleCreateModel}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl"
+										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
 									>
-										Save
+										{isSubmittingModel ? (
+											<>
+												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+												</svg>
+												<span>Saving...</span>
+											</>
+										) : (
+											"Save"
+										)}
 									</button>
 								</div>
 							) : (
-								<select
+								<Select
 									value={formModel}
-									disabled={!formBrand}
-									onChange={(e) =>
-										setFormModel(e.target.value)
-									}
+									disabled={!formBrand || isSubmitting}
+									onChange={(e) => {
+										setFormModel(e.target.value);
+										clearFieldError("model");
+									}}
 									required
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
-								>
-									<option value="">-- Choose Model --</option>
-									{models
-										.filter((m) => m.brand === formBrand)
-										.map((m) => (
-											<option key={m.name} value={m.name}>
-												{m.name}
-											</option>
-										))}
-								</select>
+									placeholder={formBrand ? "-- Choose Model --" : "-- Choose Brand First --"}
+									options={specs.allModels
+										.filter((m) => m.brand_id.toString() === formBrand)
+										.map((m) => ({ value: m.id.toString(), label: m.name }))}
+									error={fieldErrors.model}
+								/>
 							)}
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
 						{/* STORAGE */}
 						<div className="space-y-1">
 							<div className="flex justify-between items-center">
@@ -1087,14 +1306,13 @@ export default function InventoryPage() {
 								</label>
 								<button
 									type="button"
-									onClick={() =>
-										setIsAddingStorage(!isAddingStorage)
-									}
-									className="text-[10px] text-primary hover:underline font-bold"
+									disabled={isSubmitting || isSubmittingStorage}
+									onClick={() => setIsAddingStorage(!isAddingStorage)}
+									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
 								>
 									{isAddingStorage
 										? "Cancel"
-										: "+ Add Storage"}
+										: "Request Storage"}
 								</button>
 							</div>
 
@@ -1102,39 +1320,44 @@ export default function InventoryPage() {
 								<div className="flex gap-2 animate-scaleUp">
 									<input
 										type="text"
+										disabled={isSubmittingStorage || isSubmitting}
 										value={newStorageVal}
-										onChange={(e) =>
-											setNewStorageVal(e.target.value)
-										}
+										onChange={(e) => setNewStorageVal(e.target.value)}
 										placeholder="e.g. 512GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none"
+										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
 									/>
 									<button
 										type="button"
+										disabled={isSubmittingStorage || isSubmitting}
 										onClick={handleCreateStorage}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl"
+										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
 									>
-										Save
+										{isSubmittingStorage ? (
+											<>
+												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+												</svg>
+												<span>Saving...</span>
+											</>
+										) : (
+											"Save"
+										)}
 									</button>
 								</div>
 							) : (
-								<select
+								<Select
 									value={formStorage}
-									onChange={(e) =>
-										setFormStorage(e.target.value)
-									}
+									disabled={isSubmitting}
+									onChange={(e) => {
+										setFormStorage(e.target.value);
+										clearFieldError("storage");
+									}}
 									required
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-								>
-									<option value="">
-										-- Choose Storage --
-									</option>
-									{storages.map((s) => (
-										<option key={s} value={s}>
-											{s}
-										</option>
-									))}
-								</select>
+									placeholder="-- Choose Storage --"
+									options={specs.allStorages.map((s) => ({ value: s.id.toString(), label: s.value }))}
+									error={fieldErrors.storage}
+								/>
 							)}
 						</div>
 
@@ -1146,10 +1369,11 @@ export default function InventoryPage() {
 								</label>
 								<button
 									type="button"
+									disabled={isSubmitting || isSubmittingRam}
 									onClick={() => setIsAddingRam(!isAddingRam)}
-									className="text-[10px] text-primary hover:underline font-bold"
+									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
 								>
-									{isAddingRam ? "Cancel" : "+ Add RAM"}
+									{isAddingRam ? "Cancel" : "Request RAM"}
 								</button>
 							</div>
 
@@ -1157,108 +1381,260 @@ export default function InventoryPage() {
 								<div className="flex gap-2 animate-scaleUp">
 									<input
 										type="text"
+										disabled={isSubmittingRam || isSubmitting}
 										value={newRamVal}
-										onChange={(e) =>
-											setNewRamVal(e.target.value)
-										}
+										onChange={(e) => setNewRamVal(e.target.value)}
 										placeholder="e.g. 16GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none"
+										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
 									/>
 									<button
 										type="button"
+										disabled={isSubmittingRam || isSubmitting}
 										onClick={handleCreateRam}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl"
+										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
 									>
-										Save
+										{isSubmittingRam ? (
+											<>
+												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+												</svg>
+												<span>Saving...</span>
+											</>
+										) : (
+											"Save"
+										)}
 									</button>
 								</div>
 							) : (
-								<select
+								<Select
 									value={formRam}
-									onChange={(e) => setFormRam(e.target.value)}
+									disabled={isSubmitting}
+									onChange={(e) => {
+										setFormRam(e.target.value);
+										clearFieldError("ram");
+									}}
 									required
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-								>
-									<option value="">-- Choose RAM --</option>
-									{rams.map((r) => (
-										<option key={r} value={r}>
-											{r}
-										</option>
-									))}
-								</select>
+									placeholder="-- Choose RAM --"
+									options={specs.allRams.map((r) => ({ value: r.id.toString(), label: r.value }))}
+									error={fieldErrors.ram}
+								/>
 							)}
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
 						{/* Condition */}
 						<div className="space-y-1">
 							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Condition
+								Condition *
 							</label>
-							<select
+							<Select
 								value={formCondition}
-								onChange={(e) =>
-									setFormCondition(e.target.value as any)
-								}
-								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-							>
-								<option value="Mint">Mint</option>
-								<option value="Excellent">Excellent</option>
-								<option value="Good">Good</option>
-								<option value="Fair">Fair</option>
-							</select>
+								disabled={isSubmitting}
+								onChange={(e) => {
+									setFormCondition(e.target.value as any);
+									clearFieldError("condition");
+								}}
+								options={[
+									{ value: "Mint", label: "Mint" },
+									{ value: "Excellent", label: "Excellent" },
+									{ value: "Good", label: "Good" },
+									{ value: "Fair", label: "Fair" },
+								]}
+								error={fieldErrors.condition}
+							/>
 						</div>
 
 						{/* Battery Health */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Battery Health (%)
-							</label>
-							<input
-								type="number"
-								min={50}
-								max={100}
-								value={formBatteryHealth}
-								onChange={(e) =>
-									setFormBatteryHealth(
-										parseInt(e.target.value) || 0,
-									)
-								}
-								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-							/>
-						</div>
+						{isAppleSelected && (
+							<div className="space-y-1">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									Battery Health (%) *
+								</label>
+								<input
+									type="number"
+									min={50}
+									max={100}
+									disabled={isSubmitting}
+									value={formBatteryHealth}
+									onChange={(e) => {
+										setFormBatteryHealth(parseInt(e.target.value) || 0);
+										clearFieldError("batteryHealth");
+									}}
+									className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+										${fieldErrors.batteryHealth ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
+								/>
+								{fieldErrors.batteryHealth && (
+									<p className="text-xs text-red-500 font-medium mt-1">
+										{fieldErrors.batteryHealth}
+									</p>
+								)}
+							</div>
+						)}
 					</div>
 
+					{/* Customer Selection */}
+					{!editingDevice && (
+						<div className="space-y-1.5 text-left animate-fadeIn">
+							<div className="flex justify-between items-center">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									Select Customer (for Purchase Transaction)
+								</label>
+								<button
+									type="button"
+									onClick={() => {
+										setIsAddingCust(!isAddingCust);
+										setCustErrors({});
+									}}
+									className="text-[10px] text-primary hover:underline font-bold"
+								>
+									{isAddingCust ? "Cancel" : "+ Quick-Add New Customer"}
+								</button>
+							</div>
+
+							{isAddingCust ? (
+								<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp">
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+										<div className="space-y-1">
+											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+												Full Name *
+											</label>
+											<input
+												type="text"
+												disabled={isSubmitting}
+												value={newCustName}
+												onChange={(e) => {
+													setNewCustName(e.target.value);
+													setCustErrors((prev) => ({ ...prev, name: "" }));
+												}}
+												placeholder="John Doe"
+												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+													${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+											/>
+											{custErrors.name && (
+												<p className="text-[10px] text-red-500 font-semibold">
+													{custErrors.name}
+												</p>
+											)}
+										</div>
+										<div className="space-y-1">
+											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+												Mobile Number *
+											</label>
+											<PhoneInputField
+												disabled={isSubmitting}
+												size="sm"
+												value={newCustPhone}
+												onChange={(phone) => {
+													setNewCustPhone(phone);
+													setCustErrors((prev) => ({ ...prev, phone: "" }));
+												}}
+												error={custErrors.phone}
+											/>
+										</div>
+									</div>
+									<div className="space-y-1">
+										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+											Address
+										</label>
+										<textarea
+											disabled={isSubmitting}
+											value={newCustAddress}
+											onChange={(e) => {
+												setNewCustAddress(e.target.value);
+												setCustErrors((prev) => ({ ...prev, address: "" }));
+											}}
+											placeholder="Enter customer address..."
+											rows={2}
+											className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+												${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+										/>
+										{custErrors.address && (
+											<p className="text-xs text-red-500 font-medium mt-1">
+												{custErrors.address}
+											</p>
+										)}
+									</div>
+									<button
+										type="button"
+										disabled={isSubmitting}
+										onClick={handleCreateCustomer}
+										className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
+									>
+										{isSubmitting ? (
+											<>
+												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+												</svg>
+												<span>Saving Client...</span>
+											</>
+										) : (
+											"Save and Select Customer"
+										)}
+									</button>
+								</div>
+							) : (
+								<Select
+									value={formCustomerId}
+									onChange={(e) => setFormCustomerId(e.target.value)}
+									options={[
+										{ value: "", label: "-- Select Customer --" },
+										...customers.map((c) => ({ value: c.id.toString(), label: `${c.name} (${c.phone})` })),
+									]}
+								/>
+							)}
+						</div>
+					)}
+
 					{/* Cost Price */}
-					<div className="space-y-1">
+					<div className="space-y-1 text-left">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 							Purchase / Cost Price * (₹)
 						</label>
 						<input
 							type="number"
 							required
+							disabled={isSubmitting}
 							value={formPurchasePrice}
-							onChange={(e) =>
-								setFormPurchasePrice(e.target.value)
-							}
+							onChange={(e) => {
+								setFormPurchasePrice(e.target.value);
+								clearFieldError("purchasePrice");
+							}}
 							placeholder="e.g. 30000"
-							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+								${fieldErrors.purchasePrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
 						/>
+						{fieldErrors.purchasePrice && (
+							<p className="text-xs text-red-500 font-medium mt-1">
+								{fieldErrors.purchasePrice}
+							</p>
+						)}
 					</div>
 
 					{/* Description */}
-					<div className="space-y-1">
+					<div className="space-y-1 text-left">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 							Listing Description
 						</label>
 						<textarea
+							disabled={isSubmitting}
 							value={formDescription}
-							onChange={(e) => setFormDescription(e.target.value)}
+							onChange={(e) => {
+								setFormDescription(e.target.value);
+								clearFieldError("description");
+							}}
 							placeholder="e.g. Mint condition. Minor scratch on screen protector, box and original cable available..."
 							rows={3}
-							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+								${fieldErrors.description ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
 						/>
+						{fieldErrors.description && (
+							<p className="text-xs text-red-500 font-medium mt-1">
+								{fieldErrors.description}
+							</p>
+						)}
 					</div>
 
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
@@ -1266,14 +1642,26 @@ export default function InventoryPage() {
 							type="button"
 							variant="ghost"
 							size="sm"
+							disabled={isSubmitting}
 							onClick={() => setIsFormOpen(false)}
+							className="cursor-pointer"
 						>
 							Cancel
 						</Button>
-						<Button type="submit" variant="gradient" size="sm">
-							{editingDevice
-								? "Save Changes"
-								: "Register Stock Item"}
+						<Button type="submit" variant="gradient" size="sm" disabled={isSubmitting} className="cursor-pointer flex items-center gap-1.5 min-w-[120px] justify-center">
+							{isSubmitting ? (
+								<>
+									<svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+									</svg>
+									<span>Saving...</span>
+								</>
+							) : editingDevice ? (
+								"Save Changes"
+							) : (
+								"Register Stock Item"
+							)}
 						</Button>
 					</div>
 				</form>
@@ -1282,7 +1670,7 @@ export default function InventoryPage() {
 			{/* SELL MODAL */}
 			<Modal
 				isOpen={isSellFormOpen}
-				onClose={() => setIsSellFormOpen(false)}
+				onClose={() => !isSubmitting && setIsSellFormOpen(false)}
 				title={
 					<div className="flex items-center gap-3 text-left">
 						<span className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -1305,8 +1693,7 @@ export default function InventoryPage() {
 								Record Device Sale
 							</h3>
 							<p className="text-[11px] text-zinc-400 font-normal mt-0.5">
-								Complete outgoing transaction details for this
-								unit.
+								Complete outgoing transaction details for this unit.
 							</p>
 						</div>
 					</div>
@@ -1316,18 +1703,14 @@ export default function InventoryPage() {
 				{sellingDevice && (
 					<form onSubmit={handleSellSubmit} className="space-y-5">
 						{/* Device Info Panel */}
-						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner">
+						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
 							<div className="flex justify-between items-start">
 								<div>
 									<h4 className="text-sm font-extrabold text-zinc-900 dark:text-white">
-										{sellingDevice.brand}{" "}
-										{sellingDevice.model}
+										{sellingDevice.brand} {sellingDevice.model}
 									</h4>
 									<p className="text-[11px] text-zinc-400 mt-0.5">
-										{sellingDevice.storage} /{" "}
-										{sellingDevice.ram} RAM &bull;{" "}
-										{sellingDevice.color} &bull;{" "}
-										{sellingDevice.condition} Condition
+										{sellingDevice.storage} / {sellingDevice.ram} RAM &bull; {sellingDevice.color} &bull; {sellingDevice.condition} Condition
 									</p>
 								</div>
 								<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
@@ -1348,9 +1731,7 @@ export default function InventoryPage() {
 										Cost Price:
 									</span>
 									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
-										₹
-										{sellingDevice.purchasePrice?.toLocaleString() ||
-											"-"}
+										{sellingDevice.purchasePrice ? `₹${sellingDevice.purchasePrice.toLocaleString()}` : "-"}
 									</span>
 								</div>
 								<div>
@@ -1374,10 +1755,11 @@ export default function InventoryPage() {
 									</label>
 									<button
 										type="button"
+										disabled={isSubmitting}
 										onClick={() =>
 											setIsAddingCust(!isAddingCust)
 										}
-										className="text-[10px] text-primary hover:underline font-bold"
+										className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline cursor-pointer"
 									>
 										{isAddingCust
 											? "Cancel"
@@ -1394,59 +1776,90 @@ export default function InventoryPage() {
 												</label>
 												<input
 													type="text"
+													disabled={isSubmitting}
 													value={newCustName}
-													onChange={(e) =>
-														setNewCustName(
-															e.target.value,
-														)
-													}
+													onChange={(e) => {
+														setNewCustName(e.target.value);
+														setCustErrors((prev) => ({ ...prev, name: "" }));
+													}}
 													placeholder="e.g. John Doe"
-													className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+													className={`w-full px-3 py-2.5 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+														${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
 												/>
+												{custErrors.name && (
+													<p className="text-xs text-red-500 font-medium mt-1">
+														{custErrors.name}
+													</p>
+												)}
 											</div>
 											<div className="space-y-1">
 												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
 													Phone Number
 												</label>
-												<input
-													type="text"
+												<PhoneInputField
+													disabled={isSubmitting}
+													size="sm"
 													value={newCustPhone}
-													onChange={(e) =>
-														setNewCustPhone(
-															e.target.value,
-														)
-													}
-													placeholder="e.g. +91 99999 88888"
-													className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+													onChange={(phone) => {
+														setNewCustPhone(phone);
+														setCustErrors((prev) => ({ ...prev, phone: "" }));
+													}}
+													error={custErrors.phone}
 												/>
 											</div>
 										</div>
+										<div className="space-y-1">
+											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+												Address
+											</label>
+											<textarea
+												disabled={isSubmitting}
+												value={newCustAddress}
+												onChange={(e) => {
+													setNewCustAddress(e.target.value);
+													setCustErrors((prev) => ({ ...prev, address: "" }));
+												}}
+												placeholder="Enter customer address..."
+												rows={2}
+												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+													${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+											/>
+											{custErrors.address && (
+												<p className="text-xs text-red-500 font-medium mt-1">
+													{custErrors.address}
+												</p>
+											)}
+										</div>
 										<button
 											type="button"
+											disabled={isSubmitting}
 											onClick={handleCreateCustomer}
-											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
 										>
-											Save and Select Customer
+											{isSubmitting ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving Client...</span>
+												</>
+											) : (
+												"Save and Select Customer"
+											)}
 										</button>
 									</div>
 								) : (
-									<select
+									<Select
 										value={sellCustomer}
+										disabled={isSubmitting}
 										onChange={(e) =>
 											setSellCustomer(e.target.value)
 										}
 										required
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									>
-										<option value="">
-											-- Choose Client --
-										</option>
-										{customers.map((c) => (
-											<option key={c.id} value={c.name}>
-												{c.name} ({c.phone})
-											</option>
-										))}
-									</select>
+										placeholder="-- Choose Client --"
+										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
+									/>
 								)}
 							</div>
 
@@ -1459,11 +1872,12 @@ export default function InventoryPage() {
 									<input
 										type="number"
 										required
+										disabled={isSubmitting}
 										value={sellPrice}
 										onChange={(e) =>
 											setSellPrice(e.target.value)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white"
+										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50"
 									/>
 								</div>
 								<div className="space-y-1.5">
@@ -1473,11 +1887,12 @@ export default function InventoryPage() {
 									<input
 										type="date"
 										required
+										disabled={isSubmitting}
 										value={sellDate}
 										onChange={(e) =>
 											setSellDate(e.target.value)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 									/>
 								</div>
 							</div>
@@ -1488,13 +1903,14 @@ export default function InventoryPage() {
 									Transaction Notes
 								</label>
 								<textarea
+									disabled={isSubmitting}
 									value={sellNotes}
 									onChange={(e) =>
 										setSellNotes(e.target.value)
 									}
 									placeholder="e.g. Screen and device inspected by buyer. Paid full via UPI."
 									rows={2}
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 								/>
 							</div>
 						</div>
@@ -1505,7 +1921,9 @@ export default function InventoryPage() {
 								type="button"
 								variant="ghost"
 								size="sm"
+								disabled={isSubmitting}
 								onClick={() => setIsSellFormOpen(false)}
+								className="cursor-pointer"
 							>
 								Cancel
 							</Button>
@@ -1513,9 +1931,20 @@ export default function InventoryPage() {
 								type="submit"
 								variant="gradient"
 								size="sm"
-								className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+								disabled={isSubmitting}
+								className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5 min-w-[120px] h-9"
 							>
-								Confirm Sale
+								{isSubmitting ? (
+									<>
+										<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+										</svg>
+										<span>Recording...</span>
+									</>
+								) : (
+									"Confirm Sale"
+								)}
 							</Button>
 						</div>
 					</form>
@@ -1525,7 +1954,7 @@ export default function InventoryPage() {
 			{/* BUYBACK MODAL */}
 			<Modal
 				isOpen={isBuybackFormOpen}
-				onClose={() => setIsBuybackFormOpen(false)}
+				onClose={() => !isSubmitting && setIsBuybackFormOpen(false)}
 				title={
 					<div className="flex items-center gap-3 text-left">
 						<span className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
@@ -1548,8 +1977,7 @@ export default function InventoryPage() {
 								Record Device Buyback
 							</h3>
 							<p className="text-[11px] text-zinc-400 font-normal mt-0.5">
-								Re-acquire a previously sold unit back into
-								active inventory.
+								Re-acquire a previously sold unit back into active inventory.
 							</p>
 						</div>
 					</div>
@@ -1559,17 +1987,14 @@ export default function InventoryPage() {
 				{buybackDevice && (
 					<form onSubmit={handleBuybackSubmit} className="space-y-5">
 						{/* Device Info Panel */}
-						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner">
+						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
 							<div className="flex justify-between items-start">
 								<div>
 									<h4 className="text-sm font-extrabold text-zinc-900 dark:text-white">
-										{buybackDevice.brand}{" "}
-										{buybackDevice.model}
+										{buybackDevice.brand} {buybackDevice.model}
 									</h4>
 									<p className="text-[11px] text-zinc-400 mt-0.5">
-										{buybackDevice.storage} /{" "}
-										{buybackDevice.ram} RAM &bull;{" "}
-										{buybackDevice.color}
+										{buybackDevice.storage} / {buybackDevice.ram} RAM &bull; {buybackDevice.color}
 									</p>
 								</div>
 								<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/10 text-zinc-650 dark:text-zinc-400 uppercase tracking-wide">
@@ -1590,9 +2015,7 @@ export default function InventoryPage() {
 										Last Cost Price:
 									</span>
 									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
-										₹
-										{buybackDevice.purchasePrice?.toLocaleString() ||
-											"-"}
+										{buybackDevice.purchasePrice ? `₹${buybackDevice.purchasePrice.toLocaleString()}` : "-"}
 									</span>
 								</div>
 								<div>
@@ -1616,10 +2039,11 @@ export default function InventoryPage() {
 									</label>
 									<button
 										type="button"
+										disabled={isSubmitting}
 										onClick={() =>
 											setIsAddingCust(!isAddingCust)
 										}
-										className="text-[10px] text-primary hover:underline font-bold"
+										className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline cursor-pointer"
 									>
 										{isAddingCust
 											? "Cancel"
@@ -1636,59 +2060,90 @@ export default function InventoryPage() {
 												</label>
 												<input
 													type="text"
+													disabled={isSubmitting}
 													value={newCustName}
-													onChange={(e) =>
-														setNewCustName(
-															e.target.value,
-														)
-													}
+													onChange={(e) => {
+														setNewCustName(e.target.value);
+														setCustErrors((prev) => ({ ...prev, name: "" }));
+													}}
 													placeholder="e.g. John Doe"
-													className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+													className={`w-full px-3 py-2.5 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+														${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
 												/>
+												{custErrors.name && (
+													<p className="text-xs text-red-500 font-medium mt-1">
+														{custErrors.name}
+													</p>
+												)}
 											</div>
 											<div className="space-y-1">
 												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
 													Phone Number
 												</label>
-												<input
-													type="text"
+												<PhoneInputField
+													disabled={isSubmitting}
+													size="sm"
 													value={newCustPhone}
-													onChange={(e) =>
-														setNewCustPhone(
-															e.target.value,
-														)
-													}
-													placeholder="e.g. +91 99999 88888"
-													className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+													onChange={(phone) => {
+														setNewCustPhone(phone);
+														setCustErrors((prev) => ({ ...prev, phone: "" }));
+													}}
+													error={custErrors.phone}
 												/>
 											</div>
 										</div>
+										<div className="space-y-1">
+											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+												Address
+											</label>
+											<textarea
+												disabled={isSubmitting}
+												value={newCustAddress}
+												onChange={(e) => {
+													setNewCustAddress(e.target.value);
+													setCustErrors((prev) => ({ ...prev, address: "" }));
+												}}
+												placeholder="Enter customer address..."
+												rows={2}
+												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+													${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+											/>
+											{custErrors.address && (
+												<p className="text-xs text-red-500 font-medium mt-1">
+													{custErrors.address}
+												</p>
+											)}
+										</div>
 										<button
 											type="button"
+											disabled={isSubmitting}
 											onClick={handleCreateCustomer}
-											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
 										>
-											Save and Select Customer
+											{isSubmitting ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving Client...</span>
+												</>
+											) : (
+												"Save and Select Customer"
+											)}
 										</button>
 									</div>
 								) : (
-									<select
+									<Select
 										value={buybackCustomer}
+										disabled={isSubmitting}
 										onChange={(e) =>
 											setBuybackCustomer(e.target.value)
 										}
 										required
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									>
-										<option value="">
-											-- Choose Client --
-										</option>
-										{customers.map((c) => (
-											<option key={c.id} value={c.name}>
-												{c.name} ({c.phone})
-											</option>
-										))}
-									</select>
+										placeholder="-- Choose Client --"
+										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
+									/>
 								)}
 							</div>
 
@@ -1701,11 +2156,12 @@ export default function InventoryPage() {
 									<input
 										type="number"
 										required
+										disabled={isSubmitting}
 										value={buybackPrice}
 										onChange={(e) =>
 											setBuybackPrice(e.target.value)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white"
+										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50"
 									/>
 								</div>
 								<div className="space-y-1.5">
@@ -1715,11 +2171,12 @@ export default function InventoryPage() {
 									<input
 										type="date"
 										required
+										disabled={isSubmitting}
 										value={buybackDate}
 										onChange={(e) =>
 											setBuybackDate(e.target.value)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 									/>
 								</div>
 							</div>
@@ -1730,22 +2187,21 @@ export default function InventoryPage() {
 									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 										Buyback Condition *
 									</label>
-									<select
+									<Select
 										value={buybackCondition}
+										disabled={isSubmitting}
 										onChange={(e) =>
 											setBuybackCondition(
 												e.target.value as any,
 											)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									>
-										<option value="Mint">Mint</option>
-										<option value="Excellent">
-											Excellent
-										</option>
-										<option value="Good">Good</option>
-										<option value="Fair">Fair</option>
-									</select>
+										options={[
+											{ value: "Mint", label: "Mint" },
+											{ value: "Excellent", label: "Excellent" },
+											{ value: "Good", label: "Good" },
+											{ value: "Fair", label: "Fair" },
+										]}
+									/>
 								</div>
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -1756,13 +2212,14 @@ export default function InventoryPage() {
 										min={50}
 										max={100}
 										required
+										disabled={isSubmitting}
 										value={buybackBatteryHealth}
 										onChange={(e) =>
 											setBuybackBatteryHealth(
 												parseInt(e.target.value) || 0,
 											)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 									/>
 								</div>
 							</div>
@@ -1773,13 +2230,14 @@ export default function InventoryPage() {
 									Buyback Notes
 								</label>
 								<textarea
+									disabled={isSubmitting}
 									value={buybackNotes}
 									onChange={(e) =>
 										setBuybackNotes(e.target.value)
 									}
 									placeholder="e.g. Device remains in excellent condition. Battery health is at 90%. Paid via Bank Transfer."
 									rows={2}
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 								/>
 							</div>
 						</div>
@@ -1790,7 +2248,9 @@ export default function InventoryPage() {
 								type="button"
 								variant="ghost"
 								size="sm"
+								disabled={isSubmitting}
 								onClick={() => setIsBuybackFormOpen(false)}
+								className="cursor-pointer"
 							>
 								Cancel
 							</Button>
@@ -1798,9 +2258,20 @@ export default function InventoryPage() {
 								type="submit"
 								variant="gradient"
 								size="sm"
-								className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+								disabled={isSubmitting}
+								className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5 min-w-[120px] h-9"
 							>
-								Confirm Buyback
+								{isSubmitting ? (
+									<>
+										<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+										</svg>
+										<span>Recording...</span>
+									</>
+								) : (
+									"Confirm Buyback"
+								)}
 							</Button>
 						</div>
 					</form>
@@ -1810,9 +2281,10 @@ export default function InventoryPage() {
 			{/* Delete Confirmation Modal */}
 			<ConfirmDeleteModal
 				isOpen={deleteConfirmOpen}
-				onClose={() => setDeleteConfirmOpen(false)}
+				onClose={() => !isSubmitting && setDeleteConfirmOpen(false)}
 				onConfirm={handleConfirmDelete}
 				itemName={deletingDevice?.name || ""}
+				loading={isSubmitting}
 			/>
 		</div>
 	);

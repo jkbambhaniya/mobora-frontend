@@ -152,6 +152,7 @@ export const ForgotPasswordForm: React.FC = () => {
                 if (error) setError(undefined);
               }}
               error={error}
+              disabled={isLoading}
               leftIcon={
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

@@ -10,7 +10,7 @@ export interface VendorProfile {
 	profile_img?: string;
 }
 
-export interface MobileListing {
+export interface Mobile {
 	id: string;
 	brand: string;
 	model: string;
@@ -25,6 +25,10 @@ export interface MobileListing {
 	batteryHealth: number;
 	status: "Active" | "Sold" | "Review";
 	description: string;
+	brandId?: number;
+	modelId?: number;
+	storageId?: number;
+	ramId?: number;
 }
 
 export interface ExchangeRequest {
@@ -96,7 +100,7 @@ export interface PurchaseHistoryItem {
 	id: string;
 	device: string;
 	date: string;
-	type: "Purchase" | "Exchange";
+	type: "Purchase" | "Exchange" | "Sale";
 	amount: number;
 	status: "Delivered" | "Shipped" | "Processing" | "Cancelled";
 }

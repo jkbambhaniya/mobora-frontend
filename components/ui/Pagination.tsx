@@ -1,5 +1,6 @@
 import React from "react";
 import { PAGE_SIZE_OPTIONS } from "@/utils/constants";
+import { Select } from "./select";
 
 interface PaginationProps {
 	page: number;
@@ -40,17 +41,13 @@ export default function Pagination({
 		<div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-zinc-100 dark:border-zinc-800/40">
 			<div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
 				<span>Show</span>
-				<select
+				<Select
 					value={limit}
 					onChange={(e) => onLimitChange(Number(e.target.value))}
-					className="px-2 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-				>
-					{PAGE_SIZE_OPTIONS.map((s) => (
-						<option key={s} value={s}>
-							{s}
-						</option>
-					))}
-				</select>
+					options={PAGE_SIZE_OPTIONS.map((s) => ({ value: s, label: String(s) }))}
+					size="sm"
+					className="w-16"
+				/>
 				<span>entries</span>
 				<span className="ml-2 text-zinc-400">·</span>
 				<span className="ml-2">

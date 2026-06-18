@@ -363,6 +363,7 @@ export const RegisterForm: React.FC = () => {
 									setErrors({ ...errors, name: undefined });
 							}}
 							error={errors.name}
+							disabled={isLoading}
 							leftIcon={
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -391,6 +392,7 @@ export const RegisterForm: React.FC = () => {
 									setErrors({ ...errors, email: undefined });
 							}}
 							error={errors.email}
+							disabled={isLoading}
 							leftIcon={
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -422,6 +424,7 @@ export const RegisterForm: React.FC = () => {
 									});
 							}}
 							error={errors.password}
+							disabled={isLoading}
 							leftIcon={
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -520,6 +523,7 @@ export const RegisterForm: React.FC = () => {
 									});
 							}}
 							error={errors.confirmPassword}
+							disabled={isLoading}
 							leftIcon={
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -553,6 +557,7 @@ export const RegisterForm: React.FC = () => {
 											terms: undefined,
 										});
 								}}
+								disabled={isLoading}
 								className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary bg-transparent"
 							/>
 							<span className="leading-tight">

@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import {
 	useDashboard,
 	TradeTransaction,
 	Customer,
 } from "@/context/vendor/dashboard-context";
+import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 
 export default function TradesTrackerPage() {
 	const {
@@ -396,7 +398,7 @@ export default function TradesTrackerPage() {
 											</button>
 										</div>
 									) : (
-										<select
+										<Select
 											value={formBrand}
 											disabled={autofillDetected}
 											onChange={(e) => {
@@ -404,17 +406,9 @@ export default function TradesTrackerPage() {
 												setFormModel("");
 											}}
 											required
-											className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary disabled:opacity-75 disabled:bg-zinc-100/30"
-										>
-											<option value="">
-												-- Select Brand --
-											</option>
-											{brands.map((b) => (
-												<option key={b} value={b}>
-													{b}
-												</option>
-											))}
-										</select>
+											placeholder="-- Select Brand --"
+											options={brands.map((b) => ({ value: b, label: b }))}
+										/>
 									)}
 								</div>
 
@@ -464,7 +458,7 @@ export default function TradesTrackerPage() {
 											</button>
 										</div>
 									) : (
-										<select
+										<Select
 											value={formModel}
 											disabled={
 												autofillDetected || !formBrand
@@ -473,25 +467,14 @@ export default function TradesTrackerPage() {
 												setFormModel(e.target.value)
 											}
 											required
-											className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary disabled:opacity-75 disabled:bg-zinc-100/30"
-										>
-											<option value="">
-												-- Select Model --
-											</option>
-											{models
+											placeholder="-- Select Model --"
+											options={models
 												.filter(
 													(m) =>
 														m.brand === formBrand,
 												)
-												.map((m) => (
-													<option
-														key={m.name}
-														value={m.name}
-													>
-														{m.name}
-													</option>
-												))}
-										</select>
+												.map((m) => ({ value: m.name, label: m.name }))}
+										/>
 									)}
 								</div>
 							</div>
@@ -543,24 +526,16 @@ export default function TradesTrackerPage() {
 											</button>
 										</div>
 									) : (
-										<select
+										<Select
 											value={formStorage}
 											disabled={autofillDetected}
 											onChange={(e) =>
 												setFormStorage(e.target.value)
 											}
 											required
-											className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-xs focus:ring-2 focus:ring-primary disabled:opacity-75 disabled:bg-zinc-100/30"
-										>
-											<option value="">
-												-- Capacity --
-											</option>
-											{storages.map((s) => (
-												<option key={s} value={s}>
-													{s}
-												</option>
-											))}
-										</select>
+											placeholder="-- Capacity --"
+											options={storages.map((s) => ({ value: s, label: s }))}
+										/>
 									)}
 								</div>
 
@@ -605,22 +580,16 @@ export default function TradesTrackerPage() {
 											</button>
 										</div>
 									) : (
-										<select
+										<Select
 											value={formRam}
 											disabled={autofillDetected}
 											onChange={(e) =>
 												setFormRam(e.target.value)
 											}
 											required
-											className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-xs focus:ring-2 focus:ring-primary disabled:opacity-75 disabled:bg-zinc-100/30"
-										>
-											<option value="">-- Size --</option>
-											{rams.map((r) => (
-												<option key={r} value={r}>
-													{r}
-												</option>
-											))}
-										</select>
+											placeholder="-- Size --"
+											options={rams.map((r) => ({ value: r, label: r }))}
+										/>
 									)}
 								</div>
 
@@ -648,22 +617,20 @@ export default function TradesTrackerPage() {
 									<label className="text-xs font-semibold text-zinc-400 uppercase">
 										Current Condition
 									</label>
-									<select
+									<Select
 										value={formCondition}
 										onChange={(e) =>
 											setFormCondition(
 												e.target.value as any,
 											)
 										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									>
-										<option value="Mint">Mint</option>
-										<option value="Excellent">
-											Excellent
-										</option>
-										<option value="Good">Good</option>
-										<option value="Fair">Fair</option>
-									</select>
+										options={[
+											{ value: "Mint", label: "Mint" },
+											{ value: "Excellent", label: "Excellent" },
+											{ value: "Good", label: "Good" },
+											{ value: "Fair", label: "Fair" },
+										]}
+									/>
 								</div>
 
 								<div className="space-y-1">
@@ -739,7 +706,7 @@ export default function TradesTrackerPage() {
 											</button>
 										</div>
 									) : (
-										<select
+										<Select
 											value={formCustomerName}
 											onChange={(e) =>
 												setFormCustomerName(
@@ -747,20 +714,9 @@ export default function TradesTrackerPage() {
 												)
 											}
 											required
-											className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary"
-										>
-											<option value="">
-												-- Choose Client --
-											</option>
-											{customers.map((c) => (
-												<option
-													key={c.id}
-													value={c.name}
-												>
-													{c.name} ({c.phone})
-												</option>
-											))}
-										</select>
+											placeholder="-- Choose Client --"
+											options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
+										/>
 									)}
 								</div>
 
@@ -939,17 +895,40 @@ export default function TradesTrackerPage() {
 																			ev.date
 																		}
 																	</span>
-																	<span
-																		className={`px-2 py-0.5 rounded-full ${
-																			isPurchase
-																				? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-																				: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-																		}`}
-																	>
-																		{isPurchase
-																			? "BUYBACK"
-																			: "SOLD"}
-																	</span>
+																	<div className="flex items-center gap-1.5">
+																		<span
+																			className={`px-2 py-0.5 rounded-full ${
+																				isPurchase
+																					? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+																					: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+																			}`}
+																		>
+																			{isPurchase
+																				? "BUYBACK"
+																				: "SOLD"}
+																		</span>
+																		<button
+																			type="button"
+																			onClick={() => streamInvoice(ev.id)}
+																			title="View Invoice"
+																			className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 hover:text-primary transition-all duration-200 cursor-pointer shadow-sm text-zinc-500"
+																		>
+																			<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+																				<path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+																				<path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+																			</svg>
+																		</button>
+																		<button
+																			type="button"
+																			onClick={() => downloadInvoice(ev.id, `${ev.deviceBrand} ${ev.deviceModel}`)}
+																			title="Download Invoice"
+																			className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 hover:text-primary transition-all duration-200 cursor-pointer shadow-sm text-zinc-500"
+																		>
+																			<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+																				<path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+																			</svg>
+																		</button>
+																	</div>
 																</div>
 																<div className="text-xs text-zinc-800 dark:text-zinc-200 leading-normal">
 																	{isPurchase ? (

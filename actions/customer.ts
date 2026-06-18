@@ -11,6 +11,8 @@ export async function getCustomersAction(filters?: {
   spent?: string;
   sortBy?: string;
   sortOrder?: string;
+  page?: number;
+  limit?: number;
 }) {
   try {
     const response = await apiClient.get("/vendor/customers", { params: filters });

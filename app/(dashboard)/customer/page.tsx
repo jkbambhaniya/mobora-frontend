@@ -12,6 +12,8 @@ import { toast } from "react-hot-toast";
 import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import Pagination from "@/components/ui/Pagination";
+import { Select } from "@/components/ui/select";
 
 const customerSchema = yup.object().shape({
 	name: yup.string().trim().required("Full Name is required."),
@@ -45,6 +47,7 @@ export default function CustomerPage() {
 	const router = useRouter();
 	const {
 		customers,
+		total,
 		metrics,
 		isLoading,
 		refreshCustomers,
@@ -60,6 +63,8 @@ export default function CustomerPage() {
 		"name",
 	);
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+	const [page, setPage] = useState(1);
+	const [limit, setLimit] = useState(10);
 
 	// Modal states
 	const [isFormOpen, setIsFormOpen] = useState(false);
@@ -77,6 +82,7 @@ export default function CustomerPage() {
 	React.useEffect(() => {
 		const handler = setTimeout(() => {
 			setDebouncedSearchTerm(searchTerm);
+			setPage(1);
 		}, 300);
 		return () => clearTimeout(handler);
 	}, [searchTerm]);
@@ -88,8 +94,10 @@ export default function CustomerPage() {
 			spent: spentFilter,
 			sortBy,
 			sortOrder,
+			page,
+			limit,
 		});
-	}, [debouncedSearchTerm, statusFilter, spentFilter, sortBy, sortOrder]);
+	}, [debouncedSearchTerm, statusFilter, spentFilter, sortBy, sortOrder, page, limit]);
 
 	// Form Fields
 	const [formName, setFormName] = useState("");
@@ -231,6 +239,7 @@ export default function CustomerPage() {
 	};
 
 	const handleSort = (field: "name" | "totalSpent" | "joinedDate") => {
+		setPage(1);
 		if (sortBy === field) {
 			setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
 		} else {
@@ -598,38 +607,40 @@ export default function CustomerPage() {
 
 						{/* Filtering buttons */}
 						<div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
-							<select
+							<Select
 								value={statusFilter}
-								onChange={(e) =>
-									setStatusFilter(e.target.value)
-								}
-								className="px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-							>
-								<option value="All">All Statuses</option>
-								<option value="Active">Active Accounts</option>
-								<option value="Inactive">
-									Inactive Accounts
-								</option>
-							</select>
+								onChange={(e) => {
+									setStatusFilter(e.target.value);
+									setPage(1);
+								}}
+								options={[
+									{ value: "All", label: "All Statuses" },
+									{ value: "Active", label: "Active Accounts" },
+									{ value: "Inactive", label: "Inactive Accounts" },
+								]}
+								className="w-44"
+							/>
 
-							<select
+							<Select
 								value={spentFilter}
-								onChange={(e) => setSpentFilter(e.target.value)}
-								className="px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-							>
-								<option value="All">All Spending Tiers</option>
-								<option value="High">
-									Premium (&ge; ₹50k)
-								</option>
-								<option value="Low">
-									Standard (&lt; ₹50k)
-								</option>
-							</select>
+								onChange={(e) => {
+									setSpentFilter(e.target.value);
+									setPage(1);
+								}}
+								options={[
+									{ value: "All", label: "All Spending Tiers" },
+									{ value: "High", label: "Premium (≥ ₹50k)" },
+									{ value: "Low", label: "Standard (< ₹50k)" },
+								]}
+								className="w-48"
+							/>
 
 							<Button
 								variant="gradient"
 								size="sm"
+								shape="pill"
 								onClick={handleOpenAdd}
+								className="font-bold"
 							>
 								<span className="flex items-center gap-2">
 									<svg
@@ -693,6 +704,7 @@ export default function CustomerPage() {
 											setSearchTerm("");
 											setStatusFilter("All");
 											setSpentFilter("All");
+											setPage(1);
 										}}
 									>
 										Clear All Filters
@@ -702,27 +714,16 @@ export default function CustomerPage() {
 						}
 					/>
 
-					{/* DataTable Footer Controls */}
-					<div className="px-6 py-4 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-850/40 text-xs text-zinc-400 font-semibold bg-zinc-50/20 dark:bg-zinc-900/10 select-none">
-						<span>
-							Showing {filteredCustomers.length} of{" "}
-							{customers.length} customer records
-						</span>
-						<div className="flex gap-2">
-							<button
-								disabled
-								className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 opacity-50 cursor-not-allowed"
-							>
-								Previous
-							</button>
-							<button
-								disabled
-								className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 opacity-50 cursor-not-allowed"
-							>
-								Next
-							</button>
-						</div>
-					</div>
+					<Pagination
+						page={page}
+						total={total}
+						limit={limit}
+						onPageChange={setPage}
+						onLimitChange={(l) => {
+							setLimit(l);
+							setPage(1);
+						}}
+					/>
 				</div>
 			</div>
 
@@ -816,25 +817,19 @@ export default function CustomerPage() {
 						</div>
 					</div>
 
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Account Status
-						</label>
-						<select
-							value={formStatus}
-							onChange={(e) =>
-								setFormStatus(
-									e.target.value as "Active" | "Inactive",
-								)
-							}
-							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-						>
-							<option value="Active">Active Account</option>
-							<option value="Inactive">
-								Inactive / Suspended
-							</option>
-						</select>
-					</div>
+					<Select
+						label="Account Status"
+						value={formStatus}
+						onChange={(e) =>
+							setFormStatus(
+								e.target.value as "Active" | "Inactive",
+							)
+						}
+						options={[
+							{ value: "Active", label: "Active Account" },
+							{ value: "Inactive", label: "Inactive / Suspended" },
+						]}
+					/>
 
 					<div className="space-y-1">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
