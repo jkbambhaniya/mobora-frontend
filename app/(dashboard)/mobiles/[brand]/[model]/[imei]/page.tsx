@@ -235,7 +235,7 @@ export default function ImeiDetailsPage() {
 				description: sellNotes || `Sold to ${sellCustomer}.`
 			});
 			if (result.success) {
-				await handleAddTradeTransaction({
+				const tx = await handleAddTradeTransaction({
 					imei: device.imei || "N/A",
 					deviceBrand: device.brand,
 					deviceModel: device.model,
@@ -255,6 +255,9 @@ export default function ImeiDetailsPage() {
 				await refreshDevices();
 				await refreshMetrics();
 				await refreshTrades();
+				if (tx && tx.id) {
+					streamInvoice(tx.id);
+				}
 			} else {
 				hotToast.error(result.message || "Failed to record sale.");
 			}
@@ -288,7 +291,7 @@ export default function ImeiDetailsPage() {
 				description: buybackNotes || `Re-acquired from ${buybackCustomer}.`
 			});
 			if (result.success) {
-				await handleAddTradeTransaction({
+				const tx = await handleAddTradeTransaction({
 					imei: device.imei || "N/A",
 					deviceBrand: device.brand,
 					deviceModel: device.model,
@@ -308,6 +311,9 @@ export default function ImeiDetailsPage() {
 				await refreshDevices();
 				await refreshMetrics();
 				await refreshTrades();
+				if (tx && tx.id) {
+					streamInvoice(tx.id);
+				}
 			} else {
 				hotToast.error(result.message || "Failed to record buyback.");
 			}

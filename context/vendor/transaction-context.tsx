@@ -16,7 +16,7 @@ interface TransactionContextType {
   setInvoices: React.Dispatch<React.SetStateAction<InvoiceRecord[]>>;
   handleAcceptExchange: (id: string, name: string, offer: number, target: string, price: number) => void;
   handleRejectExchange: (id: string) => void;
-  handleAddTradeTransaction: (transaction: Omit<TradeTransaction, "id">) => Promise<void>;
+  handleAddTradeTransaction: (transaction: Omit<TradeTransaction, "id">) => Promise<any>;
   handleAddInvoice: (invoice: Omit<InvoiceRecord, "id">) => void;
   refreshTrades: () => Promise<void>;
 }
@@ -94,6 +94,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
         await refreshDevices(undefined, true);
         await refreshMetrics();
         await refreshTrades();
+        return res.data.transaction;
       } else {
         triggerToast(res.message || "Failed to record transaction.", "error");
       }
