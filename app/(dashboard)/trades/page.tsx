@@ -4,12 +4,20 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
+import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import {
 	useDashboard,
 	TradeTransaction,
 	Customer,
 } from "@/context/vendor/dashboard-context";
 import { streamInvoice, downloadInvoice } from "@/utils/invoice";
+import * as yup from "yup";
+
+const quickPartnerSchema = yup.object().shape({
+	name: yup.string().trim().required("Full Name/Business Name is required."),
+	phone: yup.string().trim().required("Phone Number is required."),
+	address: yup.string().trim().nullable().notRequired(),
+});
 
 export default function TradesTrackerPage() {
 	const {
@@ -25,6 +33,7 @@ export default function TradesTrackerPage() {
 		handleAddRam,
 		customers,
 		setCustomers,
+		addCustomer,
 		triggerToast,
 	} = useDashboard();
 
@@ -39,8 +48,8 @@ export default function TradesTrackerPage() {
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
 	const [formCondition, setFormCondition] = useState<
-		"Mint" | "Excellent" | "Good" | "Fair"
-	>("Excellent");
+		"NEW" | "OLD"
+	>("NEW");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formCustomerName, setFormCustomerName] = useState("");
 	const [formAmount, setFormAmount] = useState("");
@@ -76,6 +85,10 @@ export default function TradesTrackerPage() {
 	const [isAddingCust, setIsAddingCust] = useState(false);
 	const [newCustName, setNewCustName] = useState("");
 	const [newCustPhone, setNewCustPhone] = useState("");
+	const [newCustAddress, setNewCustAddress] = useState("");
+	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
+	const [custFormError, setCustFormError] = useState("");
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Monitor IMEI input for auto-fill logic
 	useEffect(() => {
@@ -157,7 +170,7 @@ export default function TradesTrackerPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("Excellent");
+		setFormCondition("NEW");
 		setFormBatteryHealth(90);
 		setFormCustomerName("");
 		setFormAmount("");
@@ -219,30 +232,64 @@ export default function TradesTrackerPage() {
 	};
 
 	// Inline Quick Add Customer
-	const handleCreateCustomer = () => {
-		if (!newCustName || !newCustPhone) {
-			alert("Customer name and phone number are required.");
+	const handleCreateCustomer = async () => {
+		setCustErrors({});
+		setCustFormError("");
+		try {
+			await quickPartnerSchema.validate(
+				{
+					name: newCustName,
+					phone: newCustPhone,
+					address: newCustAddress || null,
+				},
+				{ abortEarly: false }
+			);
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setCustErrors(errors);
+			} else {
+				setCustFormError("Validation failed.");
+			}
 			return;
 		}
-		const newCust: Customer = {
-			id: `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
-			name: newCustName,
-			phone: newCustPhone,
-			email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-			status: "Active",
-			totalOrders: 0,
-			totalSpent: 0,
-			joinedDate: new Date().toISOString().split("T")[0],
-			address: "Store Walk-in Registration",
-			notes: "Quick registered during trade transaction.",
-			purchases: [],
-		};
-		setCustomers((prev) => [newCust, ...prev]);
-		setFormCustomerName(newCustName);
-		setIsAddingCust(false);
-		setNewCustName("");
-		setNewCustPhone("");
-		triggerToast(`Customer ${newCustName} quick-registered.`);
+
+		setIsSubmitting(true);
+		try {
+			const res = await addCustomer({
+				name: newCustName,
+				phone: newCustPhone,
+				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
+				status: "Active",
+				address: newCustAddress || "Registered in Trades desk",
+				notes: "Quick registered during trade transaction.",
+			});
+
+			if (res.success) {
+				setFormCustomerName(newCustName);
+				setIsAddingCust(false);
+				setNewCustName("");
+				setNewCustPhone("");
+				setNewCustAddress("");
+				setCustErrors({});
+				triggerToast(`Customer ${newCustName} quick-registered.`);
+			} else {
+				if (res.errors) {
+					setCustErrors(res.errors);
+				} else {
+					setCustFormError(res.message || "Registration failed.");
+				}
+			}
+		} catch (err) {
+			setCustFormError("Error saving customer details.");
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	// Compute profit and specs for visual timeline
@@ -625,10 +672,8 @@ export default function TradesTrackerPage() {
 											)
 										}
 										options={[
-											{ value: "Mint", label: "Mint" },
-											{ value: "Excellent", label: "Excellent" },
-											{ value: "Good", label: "Good" },
-											{ value: "Fair", label: "Fair" },
+											{ value: "NEW", label: "New" },
+											{ value: "OLD", label: "Old" },
 										]}
 									/>
 								</div>
@@ -653,110 +698,169 @@ export default function TradesTrackerPage() {
 							</div>
 
 							{/* Customer, Amount, Date */}
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-								{/* Customer */}
-								<div className="space-y-1 relative">
+							<div className="space-y-4">
+								<div className="space-y-1.5 text-left">
 									<div className="flex justify-between items-center">
-										<label className="text-xs font-semibold text-zinc-400 uppercase">
+										<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 											Customer *
 										</label>
 										<button
 											type="button"
-											onClick={() =>
-												setIsAddingCust(!isAddingCust)
-											}
+											onClick={() => {
+												setIsAddingCust(!isAddingCust);
+												setCustErrors({});
+												setCustFormError("");
+											}}
 											className="text-[10px] text-primary hover:underline font-bold"
 										>
-											{isAddingCust
-												? "Cancel"
-												: "+ Quick Add"}
+											{isAddingCust ? "Cancel" : "+ Quick Add"}
 										</button>
 									</div>
 
 									{isAddingCust ? (
-										<div className="p-3 border border-primary/20 bg-primary/5 rounded-xl space-y-2 animate-scaleUp">
-											<input
-												type="text"
-												value={newCustName}
-												onChange={(e) =>
-													setNewCustName(
-														e.target.value,
-													)
-												}
-												placeholder="Client Full Name"
-												className="w-full px-2 py-1 border border-zinc-300 rounded text-xs bg-transparent focus:outline-none"
-											/>
-											<input
-												type="text"
-												value={newCustPhone}
-												onChange={(e) =>
-													setNewCustPhone(
-														e.target.value,
-													)
-												}
-												placeholder="Phone Number"
-												className="w-full px-2 py-1 border border-zinc-300 rounded text-xs bg-transparent focus:outline-none"
-											/>
+										<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp text-left">
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+												<div className="space-y-1">
+													<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+														Full Name *
+													</label>
+													<input
+														type="text"
+														disabled={isSubmitting}
+														value={newCustName}
+														onChange={(e) => {
+															setNewCustName(e.target.value);
+															setCustErrors((prev) => ({ ...prev, name: "" }));
+														}}
+														placeholder="John Doe"
+														className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+															${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+													/>
+													{custErrors.name && (
+														<p className="text-[10px] text-red-500 font-semibold">
+															{custErrors.name}
+														</p>
+													)}
+												</div>
+												<div className="space-y-1">
+													<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+														Mobile Number *
+													</label>
+													<PhoneInputField
+														disabled={isSubmitting}
+														size="sm"
+														value={newCustPhone}
+														onChange={(phone) => {
+															setNewCustPhone(phone);
+															setCustErrors((prev) => ({ ...prev, phone: "" }));
+														}}
+														error={custErrors.phone}
+													/>
+												</div>
+											</div>
+											<div className="space-y-1">
+												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+													Address
+												</label>
+												<textarea
+													disabled={isSubmitting}
+													value={newCustAddress}
+													onChange={(e) => {
+														setNewCustAddress(e.target.value);
+														setCustErrors((prev) => ({ ...prev, address: "" }));
+													}}
+													placeholder="Enter customer address..."
+													rows={2}
+													className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+														${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+												/>
+												{custErrors.address && (
+													<p className="text-xs text-red-500 font-medium mt-1">
+														{custErrors.address}
+													</p>
+												)}
+											</div>
 											<button
 												type="button"
+												disabled={isSubmitting}
 												onClick={handleCreateCustomer}
-												className="w-full py-1 bg-primary text-white text-xs font-bold rounded hover:bg-primary/95"
+												className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
 											>
-												Register Client
+												{isSubmitting ? (
+													<>
+														<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+															<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+															<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+														</svg>
+														<span>Saving Customer...</span>
+													</>
+												) : (
+													"Save and Select Customer"
+												)}
 											</button>
+											{custFormError && (
+												<p className="text-xs text-red-500 font-semibold text-center mt-2">
+													{custFormError}
+												</p>
+											)}
 										</div>
 									) : (
-										<Select
-											value={formCustomerName}
-											onChange={(e) =>
-												setFormCustomerName(
-													e.target.value,
-												)
-											}
-											required
-											placeholder="-- Choose Client --"
-											options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
-										/>
+										<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+											{/* Customer Choose */}
+											<div className="space-y-1 relative md:col-span-1">
+												<Select
+													value={formCustomerName}
+													onChange={(e) =>
+														setFormCustomerName(
+															e.target.value,
+														)
+													}
+													required
+													placeholder="-- Choose Customer --"
+													options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
+												/>
+											</div>
+
+											{/* Amount */}
+											<div className="space-y-1">
+												<label className="text-xs font-semibold text-zinc-400 uppercase">
+													{txType === "Purchase"
+														? "Purchase Price (₹) *"
+														: "Sale price (₹) *"}
+												</label>
+												<input
+													type="number"
+													required
+													value={formAmount}
+													onChange={(e) =>
+														setFormAmount(e.target.value)
+													}
+													placeholder={
+														txType === "Purchase"
+															? "e.g. 40000"
+															: "e.g. 50000"
+													}
+													className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+												/>
+											</div>
+
+											{/* Date */}
+											<div className="space-y-1">
+												<label className="text-xs font-semibold text-zinc-400 uppercase">
+													Tx Date *
+												</label>
+												<input
+													type="date"
+													required
+													value={formDate}
+													onChange={(e) =>
+														setFormDate(e.target.value)
+													}
+													className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+												/>
+											</div>
+										</div>
 									)}
-								</div>
-
-								{/* Amount */}
-								<div className="space-y-1">
-									<label className="text-xs font-semibold text-zinc-400 uppercase">
-										{txType === "Purchase"
-											? "Purchase Price (₹) *"
-											: "Sale price (₹) *"}
-									</label>
-									<input
-										type="number"
-										required
-										value={formAmount}
-										onChange={(e) =>
-											setFormAmount(e.target.value)
-										}
-										placeholder={
-											txType === "Purchase"
-												? "e.g. 40000"
-												: "e.g. 50000"
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									/>
-								</div>
-
-								{/* Date */}
-								<div className="space-y-1">
-									<label className="text-xs font-semibold text-zinc-400 uppercase">
-										Tx Date *
-									</label>
-									<input
-										type="date"
-										required
-										value={formDate}
-										onChange={(e) =>
-											setFormDate(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									/>
 								</div>
 							</div>
 

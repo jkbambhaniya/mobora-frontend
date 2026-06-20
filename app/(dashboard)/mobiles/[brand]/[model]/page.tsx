@@ -91,8 +91,8 @@ export default function ModelDetailsPage() {
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
 	const [formCondition, setFormCondition] = useState<
-		"Mint" | "Excellent" | "Good" | "Fair"
-	>("Excellent");
+		"NEW" | "OLD"
+	>("NEW");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formDescription, setFormDescription] = useState("");
@@ -106,8 +106,14 @@ export default function ModelDetailsPage() {
 	const [newCustAddress, setNewCustAddress] = useState("");
 	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
 
+	const [formError, setFormError] = useState("");
+	const [storageInlineError, setStorageInlineError] = useState("");
+	const [ramInlineError, setRamInlineError] = useState("");
+	const [custFormError, setCustFormError] = useState("");
+
 	const handleCreateCustomer = async () => {
 		setCustErrors({});
+		setCustFormError("");
 		try {
 			await quickCustomerSchema.validate(
 				{
@@ -127,7 +133,7 @@ export default function ModelDetailsPage() {
 				});
 				setCustErrors(errors);
 			} else {
-				toast.error("Validation failed.");
+				setCustFormError("Validation failed.");
 			}
 			return;
 		}
@@ -153,10 +159,14 @@ export default function ModelDetailsPage() {
 				setCustErrors({});
 				toast.success(`Customer ${newCustName} registered.`);
 			} else {
-				toast.error(res.message || "Failed to register customer.");
+				if (res.errors) {
+					setCustErrors(res.errors);
+				} else {
+					setCustFormError(res.message || "Failed to register customer.");
+				}
 			}
 		} catch (err) {
-			toast.error("An unexpected error occurred registering customer.");
+			setCustFormError("An unexpected error occurred registering customer.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -165,9 +175,11 @@ export default function ModelDetailsPage() {
 	// Dynamic Add Dialog States
 	const [isAddingStorage, setIsAddingStorage] = useState(false);
 	const [newStorageVal, setNewStorageVal] = useState("");
+	const [isSubmittingStorage, setIsSubmittingStorage] = useState(false);
 
 	const [isAddingRam, setIsAddingRam] = useState(false);
 	const [newRamVal, setNewRamVal] = useState("");
+	const [isSubmittingRam, setIsSubmittingRam] = useState(false);
 
 	// Field-level validation errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -220,7 +232,7 @@ export default function ModelDetailsPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("Excellent");
+		setFormCondition("NEW");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormDescription("");
@@ -231,6 +243,10 @@ export default function ModelDetailsPage() {
 		setNewCustAddress("");
 		setCustErrors({});
 		setFieldErrors({});
+		setFormError("");
+		setStorageInlineError("");
+		setRamInlineError("");
+		setCustFormError("");
 		setIsFormOpen(true);
 	};
 
@@ -255,13 +271,17 @@ export default function ModelDetailsPage() {
 		setNewCustAddress("");
 		setCustErrors({});
 		setFieldErrors({});
+		setFormError("");
+		setStorageInlineError("");
+		setRamInlineError("");
+		setCustFormError("");
 		setIsFormOpen(true);
 	};
-
 	// Submit Handler
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setFieldErrors({});
+		setFormError("");
 
 		const selectedBrandName = specs.allBrands.find(b => b.id.toString() === formBrand)?.name || brand;
 		const selectedModelName = specs.allModels.find(m => m.id.toString() === formModel)?.name || model;
@@ -294,7 +314,7 @@ export default function ModelDetailsPage() {
 				});
 				setFieldErrors(errors);
 			} else {
-				toast.error("Form validation failed.");
+				setFormError("Form validation failed.");
 			}
 			return;
 		}
@@ -313,7 +333,7 @@ export default function ModelDetailsPage() {
 			price: priceNum,
 			purchase_price: purchasePriceNum,
 			battery_health: formBatteryHealth,
-			status: editingDevice ? editingDevice.status : "Active",
+			status: editingDevice ? editingDevice.status : "Available",
 			description: formDescription || `Registered ${selectedBrandName} ${selectedModelName}.`,
 			customer_id: formCustomerId ? Number(formCustomerId) : null,
 		};
@@ -324,7 +344,11 @@ export default function ModelDetailsPage() {
 				toast.success(`Updated device entry successfully.`);
 				setIsFormOpen(false);
 			} else {
-				toast.error(res.message || "Failed to update device.");
+				if (res.errors) {
+					setFieldErrors(res.errors);
+				} else {
+					setFormError(res.message || "Failed to update device.");
+				}
 			}
 		} else {
 			const res = await addDevice(payload);
@@ -332,7 +356,11 @@ export default function ModelDetailsPage() {
 				toast.success(`Added device entry successfully.`);
 				setIsFormOpen(false);
 			} else {
-				toast.error(res.message || "Failed to add device.");
+				if (res.errors) {
+					setFieldErrors(res.errors);
+				} else {
+					setFormError(res.message || "Failed to add device.");
+				}
 			}
 		}
 	};
@@ -340,30 +368,49 @@ export default function ModelDetailsPage() {
 	// Dynamic spec creators
 	const handleCreateStorage = async () => {
 		if (newStorageVal.trim()) {
-			const res = await specs.addStorage(newStorageVal.trim());
-			if (res.success) {
-				toast.success("Storage capacity request submitted.");
-				setNewStorageVal("");
-				setIsAddingStorage(false);
-			} else {
-				toast.error(res.message || "Failed to add storage.");
+			setIsSubmittingStorage(true);
+			setStorageInlineError("");
+			try {
+				const res = await specs.addStorage(newStorageVal.trim());
+				if (res.success) {
+					toast.success("Storage capacity request submitted.");
+					await specs.refreshAllSpecs();
+					setNewStorageVal("");
+					setIsAddingStorage(false);
+					clearFieldError("storage");
+				} else {
+					setStorageInlineError(res.message || "Failed to add storage.");
+				}
+			} catch (err) {
+				setStorageInlineError("Failed to add storage.");
+			} finally {
+				setIsSubmittingStorage(false);
 			}
 		}
 	};
 
 	const handleCreateRam = async () => {
 		if (newRamVal.trim()) {
-			const res = await specs.addRam(newRamVal.trim());
-			if (res.success) {
-				toast.success("RAM capacity request submitted.");
-				setNewRamVal("");
-				setIsAddingRam(false);
-			} else {
-				toast.error(res.message || "Failed to add RAM.");
+			setIsSubmittingRam(true);
+			setRamInlineError("");
+			try {
+				const res = await specs.addRam(newRamVal.trim());
+				if (res.success) {
+					toast.success("RAM capacity request submitted.");
+					await specs.refreshAllSpecs();
+					setNewRamVal("");
+					setIsAddingRam(false);
+					clearFieldError("ram");
+				} else {
+					setRamInlineError(res.message || "Failed to add RAM.");
+				}
+			} catch (err) {
+				setRamInlineError("Failed to add RAM.");
+			} finally {
+				setIsSubmittingRam(false);
 			}
 		}
 	};
-
 	// Delete confirmation handlers
 	const handleDelete = (id: string, name: string, e?: React.MouseEvent) => {
 		e?.stopPropagation();
@@ -496,11 +543,9 @@ export default function ModelDetailsPage() {
 			headerClassName: "text-center",
 			className: "text-center",
 			render: (d) => {
-				const conditionColorMap = {
-					Mint: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
-					Excellent: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-					Good: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-					Fair: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+				const conditionColorMap: Record<string, string> = {
+					NEW: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+					OLD: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
 				};
 				return (
 					<span
@@ -554,12 +599,12 @@ export default function ModelDetailsPage() {
 			render: (d) => (
 				<span
 					className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${
-						d.status === "Active"
+						d.status === "Available"
 							? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
 							: "bg-zinc-500/15 text-zinc-500 dark:text-zinc-400"
 					}`}
 				>
-					{d.status === "Active" ? "In Hand" : "Sold"}
+					{d.status === "Available" ? "Available" : d.status}
 				</span>
 			),
 		},
@@ -701,10 +746,8 @@ export default function ModelDetailsPage() {
 						onChange={(e) => setLevel2Condition(e.target.value)}
 						options={[
 							{ value: "All", label: "All Conditions" },
-							{ value: "Mint", label: "Mint" },
-							{ value: "Excellent", label: "Excellent" },
-							{ value: "Good", label: "Good" },
-							{ value: "Fair", label: "Fair" },
+							{ value: "NEW", label: "New" },
+							{ value: "OLD", label: "Old" },
 						]}
 						className="w-40"
 					/>
@@ -845,33 +888,58 @@ export default function ModelDetailsPage() {
 								</label>
 								<button
 									type="button"
+									disabled={isSubmitting || isSubmittingStorage}
 									onClick={() => setIsAddingStorage(!isAddingStorage)}
-									className="text-[10px] text-primary hover:underline font-bold"
+									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
 								>
-									{isAddingStorage ? "Cancel" : "+ Add Storage"}
+									{isAddingStorage ? "Cancel" : "Request Storage"}
 								</button>
 							</div>
 
 							{isAddingStorage ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										value={newStorageVal}
-										onChange={(e) => setNewStorageVal(e.target.value)}
-										placeholder="e.g. 512GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none"
-									/>
-									<button
-										type="button"
-										onClick={handleCreateStorage}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl"
-									>
-										Save
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingStorage || isSubmitting}
+											value={newStorageVal}
+											onChange={(e) => {
+												setNewStorageVal(e.target.value);
+												setStorageInlineError("");
+											}}
+											placeholder="e.g. 512GB"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${storageInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingStorage || isSubmitting}
+											onClick={handleCreateStorage}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
+										>
+											{isSubmittingStorage ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{storageInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{storageInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
 									value={formStorage}
+									disabled={isSubmitting}
 									onChange={(e) => {
 										setFormStorage(e.target.value);
 										clearFieldError("storage");
@@ -879,13 +947,8 @@ export default function ModelDetailsPage() {
 									required
 									placeholder="-- Choose Storage --"
 									options={specs.allStorages.map((s) => ({ value: s.id.toString(), label: s.value }))}
-									className={fieldErrors.storage ? "border-red-400 focus:ring-red-400" : ""}
+									error={fieldErrors.storage}
 								/>
-							)}
-							{fieldErrors.storage && !isAddingStorage && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.storage}
-								</p>
 							)}
 						</div>
 
@@ -897,33 +960,58 @@ export default function ModelDetailsPage() {
 								</label>
 								<button
 									type="button"
+									disabled={isSubmitting || isSubmittingRam}
 									onClick={() => setIsAddingRam(!isAddingRam)}
-									className="text-[10px] text-primary hover:underline font-bold"
+									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
 								>
-									{isAddingRam ? "Cancel" : "+ Add RAM"}
+									{isAddingRam ? "Cancel" : "Request RAM"}
 								</button>
 							</div>
 
 							{isAddingRam ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										value={newRamVal}
-										onChange={(e) => setNewRamVal(e.target.value)}
-										placeholder="e.g. 16GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none"
-									/>
-									<button
-										type="button"
-										onClick={handleCreateRam}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl"
-									>
-										Save
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingRam || isSubmitting}
+											value={newRamVal}
+											onChange={(e) => {
+												setNewRamVal(e.target.value);
+												setRamInlineError("");
+											}}
+											placeholder="e.g. 16GB"
+											className={`w-full px-3 py-2.5 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${ramInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingRam || isSubmitting}
+											onClick={handleCreateRam}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
+										>
+											{isSubmittingRam ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{ramInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{ramInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
 									value={formRam}
+									disabled={isSubmitting}
 									onChange={(e) => {
 										setFormRam(e.target.value);
 										clearFieldError("ram");
@@ -931,13 +1019,8 @@ export default function ModelDetailsPage() {
 									required
 									placeholder="-- Choose RAM --"
 									options={specs.allRams.map((r) => ({ value: r.id.toString(), label: r.value }))}
-									className={fieldErrors.ram ? "border-red-400 focus:ring-red-400" : ""}
+									error={fieldErrors.ram}
 								/>
-							)}
-							{fieldErrors.ram && !isAddingRam && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.ram}
-								</p>
 							)}
 						</div>
 					</div>
@@ -955,10 +1038,8 @@ export default function ModelDetailsPage() {
 									clearFieldError("condition");
 								}}
 								options={[
-									{ value: "Mint", label: "Mint" },
-									{ value: "Excellent", label: "Excellent" },
-									{ value: "Good", label: "Good" },
-									{ value: "Fair", label: "Fair" },
+									{ value: "NEW", label: "New" },
+									{ value: "OLD", label: "Old" },
 								]}
 								className={fieldErrors.condition ? "border-red-400 focus:ring-red-400" : ""}
 							/>
@@ -1091,12 +1172,17 @@ export default function ModelDetailsPage() {
 													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 												</svg>
-												<span>Saving Client...</span>
+												<span>Saving Customer...</span>
 											</>
 										) : (
 											"Save and Select Customer"
 										)}
 									</button>
+									{custFormError && (
+										<p className="text-xs text-red-500 font-semibold text-center mt-2">
+											{custFormError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1163,6 +1249,12 @@ export default function ModelDetailsPage() {
 							</p>
 						)}
 					</div>
+
+					{formError && (
+						<p className="text-xs text-red-500 font-semibold text-center mt-2">
+							{formError}
+						</p>
+					)}
 
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
 						<Button

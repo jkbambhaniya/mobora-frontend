@@ -18,12 +18,12 @@ export interface Mobile {
 	ram: string;
 	color: string;
 	imei?: string;
-	condition: "Mint" | "Excellent" | "Good" | "Fair";
+	condition: "NEW" | "OLD";
 	price: number;
 	purchasePrice?: number;
 	stock: number;
 	batteryHealth: number;
-	status: "Active" | "Sold" | "Review";
+	status: "Available" | "Sold" | "Review";
 	description: string;
 	brandId?: number;
 	modelId?: number;
@@ -36,7 +36,7 @@ export interface ExchangeRequest {
 	customerName: string;
 	customerPhone: string;
 	customerPhoneSpecs: string;
-	customerPhoneCondition: "Mint" | "Excellent" | "Good" | "Fair";
+	customerPhoneCondition: "NEW" | "OLD";
 	customerPhoneBattery: number;
 	targetDevice: string;
 	targetPrice: number;
@@ -58,6 +58,7 @@ export interface OrderRecord {
 
 export interface TradeTransaction {
 	id: string;
+	mobileId?: number | string;
 	imei: string;
 	deviceModel: string;
 	deviceBrand: string;
@@ -69,7 +70,7 @@ export interface TradeTransaction {
 	storage?: string;
 	ram?: string;
 	color?: string;
-	condition?: "Mint" | "Excellent" | "Good" | "Fair";
+	condition?: "NEW" | "OLD";
 	batteryHealth?: number;
 }
 
@@ -103,6 +104,12 @@ export interface PurchaseHistoryItem {
 	type: "Purchase" | "Exchange" | "Sale";
 	amount: number;
 	status: "Delivered" | "Shipped" | "Processing" | "Cancelled";
+	imei?: string | null;
+	color?: string | null;
+	ram?: string | null;
+	storage?: string | null;
+	condition?: string | null;
+	batteryHealth?: number | null;
 }
 
 export interface Customer {
@@ -113,6 +120,7 @@ export interface Customer {
 	status: "Active" | "Inactive";
 	totalOrders: number;
 	totalSpent: number;
+	totalProfit?: number;
 	joinedDate: string;
 	address: string;
 	notes?: string | null;

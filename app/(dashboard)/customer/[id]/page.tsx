@@ -53,15 +53,7 @@ const statusBadge = (status: Customer["status"]) =>
 		? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
 		: "bg-zinc-500/15 text-zinc-500 dark:text-zinc-400 border border-zinc-400/20";
 
-const orderStatusStyle = (s: PurchaseHistoryItem["status"]) => {
-	const map: Record<PurchaseHistoryItem["status"], string> = {
-		Delivered: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-		Shipped: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-		Processing: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-		Cancelled: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-	};
-	return map[s];
-};
+
 
 /* ══════════════════════════════════════════════
    PAGE COMPONENT
@@ -111,6 +103,7 @@ export default function CustomerDetailPage() {
 
 	// Field-level validation errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+	const [formError, setFormError] = useState("");
 	const clearFieldError = (field: string) =>
 		setFieldErrors((prev) => {
 			const n = { ...prev };
@@ -157,15 +150,13 @@ export default function CustomerDetailPage() {
 		.join("")
 		.slice(0, 2)
 		.toUpperCase();
-	const avgTicket =
-		customer.totalOrders > 0
-			? Math.round(customer.totalSpent / customer.totalOrders)
-			: 0;
+	const totalProfit = customer.totalProfit ?? 0;
 	const profileImgUrl = customer.profileImg || (customer as any).profile_img;
 
 	const handleSaveEdit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setFieldErrors({});
+		setFormError("");
 
 		try {
 			await customerSchema.validate(
@@ -189,7 +180,7 @@ export default function CustomerDetailPage() {
 				});
 				setFieldErrors(errors);
 			} else {
-				hotToast.error("Form validation failed.");
+				setFormError("Form validation failed.");
 			}
 			return;
 		}
@@ -207,9 +198,11 @@ export default function CustomerDetailPage() {
 			triggerToast("Customer profile updated successfully.");
 			fetchCustomerDetails();
 		} else {
-			hotToast.error(
-				result.message || "Failed to update customer profile.",
-			);
+			if (result.errors) {
+				setFieldErrors(result.errors);
+			} else {
+				setFormError(result.message || "Failed to update customer profile.");
+			}
 		}
 	};
 
@@ -220,6 +213,8 @@ export default function CustomerDetailPage() {
 		setFormStatus(customer.status);
 		setFormAddress(customer.address || "");
 		setFormProfileImg(profileImgUrl || null);
+		setFieldErrors({});
+		setFormError("");
 		setIsEditModalOpen(true);
 	};
 
@@ -350,6 +345,12 @@ export default function CustomerDetailPage() {
 							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
 						/>
 					</div>
+
+					{formError && (
+						<p className="text-xs text-red-500 font-semibold text-center mt-2">
+							{formError}
+						</p>
+					)}
 
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
 						<Button
@@ -550,14 +551,14 @@ export default function CustomerDetailPage() {
 						{
 							label: "Total Spent",
 							value: `₹${customer.totalSpent.toLocaleString()}`,
-							icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+							icon: "M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z",
 							color: "text-emerald-500",
 						},
 						{
-							label: "Avg Ticket",
-							value: `₹${avgTicket.toLocaleString()}`,
-							icon: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z",
-							color: "text-secondary",
+							label: "Total Profit",
+							value: `₹${totalProfit.toLocaleString()}`,
+							icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+							color: "text-emerald-500",
 						},
 						{
 							label: "Account Status",
@@ -672,6 +673,41 @@ export default function CustomerDetailPage() {
 													{p.type}
 												</span>
 											</div>
+
+											{(p.imei || p.color || p.ram || p.storage || p.condition || (p.batteryHealth !== undefined && p.batteryHealth !== null)) && (
+												<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-2">
+													{p.imei && (
+														<span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide font-mono">
+															IMEI: {p.imei}
+														</span>
+													)}
+													{p.color && (
+														<span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded text-[10px] font-semibold">
+															{p.color}
+														</span>
+													)}
+													{p.ram && (
+														<span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded text-[10px] font-semibold">
+															{p.ram} RAM
+														</span>
+													)}
+													{p.storage && (
+														<span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded text-[10px] font-semibold">
+															{p.storage} Storage
+														</span>
+													)}
+													{p.condition && (
+														<span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded text-[10px] font-semibold">
+															Cond: {p.condition}
+														</span>
+													)}
+													{p.batteryHealth !== undefined && p.batteryHealth !== null && (
+														<span className="bg-zinc-100 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded text-[10px] font-semibold">
+															BH: {p.batteryHealth}%
+														</span>
+													)}
+												</div>
+											)}
 										</div>
 
 										<div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
@@ -682,13 +718,6 @@ export default function CustomerDetailPage() {
 												₹{p.amount.toLocaleString()}
 											</div>
 											<div className="flex items-center gap-2">
-												<span
-													className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${orderStatusStyle(
-														p.status,
-													)}`}
-												>
-													{p.status}
-												</span>
 												<button
 													onClick={() => streamInvoice(p.id)}
 													title="View Invoice"
@@ -826,29 +855,7 @@ export default function CustomerDetailPage() {
 										Edit Profile
 									</span>
 								</button>
-								<button
-									onClick={() => router.push(`/trades`)}
-									className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-left group cursor-pointer"
-								>
-									<span className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
-										<svg
-											className="w-4 h-4 text-cyan-500"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-											strokeWidth="2"
-										>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-											/>
-										</svg>
-									</span>
-									<span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white">
-										View Trades
-									</span>
-								</button>
+
 							</div>
 						</div>
 					</div>

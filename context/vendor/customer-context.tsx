@@ -35,8 +35,8 @@ interface CustomerContextType {
     },
     force?: boolean
   ) => Promise<void>;
-  addCustomer: (data: any) => Promise<{ success: boolean; message?: string }>;
-  editCustomer: (id: string, data: any) => Promise<{ success: boolean; message?: string }>;
+  addCustomer: (data: any) => Promise<{ success: boolean; message?: string; errors?: any }>;
+  editCustomer: (id: string, data: any) => Promise<{ success: boolean; message?: string; errors?: any }>;
   removeCustomer: (id: string) => Promise<boolean>;
   bulkRemoveCustomers: (ids: string[]) => Promise<boolean>;
   bulkUpdateCustomersStatus: (ids: string[], status: "Active" | "Inactive") => Promise<boolean>;
@@ -125,7 +125,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
         return { success: true, customer: res.data.customer };
       } else {
         console.error("[CustomerContext] Create customer failed:", res.message);
-        return { success: false, message: res.message || "Failed to create customer." };
+        return { success: false, message: res.message || "Failed to create customer.", errors: res.errors };
       }
     } catch (err: any) {
       console.error("[CustomerContext] Create customer error:", err);
@@ -145,7 +145,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
         return { success: true };
       } else {
         console.error("[CustomerContext] Update customer failed:", res.message);
-        return { success: false, message: res.message || "Failed to update customer." };
+        return { success: false, message: res.message || "Failed to update customer.", errors: res.errors };
       }
     } catch (err: any) {
       console.error("[CustomerContext] Update customer error:", err);

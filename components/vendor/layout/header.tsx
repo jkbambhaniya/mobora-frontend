@@ -34,6 +34,9 @@ export default function Header() {
 				return "Model Configurations";
 			}
 		}
+		if (pathname.startsWith("/customer/")) {
+			return "Customer Details";
+		}
 		switch (pathname) {
 			case "/dashboard":
 				return "System Analytics";
@@ -78,6 +81,9 @@ export default function Header() {
 			} else if (segments.length === 4) {
 				return `${brand} ${modelName}`;
 			}
+		}
+		if (pathname.startsWith("/customer/")) {
+			return "Customer Profile";
 		}
 		switch (pathname) {
 			case "/dashboard":

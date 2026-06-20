@@ -13,7 +13,9 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import { toast as hotToast } from "react-hot-toast";
+import * as yup from "yup";
 import { streamInvoice, downloadInvoice } from "@/utils/invoice";
+import { sellValidationSchema, buybackValidationSchema } from "@/utils/validation";
 
 export default function ImeiDetailsPage() {
 	const router = useRouter();
@@ -73,6 +75,11 @@ export default function ImeiDetailsPage() {
 		});
 	}, [trades, imei]);
 
+	const lastSale = useMemo(() => {
+		const sales = timelineEvents.filter((t) => t.type === "Sale");
+		return sales.length > 0 ? sales[sales.length - 1] : null;
+	}, [timelineEvents]);
+
 	// Compute profit and specs for visual timeline
 	const firstEvent = timelineEvents[0];
 	const deviceSpecsStr = useMemo(() => {
@@ -129,17 +136,47 @@ export default function ImeiDetailsPage() {
 	const [buybackCustomer, setBuybackCustomer] = useState("");
 	const [buybackPrice, setBuybackPrice] = useState("");
 	const [buybackDate, setBuybackDate] = useState(new Date().toISOString().split("T")[0]);
-	const [buybackCondition, setBuybackCondition] = useState<"Mint" | "Excellent" | "Good" | "Fair">("Excellent");
+	const [buybackCondition, setBuybackCondition] = useState<"NEW" | "OLD">("NEW");
 	const [buybackBattery, setBuybackBattery] = useState("90");
 	const [buybackNotes, setBuybackNotes] = useState("");
 
+	// Dynamic financial calculations for modals
+	const saleProfit = device ? (parseFloat(sellPrice) || 0) - (device.purchasePrice || 0) : 0;
+	const buybackProfit = device ? (device.price || 0) - (parseFloat(buybackPrice) || 0) : 0;
+
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	// Modal Form validation errors
+	const [sellErrors, setSellErrors] = useState<Record<string, string>>({});
+	const [buybackErrors, setBuybackErrors] = useState<Record<string, string>>({});
+
+	const [sellFormError, setSellFormError] = useState("");
+	const [buybackFormError, setBuybackFormError] = useState("");
+	const [custFormError, setCustFormError] = useState("");
+
+	const clearSellError = (field: string) => {
+		setSellErrors((prev) => {
+			const n = { ...prev };
+			delete n[field];
+			return n;
+		});
+		setSellFormError("");
+	};
+
+	const clearBuybackError = (field: string) => {
+		setBuybackErrors((prev) => {
+			const n = { ...prev };
+			delete n[field];
+			return n;
+		});
+		setBuybackFormError("");
+	};
 
 	// Helper status resolution
 	const currentStatus = useMemo(() => {
 		if (device) return device.status;
 		const lastEvent = timelineEvents[timelineEvents.length - 1];
-		return lastEvent?.type === "Sale" ? "Sold" : "Active";
+		return lastEvent?.type === "Sale" ? "Sold" : "Available";
 	}, [device, timelineEvents]);
 
 	const handleOpenSell = () => {
@@ -147,11 +184,14 @@ export default function ImeiDetailsPage() {
 			hotToast.error("Device details not loaded yet.");
 			return;
 		}
-		setSellPrice(device.price.toString());
 		setSellCustomer(customers[0]?.name || "");
 		setSellNotes("");
 		setSellDate(new Date().toISOString().split("T")[0]);
 		setIsAddingCust(false);
+		setSellErrors({});
+		setSellFormError("");
+		setCustFormError("");
+		setCustErrors({});
 		setIsSellOpen(true);
 	};
 
@@ -160,21 +200,22 @@ export default function ImeiDetailsPage() {
 			hotToast.error("Device details not loaded yet.");
 			return;
 		}
-		setBuybackPrice(
-			device.purchasePrice
-				? Math.round(device.purchasePrice * 0.9).toString()
-				: "",
-		);
-		const lastSale = [...timelineEvents].reverse().find((t) => t.type === "Sale");
+		setBuybackPrice("");
 		setBuybackCustomer(lastSale ? lastSale.customerName : (customers[0]?.name || ""));
 		setBuybackCondition(device.condition);
 		setBuybackBattery(device.batteryHealth ? device.batteryHealth.toString() : "90");
 		setBuybackNotes(`Re-acquired device from customer.`);
 		setIsAddingCust(false);
+		setBuybackErrors({});
+		setBuybackFormError("");
+		setCustFormError("");
+		setCustErrors({});
 		setIsBuybackOpen(true);
 	};
 
 	const handleCreateCustomer = async () => {
+		setCustErrors({});
+		setCustFormError("");
 		if (!newCustName.trim()) {
 			setCustErrors({ name: "Full Name is required." });
 			return;
@@ -206,10 +247,14 @@ export default function ImeiDetailsPage() {
 				setCustErrors({});
 				hotToast.success(`Customer ${newCustName} registered.`);
 			} else {
-				hotToast.error(res.message || "Failed to register customer.");
+				if (res.errors) {
+					setCustErrors(res.errors);
+				} else {
+					setCustFormError(res.message || "Failed to register customer.");
+				}
 			}
 		} catch (err) {
-			hotToast.error("Failed to add customer.");
+			setCustFormError("Failed to add customer.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -218,12 +263,28 @@ export default function ImeiDetailsPage() {
 	const handleSellSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!device) return;
-		if (!sellCustomer) {
-			hotToast.error("Please select a customer.");
-			return;
-		}
-		if (!sellPrice) {
-			hotToast.error("Please specify sell price.");
+
+		setSellErrors({});
+		setSellFormError("");
+		try {
+			await sellValidationSchema.validate({
+				sellPrice: sellPrice === "" ? undefined : parseFloat(sellPrice),
+				sellCustomer,
+				sellDate,
+				sellNotes,
+			}, { abortEarly: false });
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setSellErrors(errors);
+			} else {
+				setSellFormError("Validation failed.");
+			}
 			return;
 		}
 		setIsSubmitting(true);
@@ -259,10 +320,14 @@ export default function ImeiDetailsPage() {
 					streamInvoice(tx.id);
 				}
 			} else {
-				hotToast.error(result.message || "Failed to record sale.");
+				if (result.errors) {
+					setSellErrors(result.errors);
+				} else {
+					setSellFormError(result.message || "Failed to record sale.");
+				}
 			}
 		} catch (err) {
-			hotToast.error("Error submitting transaction.");
+			setSellFormError("Error submitting transaction.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -271,19 +336,37 @@ export default function ImeiDetailsPage() {
 	const handleBuybackSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!device) return;
-		if (!buybackCustomer) {
-			hotToast.error("Please select a customer.");
-			return;
-		}
-		if (!buybackPrice) {
-			hotToast.error("Please specify buyback price.");
+
+		setBuybackErrors({});
+		setBuybackFormError("");
+		try {
+			await buybackValidationSchema.validate({
+				buybackPrice: buybackPrice === "" ? undefined : parseFloat(buybackPrice),
+				buybackCustomer,
+				buybackDate,
+				buybackCondition,
+				buybackBattery: buybackBattery === "" ? undefined : parseInt(buybackBattery),
+				buybackNotes,
+			}, { abortEarly: false });
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setBuybackErrors(errors);
+			} else {
+				setBuybackFormError("Validation failed.");
+			}
 			return;
 		}
 		setIsSubmitting(true);
 		try {
 			const priceNum = parseFloat(buybackPrice);
 			const result = await editDevice(device.id, {
-				status: "Active",
+				status: "Available",
 				purchase_price: priceNum,
 				price: Math.round(priceNum * 1.2),
 				condition: buybackCondition,
@@ -312,10 +395,14 @@ export default function ImeiDetailsPage() {
 				await refreshMetrics();
 				await refreshTrades();
 			} else {
-				hotToast.error(result.message || "Failed to record buyback.");
+				if (result.errors) {
+					setBuybackErrors(result.errors);
+				} else {
+					setBuybackFormError(result.message || "Failed to record buyback.");
+				}
 			}
 		} catch (err) {
-			hotToast.error("Error submitting transaction.");
+			setBuybackFormError("Error submitting transaction.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -391,7 +478,7 @@ export default function ImeiDetailsPage() {
 								<path
 									strokeLinecap="round"
 									strokeLinejoin="round"
-									d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
 							Record Device Sale
@@ -776,7 +863,7 @@ export default function ImeiDetailsPage() {
 								<path
 									strokeLinecap="round"
 									strokeLinejoin="round"
-									d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
 						</span>
@@ -793,7 +880,7 @@ export default function ImeiDetailsPage() {
 				size="lg"
 			>
 				{device && (
-					<form onSubmit={handleSellSubmit} className="space-y-5">
+					<form onSubmit={handleSellSubmit} className="space-y-5" noValidate>
 						{/* Device Info Panel */}
 						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
 							<div className="flex justify-between items-start">
@@ -806,7 +893,7 @@ export default function ImeiDetailsPage() {
 									</p>
 								</div>
 								<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-									Active in Hand
+									Available
 								</span>
 							</div>
 							<div className="grid grid-cols-3 gap-4 border-t border-zinc-200/40 dark:border-zinc-800/40 pt-2.5 mt-1 text-[11px]">
@@ -820,7 +907,7 @@ export default function ImeiDetailsPage() {
 								</div>
 								<div>
 									<span className="text-zinc-400 block">
-										Cost Price:
+										Purchase Price:
 									</span>
 									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
 										{device.purchasePrice ? `₹${device.purchasePrice.toLocaleString()}` : "-"}
@@ -828,10 +915,10 @@ export default function ImeiDetailsPage() {
 								</div>
 								<div>
 									<span className="text-zinc-400 block">
-										Listed Price:
+										Profit:
 									</span>
-									<span className="font-extrabold text-primary">
-										₹{device.price.toLocaleString()}
+									<span className={`font-extrabold ${saleProfit >= 0 ? "text-emerald-500" : "text-red-500"}`} suppressHydrationWarning>
+										{saleProfit >= 0 ? "+" : "-"}₹{Math.abs(saleProfit).toLocaleString()}
 									</span>
 								</div>
 							</div>
@@ -934,24 +1021,35 @@ export default function ImeiDetailsPage() {
 														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 													</svg>
-													<span>Saving Client...</span>
+													<span>Saving Customer...</span>
 												</>
 											) : (
 												"Save and Select Customer"
 											)}
 										</button>
+										{custFormError && (
+											<p className="text-xs text-red-500 font-semibold text-center mt-2">
+												{custFormError}
+											</p>
+										)}
 									</div>
 								) : (
 									<Select
 										value={sellCustomer}
 										disabled={isSubmitting}
-										onChange={(e) =>
-											setSellCustomer(e.target.value)
-										}
+										onChange={(e) => {
+											setSellCustomer(e.target.value);
+											clearSellError("sellCustomer");
+										}}
 										required
-										placeholder="-- Choose Client --"
+										placeholder="-- Choose Customer --"
 										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
 									/>
+								)}
+								{sellErrors.sellCustomer && (
+									<p className="text-xs text-red-500 font-medium mt-1">
+										{sellErrors.sellCustomer}
+									</p>
 								)}
 							</div>
 
@@ -966,11 +1064,18 @@ export default function ImeiDetailsPage() {
 										required
 										disabled={isSubmitting}
 										value={sellPrice}
-										onChange={(e) =>
-											setSellPrice(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50"
+										onChange={(e) => {
+											setSellPrice(e.target.value);
+											clearSellError("sellPrice");
+										}}
+										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50
+											${sellErrors.sellPrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
 									/>
+									{sellErrors.sellPrice && (
+										<p className="text-xs text-red-500 font-medium mt-1">
+											{sellErrors.sellPrice}
+										</p>
+									)}
 								</div>
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -1006,6 +1111,12 @@ export default function ImeiDetailsPage() {
 								/>
 							</div>
 						</div>
+
+						{sellFormError && (
+							<p className="text-xs text-red-500 font-semibold text-center mt-2">
+								{sellFormError}
+							</p>
+						)}
 
 						{/* Actions */}
 						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
@@ -1077,7 +1188,7 @@ export default function ImeiDetailsPage() {
 				size="lg"
 			>
 				{device && (
-					<form onSubmit={handleBuybackSubmit} className="space-y-5">
+					<form onSubmit={handleBuybackSubmit} className="space-y-5" noValidate>
 						{/* Device Info Panel */}
 						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
 							<div className="flex justify-between items-start">
@@ -1104,18 +1215,18 @@ export default function ImeiDetailsPage() {
 								</div>
 								<div>
 									<span className="text-zinc-400 block">
-										Last Cost Price:
-									</span>
-									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
-										{device.purchasePrice ? `₹${device.purchasePrice.toLocaleString()}` : "-"}
-									</span>
-								</div>
-								<div>
-									<span className="text-zinc-400 block">
 										Last Sell Price:
 									</span>
 									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
 										₹{device.price.toLocaleString()}
+									</span>
+								</div>
+								<div>
+									<span className="text-zinc-400 block">
+										Profit:
+									</span>
+									<span className={`font-extrabold ${buybackProfit >= 0 ? "text-emerald-500" : "text-red-500"}`} suppressHydrationWarning>
+										{buybackProfit >= 0 ? "+" : "-"}₹{Math.abs(buybackProfit).toLocaleString()}
 									</span>
 								</div>
 							</div>
@@ -1218,24 +1329,35 @@ export default function ImeiDetailsPage() {
 														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 													</svg>
-													<span>Saving Client...</span>
+													<span>Saving Customer...</span>
 												</>
 											) : (
 												"Save and Select Customer"
 											)}
 										</button>
+										{custFormError && (
+											<p className="text-xs text-red-500 font-semibold text-center mt-2">
+												{custFormError}
+											</p>
+										)}
 									</div>
 								) : (
 									<Select
 										value={buybackCustomer}
 										disabled={isSubmitting}
-										onChange={(e) =>
-											setBuybackCustomer(e.target.value)
-										}
+										onChange={(e) => {
+											setBuybackCustomer(e.target.value);
+											clearBuybackError("buybackCustomer");
+										}}
 										required
-										placeholder="-- Choose Client --"
+										placeholder="-- Choose Customer --"
 										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
 									/>
+								)}
+								{buybackErrors.buybackCustomer && (
+									<p className="text-xs text-red-500 font-medium mt-1">
+										{buybackErrors.buybackCustomer}
+									</p>
 								)}
 							</div>
 
@@ -1252,10 +1374,8 @@ export default function ImeiDetailsPage() {
 											setBuybackCondition(e.target.value as any)
 										}
 										options={[
-											{ value: "Mint", label: "Mint" },
-											{ value: "Excellent", label: "Excellent" },
-											{ value: "Good", label: "Good" },
-											{ value: "Fair", label: "Fair" },
+											{ value: "NEW", label: "New" },
+											{ value: "OLD", label: "Old" },
 										]}
 									/>
 								</div>
@@ -1269,11 +1389,18 @@ export default function ImeiDetailsPage() {
 										max={100}
 										disabled={isSubmitting}
 										value={buybackBattery}
-										onChange={(e) =>
-											setBuybackBattery(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none text-zinc-900 dark:text-white disabled:opacity-50"
+										onChange={(e) => {
+											setBuybackBattery(e.target.value);
+											clearBuybackError("buybackBattery");
+										}}
+										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none text-zinc-900 dark:text-white disabled:opacity-50
+											${buybackErrors.buybackBattery ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
 									/>
+									{buybackErrors.buybackBattery && (
+										<p className="text-xs text-red-500 font-medium mt-1">
+											{buybackErrors.buybackBattery}
+										</p>
+									)}
 								</div>
 							</div>
 
@@ -1288,11 +1415,18 @@ export default function ImeiDetailsPage() {
 										required
 										disabled={isSubmitting}
 										value={buybackPrice}
-										onChange={(e) =>
-											setBuybackPrice(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50"
+										onChange={(e) => {
+											setBuybackPrice(e.target.value);
+											clearBuybackError("buybackPrice");
+										}}
+										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50
+											${buybackErrors.buybackPrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
 									/>
+									{buybackErrors.buybackPrice && (
+										<p className="text-xs text-red-500 font-medium mt-1">
+											{buybackErrors.buybackPrice}
+										</p>
+									)}
 								</div>
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -1328,6 +1462,12 @@ export default function ImeiDetailsPage() {
 								/>
 							</div>
 						</div>
+
+						{buybackFormError && (
+							<p className="text-xs text-red-500 font-semibold text-center mt-2">
+								{buybackFormError}
+							</p>
+						)}
 
 						{/* Actions */}
 						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">

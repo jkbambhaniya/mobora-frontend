@@ -111,6 +111,7 @@ export default function CustomerPage() {
 
 	// Field-level validation errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+	const [formError, setFormError] = useState("");
 	const clearFieldError = (field: string) =>
 		setFieldErrors((prev) => {
 			const n = { ...prev };
@@ -130,6 +131,8 @@ export default function CustomerPage() {
 		setFormStatus("Active");
 		setFormAddress("");
 		setFormProfileImg(null);
+		setFieldErrors({});
+		setFormError("");
 		setIsFormOpen(true);
 	};
 
@@ -144,6 +147,8 @@ export default function CustomerPage() {
 		setFormProfileImg(
 			customer.profileImg || (customer as any).profile_img || null,
 		);
+		setFieldErrors({});
+		setFormError("");
 		setIsFormOpen(true);
 	};
 
@@ -154,6 +159,7 @@ export default function CustomerPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setFieldErrors({});
+		setFormError("");
 
 		try {
 			await customerSchema.validate(
@@ -177,7 +183,7 @@ export default function CustomerPage() {
 				});
 				setFieldErrors(errors);
 			} else {
-				toast.error("Form validation failed.");
+				setFormError("Form validation failed.");
 			}
 			return;
 		}
@@ -196,9 +202,11 @@ export default function CustomerPage() {
 				triggerToast(`Updated profile of ${formName}`);
 				setIsFormOpen(false);
 			} else {
-				toast.error(
-					result.message || "Failed to update customer profile.",
-				);
+				if (result.errors) {
+					setFieldErrors(result.errors);
+				} else {
+					setFormError(result.message || "Failed to update customer profile.");
+				}
 			}
 		} else {
 			// Add Customer
@@ -214,7 +222,11 @@ export default function CustomerPage() {
 				triggerToast(`Successfully registered ${formName}`);
 				setIsFormOpen(false);
 			} else {
-				toast.error(result.message || "Failed to register customer.");
+				if (result.errors) {
+					setFieldErrors(result.errors);
+				} else {
+					setFormError(result.message || "Failed to register customer.");
+				}
 			}
 		}
 	};
@@ -843,6 +855,12 @@ export default function CustomerPage() {
 							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
 						/>
 					</div>
+
+					{formError && (
+						<p className="text-xs text-red-500 font-semibold text-center mt-2">
+							{formError}
+						</p>
+					)}
 
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-850">
 						<Button

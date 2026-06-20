@@ -68,7 +68,7 @@ export const mobileValidationSchema = yup.object().shape({
 		.required("RAM size is required."),
 	condition: yup
 		.string()
-		.oneOf(["Mint", "Excellent", "Good", "Fair"], "Condition must be Mint, Excellent, Good, or Fair.")
+		.oneOf(["NEW", "OLD"], "Condition must be NEW or OLD.")
 		.required("Condition is required."),
 	batteryHealth: yup
 		.number()
@@ -98,6 +98,55 @@ export const mobileValidationSchema = yup.object().shape({
 		.string()
 		.trim()
 		.transform((value) => (value === "" ? null : value))
+		.nullable()
+		.notRequired(),
+});
+
+export const sellValidationSchema = yup.object().shape({
+	sellPrice: yup
+		.number()
+		.typeError("Selling price must be a number.")
+		.positive("Selling price must be a positive number.")
+		.required("Selling price is required."),
+	sellCustomer: yup
+		.string()
+		.required("Customer name is required."),
+	sellDate: yup
+		.string()
+		.required("Sale date is required."),
+	sellNotes: yup
+		.string()
+		.trim()
+		.nullable()
+		.notRequired(),
+});
+
+export const buybackValidationSchema = yup.object().shape({
+	buybackPrice: yup
+		.number()
+		.typeError("Buyback price must be a number.")
+		.positive("Buyback price must be a positive number.")
+		.required("Buyback price is required."),
+	buybackCustomer: yup
+		.string()
+		.required("Customer name is required."),
+	buybackDate: yup
+		.string()
+		.required("Buyback date is required."),
+	buybackCondition: yup
+		.string()
+		.oneOf(["NEW", "OLD"], "Invalid condition value.")
+		.required("Condition is required."),
+	buybackBattery: yup
+		.number()
+		.typeError("Battery health must be an integer.")
+		.integer("Battery health must be an integer.")
+		.min(50, "Battery health must be at least 50%.")
+		.max(100, "Battery health cannot exceed 100%.")
+		.required("Battery health is required."),
+	buybackNotes: yup
+		.string()
+		.trim()
 		.nullable()
 		.notRequired(),
 });

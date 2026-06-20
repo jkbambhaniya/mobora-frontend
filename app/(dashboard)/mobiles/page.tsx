@@ -72,8 +72,8 @@ export default function MobilesPage() {
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
 	const [formCondition, setFormCondition] = useState<
-		"Mint" | "Excellent" | "Good" | "Fair"
-	>("Excellent");
+		"NEW" | "OLD"
+	>("NEW");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formDescription, setFormDescription] = useState("");
@@ -86,8 +86,16 @@ export default function MobilesPage() {
 	const [newCustAddress, setNewCustAddress] = useState("");
 	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
 
+	const [formError, setFormError] = useState("");
+	const [brandInlineError, setBrandInlineError] = useState("");
+	const [modelInlineError, setModelInlineError] = useState("");
+	const [storageInlineError, setStorageInlineError] = useState("");
+	const [ramInlineError, setRamInlineError] = useState("");
+	const [custFormError, setCustFormError] = useState("");
+
 	const handleCreateCustomer = async () => {
 		setCustErrors({});
+		setCustFormError("");
 		try {
 			await quickCustomerSchema.validate(
 				{
@@ -107,7 +115,7 @@ export default function MobilesPage() {
 				});
 				setCustErrors(errors);
 			} else {
-				toast.error("Validation failed.");
+				setCustFormError("Validation failed.");
 			}
 			return;
 		}
@@ -133,10 +141,14 @@ export default function MobilesPage() {
 				setCustErrors({});
 				toast.success(`Customer ${newCustName} registered.`);
 			} else {
-				toast.error(res.message || "Failed to register customer.");
+				if (res.errors) {
+					setCustErrors(res.errors);
+				} else {
+					setCustFormError(res.message || "Failed to register customer.");
+				}
 			}
 		} catch (err) {
-			toast.error("An unexpected error occurred registering customer.");
+			setCustFormError("An unexpected error occurred registering customer.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -189,7 +201,7 @@ export default function MobilesPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("Excellent");
+		setFormCondition("NEW");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormDescription("");
@@ -200,6 +212,12 @@ export default function MobilesPage() {
 		setNewCustAddress("");
 		setCustErrors({});
 		setFieldErrors({});
+		setFormError("");
+		setBrandInlineError("");
+		setModelInlineError("");
+		setStorageInlineError("");
+		setRamInlineError("");
+		setCustFormError("");
 		setIsFormOpen(true);
 	};
 
@@ -207,6 +225,7 @@ export default function MobilesPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setFieldErrors({});
+		setFormError("");
 		setIsSubmitting(true);
 
 		try {
@@ -242,7 +261,7 @@ export default function MobilesPage() {
 				});
 				setFieldErrors(errors);
 			} else {
-				toast.error("Form validation failed.");
+				setFormError("Form validation failed.");
 			}
 			return;
 		}
@@ -262,7 +281,7 @@ export default function MobilesPage() {
 				price: priceNum,
 				purchase_price: purchasePriceNum,
 				battery_health: isAppleSelected ? formBatteryHealth : null,
-				status: "Active",
+				status: "Available",
 				description: formDescription || `Registered device in inventory.`,
 				customer_id: formCustomerId ? Number(formCustomerId) : null,
 			});
@@ -271,10 +290,14 @@ export default function MobilesPage() {
 				toast.success("Mobile device added to stock successfully.");
 				setIsFormOpen(false);
 			} else {
-				toast.error(result.message || "Failed to add mobile device.");
+				if (result.errors) {
+					setFieldErrors(result.errors);
+				} else {
+					setFormError(result.message || "Failed to add mobile device.");
+				}
 			}
 		} catch (err) {
-			toast.error("An unexpected error occurred.");
+			setFormError("An unexpected error occurred.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -284,6 +307,7 @@ export default function MobilesPage() {
 	const handleCreateBrand = async () => {
 		if (newBrandVal.trim()) {
 			setIsSubmittingBrand(true);
+			setBrandInlineError("");
 			try {
 				const res = await specs.addBrand(newBrandVal.trim());
 				if (res.success) {
@@ -291,10 +315,10 @@ export default function MobilesPage() {
 					setNewBrandVal("");
 					setIsAddingBrand(false);
 				} else {
-					toast.error(res.message || "Failed to submit brand request.");
+					setBrandInlineError(res.message || "Failed to submit brand request.");
 				}
 			} catch (err) {
-				toast.error("Failed to submit brand request.");
+				setBrandInlineError("Failed to submit brand request.");
 			} finally {
 				setIsSubmittingBrand(false);
 			}
@@ -303,11 +327,12 @@ export default function MobilesPage() {
 
 	const handleCreateModel = async () => {
 		if (!formBrand) {
-			toast.error("Please choose a brand first.");
+			setFormError("Please choose a brand first.");
 			return;
 		}
 		if (newModelVal.trim()) {
 			setIsSubmittingModel(true);
+			setModelInlineError("");
 			try {
 				if (isEditingModel) {
 					if (!formModel) return;
@@ -320,7 +345,7 @@ export default function MobilesPage() {
 						setIsEditingModel(false);
 						clearFieldError("model");
 					} else {
-						toast.error(res.message || "Failed to update model.");
+						setModelInlineError(res.message || "Failed to update model.");
 					}
 				} else {
 					const res = await specs.addModel(newModelVal.trim(), Number(formBrand));
@@ -332,11 +357,11 @@ export default function MobilesPage() {
 						setIsAddingModel(false);
 						clearFieldError("model");
 					} else {
-						toast.error(res.message || "Failed to add model.");
+						setModelInlineError(res.message || "Failed to add model.");
 					}
 				}
 			} catch (err) {
-				toast.error(isEditingModel ? "Failed to update model." : "Failed to add model.");
+				setModelInlineError(isEditingModel ? "Failed to update model." : "Failed to add model.");
 			} finally {
 				setIsSubmittingModel(false);
 			}
@@ -346,6 +371,7 @@ export default function MobilesPage() {
 	const handleCreateStorage = async () => {
 		if (newStorageVal.trim()) {
 			setIsSubmittingStorage(true);
+			setStorageInlineError("");
 			try {
 				const res = await specs.addStorage(newStorageVal.trim());
 				if (res.success) {
@@ -353,10 +379,10 @@ export default function MobilesPage() {
 					setNewStorageVal("");
 					setIsAddingStorage(false);
 				} else {
-					toast.error(res.message || "Failed to add storage.");
+					setStorageInlineError(res.message || "Failed to add storage.");
 				}
 			} catch (err) {
-				toast.error("Failed to add storage.");
+				setStorageInlineError("Failed to add storage.");
 			} finally {
 				setIsSubmittingStorage(false);
 			}
@@ -366,6 +392,7 @@ export default function MobilesPage() {
 	const handleCreateRam = async () => {
 		if (newRamVal.trim()) {
 			setIsSubmittingRam(true);
+			setRamInlineError("");
 			try {
 				const res = await specs.addRam(newRamVal.trim());
 				if (res.success) {
@@ -373,10 +400,10 @@ export default function MobilesPage() {
 					setNewRamVal("");
 					setIsAddingRam(false);
 				} else {
-					toast.error(res.message || "Failed to add RAM.");
+					setRamInlineError(res.message || "Failed to add RAM.");
 				}
 			} catch (err) {
-				toast.error("Failed to add RAM.");
+				setRamInlineError("Failed to add RAM.");
 			} finally {
 				setIsSubmittingRam(false);
 			}
@@ -447,9 +474,9 @@ export default function MobilesPage() {
 				brandFilter === "All" || g.brand === brandFilter;
 
 			let matchesStatus = true;
-			if (statusFilter === "Active") {
+			if (statusFilter === "Available") {
 				matchesStatus = g.items.some(
-					(d) => d.status === "Active" && d.stock > 0,
+					(d) => d.status === "Available" && d.stock > 0,
 				);
 			} else if (statusFilter === "Sold") {
 				matchesStatus = g.items.some((d) => d.status === "Sold");
@@ -470,8 +497,8 @@ export default function MobilesPage() {
 				valA = a.brand.toLowerCase();
 				valB = b.brand.toLowerCase();
 			} else if (sortBy === "inHandStock") {
-				valA = a.items.filter((d) => d.status === "Active").length;
-				valB = b.items.filter((d) => d.status === "Active").length;
+				valA = a.items.filter((d) => d.status === "Available").length;
+				valB = b.items.filter((d) => d.status === "Available").length;
 			} else if (sortBy === "soldStock") {
 				valA = a.items.filter((d) => d.status === "Sold").length;
 				valB = b.items.filter((d) => d.status === "Sold").length;
@@ -535,12 +562,12 @@ export default function MobilesPage() {
 		},
 		{
 			key: "inHandStock",
-			title: "In Hand Stock",
+			title: "Available Stock",
 			sortable: true,
 			headerClassName: "text-center",
-			className: "text-center font-bold text-zinc-700 dark:text-zinc-350",
+			className: "text-center font-bold text-zinc-700 dark:text-zinc-355",
 			render: (g) => {
-				const activeCount = g.items.filter((d) => d.status === "Active").reduce((sum, d) => sum + d.stock, 0);
+				const activeCount = g.items.filter((d) => d.status === "Available").reduce((sum, d) => sum + d.stock, 0);
 				return <span>{activeCount} units</span>;
 			},
 		},
@@ -751,7 +778,7 @@ export default function MobilesPage() {
 						onChange={(e) => setStatusFilter(e.target.value)}
 						options={[
 							{ value: "All", label: "All Statuses" },
-							{ value: "Active", label: "Has In-Hand Stock" },
+							{ value: "Available", label: "Has Available Stock" },
 							{ value: "Sold", label: "Has Sold Stock" },
 						]}
 						className="w-48"
@@ -790,7 +817,7 @@ export default function MobilesPage() {
 					{paginatedModelGroups.length > 0 ? (
 						paginatedModelGroups.map((g) => {
 							const activeCount = g.items
-								.filter((d) => d.status === "Active")
+								.filter((d) => d.status === "Available")
 								.reduce((sum, d) => sum + d.stock, 0);
 							const soldCount = g.items.filter(
 								(d) => d.status === "Sold",
@@ -823,7 +850,7 @@ export default function MobilesPage() {
 										<div className="grid grid-cols-2 gap-4 py-2 border-t border-b border-zinc-100 dark:border-zinc-850/60">
 											<div>
 												<span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
-													In Hand
+													Available
 												</span>
 												<span className="text-sm font-black text-zinc-700 dark:text-zinc-200">
 													{activeCount} units
@@ -1002,33 +1029,44 @@ export default function MobilesPage() {
 							</div>
 
 							{isAddingBrand ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingBrand || isSubmitting}
-										value={newBrandVal}
-										onChange={(e) => setNewBrandVal(e.target.value)}
-										placeholder="New Brand Name"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingBrand || isSubmitting}
-										onClick={handleCreateBrand}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-									>
-										{isSubmittingBrand ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingBrand || isSubmitting}
+											value={newBrandVal}
+											onChange={(e) => {
+												setNewBrandVal(e.target.value);
+												setBrandInlineError("");
+											}}
+											placeholder="New Brand Name"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${brandInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingBrand || isSubmitting}
+											onClick={handleCreateBrand}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
+										>
+											{isSubmittingBrand ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{brandInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{brandInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1042,13 +1080,8 @@ export default function MobilesPage() {
 									required
 									placeholder="-- Choose Brand --"
 									options={specs.allBrands.map((b) => ({ value: b.id.toString(), label: b.name }))}
-									className={fieldErrors.brand ? "border-red-400 focus:ring-red-400" : ""}
+									error={fieldErrors.brand}
 								/>
-							)}
-							{fieldErrors.brand && !isAddingBrand && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.brand}
-								</p>
 							)}
 						</div>
 
@@ -1098,33 +1131,44 @@ export default function MobilesPage() {
 							</div>
 
 							{isAddingModel ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingModel || isSubmitting}
-										value={newModelVal}
-										onChange={(e) => setNewModelVal(e.target.value)}
-										placeholder="Model Name"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingModel || isSubmitting}
-										onClick={handleCreateModel}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-									>
-										{isSubmittingModel ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingModel || isSubmitting}
+											value={newModelVal}
+											onChange={(e) => {
+												setNewModelVal(e.target.value);
+												setModelInlineError("");
+											}}
+											placeholder="Model Name"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${modelInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingModel || isSubmitting}
+											onClick={handleCreateModel}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
+										>
+											{isSubmittingModel ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{modelInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{modelInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1145,13 +1189,8 @@ export default function MobilesPage() {
 									options={specs.allModels
 										.filter((m) => m.brand_id.toString() === formBrand)
 										.map((m) => ({ value: m.id.toString(), label: m.name }))}
-									className={fieldErrors.model ? "border-red-400 focus:ring-red-400" : ""}
+									error={fieldErrors.model}
 								/>
-							)}
-							{fieldErrors.model && !isAddingModel && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.model}
-								</p>
 							)}
 						</div>
 					</div>
@@ -1174,33 +1213,44 @@ export default function MobilesPage() {
 							</div>
 
 							{isAddingStorage ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingStorage || isSubmitting}
-										value={newStorageVal}
-										onChange={(e) => setNewStorageVal(e.target.value)}
-										placeholder="e.g. 512GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingStorage || isSubmitting}
-										onClick={handleCreateStorage}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-									>
-										{isSubmittingStorage ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingStorage || isSubmitting}
+											value={newStorageVal}
+											onChange={(e) => {
+												setNewStorageVal(e.target.value);
+												setStorageInlineError("");
+											}}
+											placeholder="e.g. 512GB"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${storageInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingStorage || isSubmitting}
+											onClick={handleCreateStorage}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
+										>
+											{isSubmittingStorage ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{storageInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{storageInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1213,13 +1263,8 @@ export default function MobilesPage() {
 									required
 									placeholder="-- Choose Storage --"
 									options={specs.allStorages.map((s) => ({ value: s.id.toString(), label: s.value }))}
-									className={fieldErrors.storage ? "border-red-400 focus:ring-red-400" : ""}
+									error={fieldErrors.storage}
 								/>
-							)}
-							{fieldErrors.storage && !isAddingStorage && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.storage}
-								</p>
 							)}
 						</div>
 
@@ -1240,33 +1285,44 @@ export default function MobilesPage() {
 							</div>
 
 							{isAddingRam ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingRam || isSubmitting}
-										value={newRamVal}
-										onChange={(e) => setNewRamVal(e.target.value)}
-										placeholder="e.g. 16GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingRam || isSubmitting}
-										onClick={handleCreateRam}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-									>
-										{isSubmittingRam ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingRam || isSubmitting}
+											value={newRamVal}
+											onChange={(e) => {
+												setNewRamVal(e.target.value);
+												setRamInlineError("");
+											}}
+											placeholder="e.g. 16GB"
+											className={`w-full px-3 py-2.5 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${ramInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingRam || isSubmitting}
+											onClick={handleCreateRam}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
+										>
+											{isSubmittingRam ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{ramInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{ramInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1279,13 +1335,8 @@ export default function MobilesPage() {
 									required
 									placeholder="-- Choose RAM --"
 									options={specs.allRams.map((r) => ({ value: r.id.toString(), label: r.value }))}
-									className={fieldErrors.ram ? "border-red-400 focus:ring-red-400" : ""}
+									error={fieldErrors.ram}
 								/>
-							)}
-						{fieldErrors.ram && !isAddingRam && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.ram}
-								</p>
 							)}
 						</div>
 					</div>
@@ -1304,10 +1355,8 @@ export default function MobilesPage() {
 									clearFieldError("condition");
 								}}
 								options={[
-									{ value: "Mint", label: "Mint" },
-									{ value: "Excellent", label: "Excellent" },
-									{ value: "Good", label: "Good" },
-									{ value: "Fair", label: "Fair" },
+									{ value: "NEW", label: "New" },
+									{ value: "OLD", label: "Old" },
 								]}
 								className={fieldErrors.condition ? "border-red-400 focus:ring-red-400" : ""}
 							/>
@@ -1440,12 +1489,17 @@ export default function MobilesPage() {
 												<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 												<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 											</svg>
-											<span>Saving Client...</span>
+											<span>Saving Customer...</span>
 										</>
 									) : (
 										"Save and Select Customer"
 									)}
 								</button>
+								{custFormError && (
+									<p className="text-xs text-red-500 font-semibold text-center mt-2">
+										{custFormError}
+									</p>
+								)}
 							</div>
 						) : (
 							<Select
@@ -1513,6 +1567,12 @@ export default function MobilesPage() {
 							</p>
 						)}
 					</div>
+
+					{formError && (
+						<p className="text-xs text-red-500 font-semibold text-center mt-2">
+							{formError}
+						</p>
+					)}
 
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
 						<Button

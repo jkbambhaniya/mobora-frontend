@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import Pagination from "@/components/ui/Pagination";
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import * as yup from "yup";
-import { mobileValidationSchema } from "@/utils/validation";
+import { mobileValidationSchema, sellValidationSchema, buybackValidationSchema } from "@/utils/validation";
 import {
 	useDashboard,
 	Mobile,
@@ -92,13 +92,49 @@ export default function InventoryPage() {
 	const [buybackPrice, setBuybackPrice] = useState("");
 	const [buybackCustomer, setBuybackCustomer] = useState("");
 	const [buybackCondition, setBuybackCondition] = useState<
-		"Mint" | "Excellent" | "Good" | "Fair"
-	>("Excellent");
+		"NEW" | "OLD"
+	>("NEW");
 	const [buybackBatteryHealth, setBuybackBatteryHealth] = useState(90);
 	const [buybackDate, setBuybackDate] = useState(
 		new Date().toISOString().split("T")[0],
 	);
 	const [buybackNotes, setBuybackNotes] = useState("");
+
+	// Dynamic financial calculations for modals
+	const saleProfit = sellingDevice ? (parseFloat(sellPrice) || 0) - (sellingDevice.purchasePrice || 0) : 0;
+	const buybackProfit = buybackDevice ? (buybackDevice.price || 0) - (parseFloat(buybackPrice) || 0) : 0;
+
+	// Modal Form validation errors
+	const [sellErrors, setSellErrors] = useState<Record<string, string>>({});
+	const [buybackErrors, setBuybackErrors] = useState<Record<string, string>>({});
+
+	const [formError, setFormError] = useState("");
+	const [sellFormError, setSellFormError] = useState("");
+	const [buybackFormError, setBuybackFormError] = useState("");
+
+	const [brandInlineError, setBrandInlineError] = useState("");
+	const [modelInlineError, setModelInlineError] = useState("");
+	const [storageInlineError, setStorageInlineError] = useState("");
+	const [ramInlineError, setRamInlineError] = useState("");
+	const [custFormError, setCustFormError] = useState("");
+
+	const clearSellError = (field: string) => {
+		setSellErrors((prev) => {
+			const n = { ...prev };
+			delete n[field];
+			return n;
+		});
+		setSellFormError("");
+	};
+
+	const clearBuybackError = (field: string) => {
+		setBuybackErrors((prev) => {
+			const n = { ...prev };
+			delete n[field];
+			return n;
+		});
+		setBuybackFormError("");
+	};
 
 	// Quick Add Customer States
 	const [isAddingCust, setIsAddingCust] = useState(false);
@@ -115,8 +151,8 @@ export default function InventoryPage() {
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
 	const [formCondition, setFormCondition] = useState<
-		"Mint" | "Excellent" | "Good" | "Fair"
-	>("Excellent");
+		"NEW" | "OLD"
+	>("NEW");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formDescription, setFormDescription] = useState("");
@@ -205,12 +241,18 @@ export default function InventoryPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("Excellent");
+		setFormCondition("NEW");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormDescription("");
 		setFormCustomerId("");
 		setFieldErrors({});
+		setFormError("");
+		setBrandInlineError("");
+		setModelInlineError("");
+		setStorageInlineError("");
+		setRamInlineError("");
+		setCustFormError("");
 		setIsFormOpen(true);
 	};
 
@@ -233,12 +275,18 @@ export default function InventoryPage() {
 		setFormDescription(device.description || "");
 		setFormCustomerId("");
 		setFieldErrors({});
+		setFormError("");
+		setBrandInlineError("");
+		setModelInlineError("");
+		setStorageInlineError("");
+		setRamInlineError("");
+		setCustFormError("");
 		setIsFormOpen(true);
 	};
 
 	const handleOpenSell = (device: Mobile) => {
 		setSellingDevice(device);
-		setSellPrice(device.price.toString());
+		setSellPrice("");
 		setSellCustomer(customers[0]?.name || "");
 		setSellDate(new Date().toISOString().split("T")[0]);
 		setSellNotes(`Sold from inventory catalog.`);
@@ -247,18 +295,37 @@ export default function InventoryPage() {
 		setNewCustPhone("");
 		setNewCustAddress("");
 		setCustErrors({});
+		setCustFormError("");
+		setSellErrors({});
+		setSellFormError("");
 		setIsSellFormOpen(true);
 	};
 
 	const handleSellSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!sellingDevice) return;
-		if (!sellCustomer) {
-			triggerToast("Please select a customer or quick-add a new one.");
-			return;
-		}
-		if (!sellPrice) {
-			triggerToast("Please specify the selling price.");
+
+		setSellErrors({});
+		setSellFormError("");
+		try {
+			await sellValidationSchema.validate({
+				sellPrice: sellPrice === "" ? undefined : parseFloat(sellPrice),
+				sellCustomer,
+				sellDate,
+				sellNotes,
+			}, { abortEarly: false });
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setSellErrors(errors);
+			} else {
+				setSellFormError("Validation failed.");
+			}
 			return;
 		}
 
@@ -294,10 +361,14 @@ export default function InventoryPage() {
 					`Recorded sale of ${sellingDevice.brand} ${sellingDevice.model} to ${sellCustomer}.`,
 				);
 			} else {
-				triggerToast(result.message || "Failed to record sale.");
+				if (result.errors) {
+					setSellErrors(result.errors);
+				} else {
+					setSellFormError(result.message || "Failed to record sale.");
+				}
 			}
 		} catch (err) {
-			triggerToast("An unexpected error occurred while recording sale.");
+			setSellFormError("An unexpected error occurred while recording sale.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -305,11 +376,7 @@ export default function InventoryPage() {
 
 	const handleOpenBuyback = (device: Mobile) => {
 		setBuybackDevice(device);
-		setBuybackPrice(
-			device.purchasePrice
-				? Math.round(device.purchasePrice * 0.9).toString()
-				: "",
-		);
+		setBuybackPrice("");
 
 		let originalBuyer = "";
 		if (device.imei) {
@@ -353,18 +420,39 @@ export default function InventoryPage() {
 		setNewCustPhone("");
 		setNewCustAddress("");
 		setCustErrors({});
+		setCustFormError("");
+		setBuybackErrors({});
+		setBuybackFormError("");
 		setIsBuybackFormOpen(true);
 	};
 
 	const handleBuybackSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!buybackDevice) return;
-		if (!buybackCustomer) {
-			triggerToast("Please select a customer or quick-add a new one.");
-			return;
-		}
-		if (!buybackPrice) {
-			triggerToast("Please specify the buyback price.");
+
+		setBuybackErrors({});
+		setBuybackFormError("");
+		try {
+			await buybackValidationSchema.validate({
+				buybackPrice: buybackPrice === "" ? undefined : parseFloat(buybackPrice),
+				buybackCustomer,
+				buybackDate,
+				buybackCondition,
+				buybackBattery: buybackBatteryHealth,
+				buybackNotes,
+			}, { abortEarly: false });
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setBuybackErrors(errors);
+			} else {
+				setBuybackFormError("Validation failed.");
+			}
 			return;
 		}
 
@@ -373,7 +461,7 @@ export default function InventoryPage() {
 			const priceNum = parseFloat(buybackPrice);
 
 			const result = await editDevice(buybackDevice.id, {
-				status: "Active",
+				status: "Available",
 				purchase_price: priceNum,
 				price: Math.round(priceNum * 1.2), // Auto markup price by 20%
 				condition: buybackCondition,
@@ -405,10 +493,14 @@ export default function InventoryPage() {
 					`Recorded buyback of ${buybackDevice.brand} ${buybackDevice.model} from ${buybackCustomer}.`,
 				);
 			} else {
-				triggerToast(result.message || "Failed to record buyback.");
+				if (result.errors) {
+					setBuybackErrors(result.errors);
+				} else {
+					setBuybackFormError(result.message || "Failed to record buyback.");
+				}
 			}
 		} catch (err) {
-			triggerToast("An unexpected error occurred while recording buyback.");
+			setBuybackFormError("An unexpected error occurred while recording buyback.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -416,6 +508,7 @@ export default function InventoryPage() {
 
 	const handleCreateCustomer = async () => {
 		setCustErrors({});
+		setCustFormError("");
 		try {
 			await quickCustomerSchema.validate(
 				{
@@ -435,7 +528,7 @@ export default function InventoryPage() {
 				});
 				setCustErrors(errors);
 			} else {
-				triggerToast("Validation failed.");
+				setCustFormError("Validation failed.");
 			}
 			return;
 		}
@@ -467,10 +560,14 @@ export default function InventoryPage() {
 				setCustErrors({});
 				triggerToast(`Customer ${newCustName} registered.`);
 			} else {
-				triggerToast(res.message || "Failed to register customer.");
+				if (res.errors) {
+					setCustErrors(res.errors);
+				} else {
+					setCustFormError(res.message || "Failed to register customer.");
+				}
 			}
 		} catch (err) {
-			triggerToast("An unexpected error occurred registering customer.");
+			setCustFormError("An unexpected error occurred registering customer.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -504,6 +601,7 @@ export default function InventoryPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setFieldErrors({});
+		setFormError("");
 		setIsSubmitting(true);
 
 		try {
@@ -538,7 +636,7 @@ export default function InventoryPage() {
 				});
 				setFieldErrors(errors);
 			} else {
-				triggerToast("Form validation failed.");
+				setFormError("Form validation failed.");
 			}
 			return;
 		}
@@ -558,7 +656,7 @@ export default function InventoryPage() {
 				price: priceNum,
 				purchase_price: purchasePriceNum,
 				battery_health: isAppleSelected ? formBatteryHealth : null,
-				status: editingDevice ? editingDevice.status : "Active",
+				status: editingDevice ? editingDevice.status : "Available",
 				description: formDescription || null,
 				customer_id: formCustomerId ? Number(formCustomerId) : null,
 			};
@@ -575,10 +673,14 @@ export default function InventoryPage() {
 				setIsFormOpen(false);
 				await refreshMetrics();
 			} else {
-				triggerToast(res.message || "Failed to save device details.");
+				if (res.errors) {
+					setFieldErrors(res.errors);
+				} else {
+					setFormError(res.message || "Failed to save device details.");
+				}
 			}
 		} catch (err) {
-			triggerToast("An unexpected error occurred while saving device.");
+			setFormError("An unexpected error occurred while saving device.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -587,6 +689,7 @@ export default function InventoryPage() {
 	const handleCreateBrand = async () => {
 		if (newBrandVal.trim()) {
 			setIsSubmittingBrand(true);
+			setBrandInlineError("");
 			try {
 				const res = await specs.addBrand(newBrandVal.trim());
 				if (res.success) {
@@ -595,10 +698,10 @@ export default function InventoryPage() {
 					setNewBrandVal("");
 					setIsAddingBrand(false);
 				} else {
-					triggerToast(res.message || "Failed to submit brand request.");
+					setBrandInlineError(res.message || "Failed to submit brand request.");
 				}
 			} catch (err) {
-				triggerToast("Failed to submit brand request.");
+				setBrandInlineError("Failed to submit brand request.");
 			} finally {
 				setIsSubmittingBrand(false);
 			}
@@ -607,11 +710,12 @@ export default function InventoryPage() {
 
 	const handleCreateModel = async () => {
 		if (!formBrand) {
-			triggerToast("Please choose a brand first.");
+			setFormError("Please choose a brand first.");
 			return;
 		}
 		if (newModelVal.trim()) {
 			setIsSubmittingModel(true);
+			setModelInlineError("");
 			try {
 				const res = await specs.addModel(newModelVal.trim(), Number(formBrand));
 				if (res.success) {
@@ -621,10 +725,10 @@ export default function InventoryPage() {
 					setIsAddingModel(false);
 					clearFieldError("model");
 				} else {
-					triggerToast(res.message || "Failed to add model.");
+					setModelInlineError(res.message || "Failed to add model.");
 				}
 			} catch (err) {
-				triggerToast("Failed to add model.");
+				setModelInlineError("Failed to add model.");
 			} finally {
 				setIsSubmittingModel(false);
 			}
@@ -634,6 +738,7 @@ export default function InventoryPage() {
 	const handleCreateStorage = async () => {
 		if (newStorageVal.trim()) {
 			setIsSubmittingStorage(true);
+			setStorageInlineError("");
 			try {
 				const res = await specs.addStorage(newStorageVal.trim());
 				if (res.success) {
@@ -643,10 +748,10 @@ export default function InventoryPage() {
 					setIsAddingStorage(false);
 					clearFieldError("storage");
 				} else {
-					triggerToast(res.message || "Failed to add storage.");
+					setStorageInlineError(res.message || "Failed to add storage.");
 				}
 			} catch (err) {
-				triggerToast("Failed to add storage.");
+				setStorageInlineError("Failed to add storage.");
 			} finally {
 				setIsSubmittingStorage(false);
 			}
@@ -656,6 +761,7 @@ export default function InventoryPage() {
 	const handleCreateRam = async () => {
 		if (newRamVal.trim()) {
 			setIsSubmittingRam(true);
+			setRamInlineError("");
 			try {
 				const res = await specs.addRam(newRamVal.trim());
 				if (res.success) {
@@ -665,10 +771,10 @@ export default function InventoryPage() {
 					setIsAddingRam(false);
 					clearFieldError("ram");
 				} else {
-					triggerToast(res.message || "Failed to add RAM.");
+					setRamInlineError(res.message || "Failed to add RAM.");
 				}
 			} catch (err) {
-				triggerToast("Failed to add RAM.");
+				setRamInlineError("Failed to add RAM.");
 			} finally {
 				setIsSubmittingRam(false);
 			}
@@ -727,7 +833,7 @@ export default function InventoryPage() {
 							{metrics.activeStock}
 						</span>
 						<span className="text-xs text-zinc-400 dark:text-zinc-500">
-							Units in hand
+							Units available
 						</span>
 					</div>
 				</div>
@@ -822,7 +928,7 @@ export default function InventoryPage() {
 							onChange={(e) => setStatusFilter(e.target.value)}
 							options={[
 								{ value: "All", label: "All Statuses" },
-								{ value: "Active", label: "Active Stock" },
+								{ value: "Available", label: "Available Stock" },
 								{ value: "Sold", label: "Sold" },
 							]}
 							className="w-40"
@@ -836,10 +942,8 @@ export default function InventoryPage() {
 							}}
 							options={[
 								{ value: "All", label: "All Conditions" },
-								{ value: "Mint", label: "Mint" },
-								{ value: "Excellent", label: "Excellent" },
-								{ value: "Good", label: "Good" },
-								{ value: "Fair", label: "Fair" },
+								{ value: "NEW", label: "New" },
+								{ value: "OLD", label: "Old" },
 							]}
 							className="w-40"
 						/>
@@ -883,7 +987,6 @@ export default function InventoryPage() {
 								{renderSortableHeader("condition", "Condition", "center")}
 								{renderSortableHeader("batteryHealth", "Battery", "center")}
 								{renderSortableHeader("purchasePrice", "Cost Price", "right")}
-								{renderSortableHeader("price", "Sell Price", "right")}
 								{renderSortableHeader("status", "Status", "center")}
 								<th className="py-4 px-6 text-center uppercase font-bold text-xs text-zinc-400">Actions</th>
 							</tr>
@@ -900,7 +1003,6 @@ export default function InventoryPage() {
 										<td className="py-4 px-6"><div className="h-4 w-28 bg-zinc-250 dark:bg-zinc-800 rounded" /></td>
 										<td className="py-4 px-6 text-center"><div className="h-4 w-16 bg-zinc-250 dark:bg-zinc-800 rounded mx-auto" /></td>
 										<td className="py-4 px-6 text-center"><div className="h-4 w-8 bg-zinc-250 dark:bg-zinc-800 rounded mx-auto" /></td>
-										<td className="py-4 px-6 text-right"><div className="h-4 w-16 bg-zinc-250 dark:bg-zinc-800 rounded ml-auto" /></td>
 										<td className="py-4 px-6 text-right"><div className="h-4 w-16 bg-zinc-250 dark:bg-zinc-800 rounded ml-auto" /></td>
 										<td className="py-4 px-6 text-center"><div className="h-6 w-16 bg-zinc-250 dark:bg-zinc-800 rounded-full mx-auto" /></td>
 										<td className="py-4 px-6 text-center"><div className="h-8 w-24 bg-zinc-250 dark:bg-zinc-800 rounded-xl mx-auto" /></td>
@@ -956,28 +1058,22 @@ export default function InventoryPage() {
 												? `₹${d.purchasePrice.toLocaleString()}`
 												: "-"}
 										</td>
-										<td
-											className="py-4 px-6 text-right font-extrabold text-zinc-900 dark:text-zinc-100"
-											suppressHydrationWarning
-										>
-											₹{d.price.toLocaleString()}
-										</td>
 										<td className="py-4 px-6 text-center">
 											<span
 												className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${
-													d.status === "Active"
+													d.status === "Available"
 														? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
 														: "bg-zinc-500/15 text-zinc-550 dark:text-zinc-400"
 												}`}
 											>
-												{d.status === "Active"
-													? "In Hand"
-													: "Sold"}
+												{d.status === "Available"
+													? "Available"
+													: d.status}
 											</span>
 										</td>
 										<td className="py-4 px-6 text-center">
 											<div className="flex items-center justify-center gap-2">
-												{d.status === "Active" && (
+												{d.status === "Available" && (
 													<button
 														disabled={isSubmitting}
 														onClick={() =>
@@ -996,7 +1092,7 @@ export default function InventoryPage() {
 															<path
 																strokeLinecap="round"
 																strokeLinejoin="round"
-																d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+																d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"
 															/>
 														</svg>
 													</button>
@@ -1082,7 +1178,7 @@ export default function InventoryPage() {
 						) : (
 							<tbody>
 								<tr>
-									<td colSpan={9} className="text-center py-16 space-y-3">
+									<td colSpan={8} className="text-center py-16 space-y-3">
 										<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
 											No Inventory Items Listed
 										</h4>
@@ -1188,33 +1284,44 @@ export default function InventoryPage() {
 							</div>
 
 							{isAddingBrand ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingBrand || isSubmitting}
-										value={newBrandVal}
-										onChange={(e) => setNewBrandVal(e.target.value)}
-										placeholder="New Brand Name"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingBrand || isSubmitting}
-										onClick={handleCreateBrand}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-									>
-										{isSubmittingBrand ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingBrand || isSubmitting}
+											value={newBrandVal}
+											onChange={(e) => {
+												setNewBrandVal(e.target.value);
+												setBrandInlineError("");
+											}}
+											placeholder="New Brand Name"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${brandInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingBrand || isSubmitting}
+											onClick={handleCreateBrand}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
+										>
+											{isSubmittingBrand ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{brandInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{brandInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1250,33 +1357,44 @@ export default function InventoryPage() {
 							</div>
 
 							{isAddingModel ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingModel || isSubmitting}
-										value={newModelVal}
-										onChange={(e) => setNewModelVal(e.target.value)}
-										placeholder="Model Name"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingModel || isSubmitting}
-										onClick={handleCreateModel}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-									>
-										{isSubmittingModel ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingModel || isSubmitting}
+											value={newModelVal}
+											onChange={(e) => {
+												setNewModelVal(e.target.value);
+												setModelInlineError("");
+											}}
+											placeholder="Model Name"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${modelInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingModel || isSubmitting}
+											onClick={handleCreateModel}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
+										>
+											{isSubmittingModel ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{modelInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{modelInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1317,33 +1435,44 @@ export default function InventoryPage() {
 							</div>
 
 							{isAddingStorage ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingStorage || isSubmitting}
-										value={newStorageVal}
-										onChange={(e) => setNewStorageVal(e.target.value)}
-										placeholder="e.g. 512GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingStorage || isSubmitting}
-										onClick={handleCreateStorage}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-									>
-										{isSubmittingStorage ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingStorage || isSubmitting}
+											value={newStorageVal}
+											onChange={(e) => {
+												setNewStorageVal(e.target.value);
+												setStorageInlineError("");
+											}}
+											placeholder="e.g. 512GB"
+											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${storageInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingStorage || isSubmitting}
+											onClick={handleCreateStorage}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
+										>
+											{isSubmittingStorage ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{storageInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{storageInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1378,33 +1507,44 @@ export default function InventoryPage() {
 							</div>
 
 							{isAddingRam ? (
-								<div className="flex gap-2 animate-scaleUp">
-									<input
-										type="text"
-										disabled={isSubmittingRam || isSubmitting}
-										value={newRamVal}
-										onChange={(e) => setNewRamVal(e.target.value)}
-										placeholder="e.g. 16GB"
-										className="flex-1 px-3 py-2 rounded-xl border border-primary text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-									/>
-									<button
-										type="button"
-										disabled={isSubmittingRam || isSubmitting}
-										onClick={handleCreateRam}
-										className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-									>
-										{isSubmittingRam ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving...</span>
-											</>
-										) : (
-											"Save"
-										)}
-									</button>
+								<div className="flex flex-col gap-1.5 w-full">
+									<div className="flex gap-2 animate-scaleUp">
+										<input
+											type="text"
+											disabled={isSubmittingRam || isSubmitting}
+											value={newRamVal}
+											onChange={(e) => {
+												setNewRamVal(e.target.value);
+												setRamInlineError("");
+											}}
+											placeholder="e.g. 16GB"
+											className={`w-full px-3 py-2.5 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+												${ramInlineError ? "border-red-500" : "border-primary"}`}
+										/>
+										<button
+											type="button"
+											disabled={isSubmittingRam || isSubmitting}
+											onClick={handleCreateRam}
+											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
+										>
+											{isSubmittingRam ? (
+												<>
+													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+													</svg>
+													<span>Saving...</span>
+												</>
+											) : (
+												"Save"
+											)}
+										</button>
+									</div>
+									{ramInlineError && (
+										<p className="text-[10px] text-red-500 font-semibold pl-1">
+											{ramInlineError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1437,10 +1577,8 @@ export default function InventoryPage() {
 									clearFieldError("condition");
 								}}
 								options={[
-									{ value: "Mint", label: "Mint" },
-									{ value: "Excellent", label: "Excellent" },
-									{ value: "Good", label: "Good" },
-									{ value: "Fair", label: "Fair" },
+									{ value: "NEW", label: "New" },
+									{ value: "OLD", label: "Old" },
 								]}
 								error={fieldErrors.condition}
 							/>
@@ -1568,12 +1706,17 @@ export default function InventoryPage() {
 													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 												</svg>
-												<span>Saving Client...</span>
+												<span>Saving Customer...</span>
 											</>
 										) : (
 											"Save and Select Customer"
 										)}
 									</button>
+									{custFormError && (
+										<p className="text-xs text-red-500 font-semibold text-center mt-2">
+											{custFormError}
+										</p>
+									)}
 								</div>
 							) : (
 								<Select
@@ -1637,6 +1780,12 @@ export default function InventoryPage() {
 						)}
 					</div>
 
+					{formError && (
+						<p className="text-xs text-red-500 font-semibold text-center mt-2">
+							{formError}
+						</p>
+					)}
+
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
 						<Button
 							type="button"
@@ -1684,7 +1833,7 @@ export default function InventoryPage() {
 								<path
 									strokeLinecap="round"
 									strokeLinejoin="round"
-									d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
 						</span>
@@ -1701,7 +1850,7 @@ export default function InventoryPage() {
 				size="lg"
 			>
 				{sellingDevice && (
-					<form onSubmit={handleSellSubmit} className="space-y-5">
+					<form onSubmit={handleSellSubmit} className="space-y-5" noValidate>
 						{/* Device Info Panel */}
 						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
 							<div className="flex justify-between items-start">
@@ -1714,7 +1863,7 @@ export default function InventoryPage() {
 									</p>
 								</div>
 								<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-									Active in Hand
+									Available
 								</span>
 							</div>
 							<div className="grid grid-cols-3 gap-4 border-t border-zinc-200/40 dark:border-zinc-800/40 pt-2.5 mt-1 text-[11px]">
@@ -1728,7 +1877,7 @@ export default function InventoryPage() {
 								</div>
 								<div>
 									<span className="text-zinc-400 block">
-										Cost Price:
+										Purchase Price:
 									</span>
 									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
 										{sellingDevice.purchasePrice ? `₹${sellingDevice.purchasePrice.toLocaleString()}` : "-"}
@@ -1736,10 +1885,10 @@ export default function InventoryPage() {
 								</div>
 								<div>
 									<span className="text-zinc-400 block">
-										Listed Price:
+										Profit:
 									</span>
-									<span className="font-extrabold text-primary">
-										₹{sellingDevice.price.toLocaleString()}
+									<span className={`font-extrabold ${saleProfit >= 0 ? "text-emerald-500" : "text-red-500"}`} suppressHydrationWarning>
+										{saleProfit >= 0 ? "+" : "-"}₹{Math.abs(saleProfit).toLocaleString()}
 									</span>
 								</div>
 							</div>
@@ -1842,24 +1991,35 @@ export default function InventoryPage() {
 														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 													</svg>
-													<span>Saving Client...</span>
+													<span>Saving Customer...</span>
 												</>
 											) : (
 												"Save and Select Customer"
 											)}
 										</button>
+										{custFormError && (
+											<p className="text-xs text-red-500 font-semibold text-center mt-2">
+												{custFormError}
+											</p>
+										)}
 									</div>
 								) : (
 									<Select
 										value={sellCustomer}
 										disabled={isSubmitting}
-										onChange={(e) =>
-											setSellCustomer(e.target.value)
-										}
+										onChange={(e) => {
+											setSellCustomer(e.target.value);
+											clearSellError("sellCustomer");
+										}}
 										required
-										placeholder="-- Choose Client --"
+										placeholder="-- Choose Customer --"
 										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
 									/>
+								)}
+								{sellErrors.sellCustomer && (
+									<p className="text-xs text-red-500 font-medium mt-1">
+										{sellErrors.sellCustomer}
+									</p>
 								)}
 							</div>
 
@@ -1874,11 +2034,18 @@ export default function InventoryPage() {
 										required
 										disabled={isSubmitting}
 										value={sellPrice}
-										onChange={(e) =>
-											setSellPrice(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50"
+										onChange={(e) => {
+											setSellPrice(e.target.value);
+											clearSellError("sellPrice");
+										}}
+										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50
+											${sellErrors.sellPrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
 									/>
+									{sellErrors.sellPrice && (
+										<p className="text-xs text-red-500 font-medium mt-1">
+											{sellErrors.sellPrice}
+										</p>
+									)}
 								</div>
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -1914,6 +2081,12 @@ export default function InventoryPage() {
 								/>
 							</div>
 						</div>
+
+						{sellFormError && (
+							<p className="text-xs text-red-500 font-semibold text-center mt-2">
+								{sellFormError}
+							</p>
+						)}
 
 						{/* Actions */}
 						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
@@ -1985,7 +2158,7 @@ export default function InventoryPage() {
 				size="lg"
 			>
 				{buybackDevice && (
-					<form onSubmit={handleBuybackSubmit} className="space-y-5">
+					<form onSubmit={handleBuybackSubmit} className="space-y-5" noValidate>
 						{/* Device Info Panel */}
 						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
 							<div className="flex justify-between items-start">
@@ -2012,18 +2185,18 @@ export default function InventoryPage() {
 								</div>
 								<div>
 									<span className="text-zinc-400 block">
-										Last Cost Price:
-									</span>
-									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
-										{buybackDevice.purchasePrice ? `₹${buybackDevice.purchasePrice.toLocaleString()}` : "-"}
-									</span>
-								</div>
-								<div>
-									<span className="text-zinc-400 block">
 										Last Sell Price:
 									</span>
 									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
 										₹{buybackDevice.price.toLocaleString()}
+									</span>
+								</div>
+								<div>
+									<span className="text-zinc-400 block">
+										Profit:
+									</span>
+									<span className={`font-extrabold ${buybackProfit >= 0 ? "text-emerald-500" : "text-red-500"}`} suppressHydrationWarning>
+										{buybackProfit >= 0 ? "+" : "-"}₹{Math.abs(buybackProfit).toLocaleString()}
 									</span>
 								</div>
 							</div>
@@ -2126,24 +2299,35 @@ export default function InventoryPage() {
 														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 													</svg>
-													<span>Saving Client...</span>
+													<span>Saving Customer...</span>
 												</>
 											) : (
 												"Save and Select Customer"
 											)}
 										</button>
+										{custFormError && (
+											<p className="text-xs text-red-500 font-semibold text-center mt-2">
+												{custFormError}
+											</p>
+										)}
 									</div>
 								) : (
 									<Select
 										value={buybackCustomer}
 										disabled={isSubmitting}
-										onChange={(e) =>
-											setBuybackCustomer(e.target.value)
-										}
+										onChange={(e) => {
+											setBuybackCustomer(e.target.value);
+											clearBuybackError("buybackCustomer");
+										}}
 										required
-										placeholder="-- Choose Client --"
+										placeholder="-- Choose Customer --"
 										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
 									/>
+								)}
+								{buybackErrors.buybackCustomer && (
+									<p className="text-xs text-red-500 font-medium mt-1">
+										{buybackErrors.buybackCustomer}
+									</p>
 								)}
 							</div>
 
@@ -2158,11 +2342,18 @@ export default function InventoryPage() {
 										required
 										disabled={isSubmitting}
 										value={buybackPrice}
-										onChange={(e) =>
-											setBuybackPrice(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50"
+										onChange={(e) => {
+											setBuybackPrice(e.target.value);
+											clearBuybackError("buybackPrice");
+										}}
+										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50
+											${buybackErrors.buybackPrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
 									/>
+									{buybackErrors.buybackPrice && (
+										<p className="text-xs text-red-500 font-medium mt-1">
+											{buybackErrors.buybackPrice}
+										</p>
+									)}
 								</div>
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -2196,10 +2387,8 @@ export default function InventoryPage() {
 											)
 										}
 										options={[
-											{ value: "Mint", label: "Mint" },
-											{ value: "Excellent", label: "Excellent" },
-											{ value: "Good", label: "Good" },
-											{ value: "Fair", label: "Fair" },
+											{ value: "NEW", label: "New" },
+											{ value: "OLD", label: "Old" },
 										]}
 									/>
 								</div>
@@ -2214,13 +2403,20 @@ export default function InventoryPage() {
 										required
 										disabled={isSubmitting}
 										value={buybackBatteryHealth}
-										onChange={(e) =>
+										onChange={(e) => {
 											setBuybackBatteryHealth(
 												parseInt(e.target.value) || 0,
-											)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
+											);
+											clearBuybackError("buybackBattery");
+										}}
+										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50
+											${buybackErrors.buybackBattery ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
 									/>
+									{buybackErrors.buybackBattery && (
+										<p className="text-xs text-red-500 font-medium mt-1">
+											{buybackErrors.buybackBattery}
+										</p>
+									)}
 								</div>
 							</div>
 
@@ -2241,6 +2437,12 @@ export default function InventoryPage() {
 								/>
 							</div>
 						</div>
+
+						{buybackFormError && (
+							<p className="text-xs text-red-500 font-semibold text-center mt-2">
+								{buybackFormError}
+							</p>
+						)}
 
 						{/* Actions */}
 						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">

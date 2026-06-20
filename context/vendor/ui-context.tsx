@@ -15,8 +15,11 @@ const UiContext = createContext<UiContextType | undefined>(undefined);
 export function UiProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<"overview" | "device" | "exchanges" | "orders" | "settings" | "trades">("overview");
 
-  const triggerToast = (msg: string, type: "success" | "error" = "success") => {
-    if (type === "error") {
+  const triggerToast = (msg: string, type?: "success" | "error") => {
+    const resolvedType = type || (
+      /fail|error|invalid|cannot|please|unable|select|choose|required/i.test(msg) ? "error" : "success"
+    );
+    if (resolvedType === "error") {
       toast.error(msg);
     } else {
       toast.success(msg);

@@ -86,7 +86,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-visible p-6 pt-4 text-left text-zinc-700 dark:text-zinc-350">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6 pt-4 text-left text-zinc-700 dark:text-zinc-350">{children}</div>
 
         {/* Footer */}
         {footer && (

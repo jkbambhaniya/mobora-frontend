@@ -139,6 +139,78 @@ export default function Sidebar() {
 						</Link>
 
 						<Link
+							href="/purchases"
+							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
+								isTabActive("/purchases")
+									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+							}`}
+						>
+							<svg
+								className="w-5 h-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth="2"
+									d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20"
+								/>
+							</svg>
+							Purchases
+						</Link>
+
+						<Link
+							href="/sales"
+							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
+								isTabActive("/sales")
+									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+							}`}
+						>
+							<svg
+								className="w-5 h-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth="2"
+									d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z"
+								/>
+							</svg>
+							Sales
+						</Link>
+
+						<Link
+							href="/trades"
+							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
+								isTabActive("/trades")
+									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+							}`}
+						>
+							<svg
+								className="w-5 h-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth="2"
+									d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+								/>
+							</svg>
+							Device Tracker
+						</Link>
+
+						<Link
 							href="/specifications"
 							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
 								isTabActive("/specifications")
@@ -518,6 +590,56 @@ export default function Sidebar() {
 							</Link>
 
 							<Link
+								href="/purchases"
+								onClick={() => setIsMobileMenuOpen(false)}
+								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
+									isTabActive("/purchases")
+										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+								}`}
+							>
+								<svg
+									className="w-5 h-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth="2"
+										d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20"
+									/>
+								</svg>
+								Purchases
+							</Link>
+
+							<Link
+								href="/sales"
+								onClick={() => setIsMobileMenuOpen(false)}
+								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
+									isTabActive("/sales")
+										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+								}`}
+							>
+								<svg
+									className="w-5 h-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth="2"
+										d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z"
+									/>
+								</svg>
+								Sales
+							</Link>
+
+							<Link
 								href="/specifications"
 								onClick={() => setIsMobileMenuOpen(false)}
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
@@ -540,31 +662,6 @@ export default function Sidebar() {
 									/>
 								</svg>
 								Specifications Setup
-							</Link>
-
-							<Link
-								href="/orders"
-								onClick={() => setIsMobileMenuOpen(false)}
-								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
-									isTabActive("/orders")
-										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
-								}`}
-							>
-								<svg
-									className="w-5 h-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth="2"
-										d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-									/>
-								</svg>
-								Sales Orders
 							</Link>
 
 							<Link

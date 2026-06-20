@@ -376,7 +376,7 @@ export default function Dashboard() {
 						<thead>
 							<tr className="text-zinc-400 font-semibold text-xs uppercase">
 								<th className="pb-3 pr-4">Order ID</th>
-								<th className="pb-3 px-4">Client</th>
+								<th className="pb-3 px-4">Customer</th>
 								<th className="pb-3 px-4">Device Details</th>
 								<th className="pb-3 px-4">Type</th>
 								<th className="pb-3 px-4 text-right">
