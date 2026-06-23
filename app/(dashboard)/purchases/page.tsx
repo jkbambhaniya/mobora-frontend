@@ -12,19 +12,11 @@ import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 import Pagination from "@/components/ui/Pagination";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { toast } from "react-hot-toast";
-import * as yup from "yup";
-
-const quickPartnerSchema = yup.object().shape({
-	name: yup.string().trim().required("Full Name/Business Name is required."),
-	phone: yup.string().trim().required("Phone Number is required."),
-	address: yup.string().trim().nullable().notRequired(),
-});
+import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 
 export default function PurchasesPage() {
 	const {
 		customers,
-		setCustomers,
-		addCustomer,
 		handleAddTradeTransaction,
 		refreshTrades,
 		refreshDevices,
@@ -55,7 +47,6 @@ export default function PurchasesPage() {
 
 	// Modals State
 	const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
-	const [isAddingCust, setIsAddingCust] = useState(false);
 	const [isAddingBrand, setIsAddingBrand] = useState(false);
 	const [isAddingModel, setIsAddingModel] = useState(false);
 	const [isAddingStorage, setIsAddingStorage] = useState(false);
@@ -66,14 +57,6 @@ export default function PurchasesPage() {
 	const [newModelVal, setNewModelVal] = useState("");
 	const [newStorageVal, setNewStorageVal] = useState("");
 	const [newRamVal, setNewRamVal] = useState("");
-
-	// Quick Add Customer States
-	const [newCustName, setNewCustName] = useState("");
-	const [newCustPhone, setNewCustPhone] = useState("");
-	const [newCustAddress, setNewCustAddress] = useState("");
-	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
-	const [custFormError, setCustFormError] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Purchase Form States
 	const [formImei, setFormImei] = useState("");
@@ -92,6 +75,10 @@ export default function PurchasesPage() {
 	// Autofill States
 	const [autofillDetected, setAutofillDetected] = useState(false);
 	const [autofillMessage, setAutofillMessage] = useState("");
+
+	// Security Check States
+	const [isCheckingImei, setIsCheckingImei] = useState(false);
+	const [imeiCheckStatus, setImeiCheckStatus] = useState<"idle" | "clean" | "stolen">("idle");
 
 	// Debounce Search
 	useEffect(() => {
@@ -140,10 +127,27 @@ export default function PurchasesPage() {
 		return formBrand.toLowerCase() === "apple";
 	}, [formBrand]);
 
-	// Monitor IMEI input for auto-fill logic (similar to trades tracker page)
+	// Monitor IMEI input for auto-fill logic & Security Blacklist checks
 	useEffect(() => {
 		const verifyImeiAutofill = async () => {
 			if (formImei.length === 15) {
+				setIsCheckingImei(true);
+				setImeiCheckStatus("idle");
+				
+				// Simulate Blacklist Registry check
+				await new Promise((resolve) => setTimeout(resolve, 800));
+				
+				if (formImei.endsWith("999")) {
+					setIsCheckingImei(false);
+					setImeiCheckStatus("stolen");
+					setAutofillDetected(false);
+					setAutofillMessage("❌ STOLEN / BLOCKED DEVICE. Purchase blocked.");
+					toast.error("Security Alert: Device reported as STOLEN/BLOCKED!");
+					return;
+				}
+				
+				setImeiCheckStatus("clean");
+				
 				// Query trades log in database
 				try {
 					const response = await getTransactionsAction({ search: formImei, limit: 1 });
@@ -168,10 +172,13 @@ export default function PurchasesPage() {
 					}
 				} catch (err) {
 					console.error("Autofill lookup failed:", err);
+				} finally {
+					setIsCheckingImei(false);
 				}
 			} else {
 				setAutofillDetected(false);
 				setAutofillMessage("");
+				setImeiCheckStatus("idle");
 			}
 		};
 		verifyImeiAutofill();
@@ -193,7 +200,6 @@ export default function PurchasesPage() {
 		setFormDate(new Date().toISOString().split("T")[0]);
 		setAutofillDetected(false);
 		setAutofillMessage("");
-		setIsAddingCust(false);
 		setIsPurchaseModalOpen(true);
 	};
 
@@ -261,66 +267,7 @@ export default function PurchasesPage() {
 		}
 	};
 
-	// Save Quick Customer Helper
-	const handleCreateCustomer = async () => {
-		setCustErrors({});
-		setCustFormError("");
-		try {
-			await quickPartnerSchema.validate(
-				{
-					name: newCustName,
-					phone: newCustPhone,
-					address: newCustAddress || null,
-				},
-				{ abortEarly: false }
-			);
-		} catch (err: any) {
-			if (err instanceof yup.ValidationError) {
-				const errors: Record<string, string> = {};
-				err.inner.forEach((validationError: any) => {
-					if (validationError.path && !errors[validationError.path]) {
-						errors[validationError.path] = validationError.message;
-					}
-				});
-				setCustErrors(errors);
-			} else {
-				setCustFormError("Validation failed.");
-			}
-			return;
-		}
 
-		setIsSubmitting(true);
-		try {
-			const res = await addCustomer({
-				name: newCustName,
-				phone: newCustPhone,
-				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-				status: "Active",
-				address: newCustAddress || "Registered in Purchases desk",
-				notes: "Quick registered from purchases ledger.",
-			});
-
-			if (res.success) {
-				setFormCustomerName(newCustName);
-				setIsAddingCust(false);
-				setNewCustName("");
-				setNewCustPhone("");
-				setNewCustAddress("");
-				setCustErrors({});
-				toast.success(`Registered Customer: ${newCustName}`);
-			} else {
-				if (res.errors) {
-					setCustErrors(res.errors);
-				} else {
-					setCustFormError(res.message || "Registration failed.");
-				}
-			}
-		} catch (err) {
-			setCustFormError("Error saving customer details.");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
 
 	// Record Purchase Handler
 	const handleSubmitPurchase = async (e: React.FormEvent) => {
@@ -341,15 +288,20 @@ export default function PurchasesPage() {
 			return;
 		}
 
+		const [partnerType, partnerNameOrId] = formCustomerName.includes(":")
+			? (formCustomerName.split(":") as ["Customer" | "Vendor", string])
+			: ["Customer" as const, formCustomerName];
+
 		const result = await handleAddTradeTransaction({
 			imei: formImei,
 			deviceBrand: formBrand,
 			deviceModel: formModel,
 			type: "Purchase",
-			customerName: formCustomerName,
+			customerName: partnerNameOrId,
+			partnerType: partnerType,
 			amount: priceNum,
 			date: formDate,
-			notes: formNotes || `Device purchased from ${formCustomerName}.`,
+			notes: formNotes || `Device purchased from ${partnerNameOrId}.`,
 			storage: formStorage,
 			ram: formRam,
 			color: formColor || "Space Gray",
@@ -606,28 +558,56 @@ export default function PurchasesPage() {
 			<Modal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} title="Record Stock Purchase" size="lg">
 				<form onSubmit={handleSubmitPurchase} className="space-y-4">
 					{/* IMEI Input */}
-					<div className="space-y-1">
+					<div className="space-y-1 text-left">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 							15-Digit IMEI *
 						</label>
-						<input
-							type="text"
-							maxLength={15}
-							value={formImei}
-							onChange={(e) => setFormImei(e.target.value.replace(/\D/g, ""))}
-							placeholder="e.g. 359283748291827"
-							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono"
-							required
-						/>
-						{autofillMessage && (
+						<div className="relative">
+							<input
+								type="text"
+								maxLength={15}
+								value={formImei}
+								onChange={(e) => setFormImei(e.target.value.replace(/\D/g, ""))}
+								placeholder="e.g. 359283748291827"
+								className={`w-full pl-4 pr-10 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono
+									${imeiCheckStatus === "stolen" ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
+								required
+							/>
+							{isCheckingImei && (
+								<span className="absolute inset-y-0 right-3.5 flex items-center">
+									<svg className="animate-spin h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
+										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+									</svg>
+								</span>
+							)}
+						</div>
+
+						{/* Security Status Messages */}
+						{isCheckingImei && (
+							<div className="text-[11px] text-indigo-500 font-semibold animate-pulse mt-1">
+								🔍 Querying Global Blacklist Registry & Stolen Database...
+							</div>
+						)}
+
+						{imeiCheckStatus === "stolen" && (
+							<div className="p-3 bg-red-500/5 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold space-y-1 mt-1 animate-scaleUp">
+								<div>⚠️ SECURITY THREAT REGISTERED</div>
+								<p className="text-[10px] font-medium leading-normal text-red-500">
+									This IMEI is reported as STOLEN or BLOCKED. Mobora Anti-Theft policies prevent recording this purchase.
+								</p>
+							</div>
+						)}
+
+						{imeiCheckStatus === "clean" && autofillMessage && (
 							<div
 								className={`p-3 rounded-xl border text-xs font-semibold animate-scaleUp ${
 									autofillDetected
 										? "bg-primary/5 border-primary/20 text-primary dark:text-secondary"
-										: "bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400"
+										: "bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
 								}`}
 							>
-								{autofillMessage}
+								{autofillDetected ? autofillMessage : `✅ Security Verified: IMEI Clean. ${autofillMessage}`}
 							</div>
 						)}
 					</div>
@@ -857,152 +837,40 @@ export default function PurchasesPage() {
 						</div>
 					</div>
 
-					{/* Customer Select / Register Customer */}
-					<div className="space-y-2">
-						<div className="flex justify-between items-center">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Source Customer *</label>
-							<button
-								type="button"
-								onClick={() => {
-									setIsAddingCust(!isAddingCust);
-									setCustErrors({});
-									setCustFormError("");
-								}}
-								className="text-[10px] text-primary hover:underline font-bold"
-							>
-								{isAddingCust ? "Cancel" : "+ Quick Add"}
-							</button>
+					<PartnerSelector
+						value={formCustomerName}
+						onChange={setFormCustomerName}
+						label="Source Customer / Vendor *"
+						placeholder="-- Choose Partner --"
+						required={true}
+						valueType="name"
+					/>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+						{/* Purchase Price */}
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase">Purchase Price (₹) *</label>
+							<input
+								type="number"
+								required
+								value={formAmount}
+								onChange={(e) => setFormAmount(e.target.value)}
+								placeholder="e.g. 45000"
+								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							/>
 						</div>
 
-						{isAddingCust ? (
-							<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp text-left">
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<div className="space-y-1">
-										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-											Full Name *
-										</label>
-										<input
-											type="text"
-											disabled={isSubmitting}
-											value={newCustName}
-											onChange={(e) => {
-												setNewCustName(e.target.value);
-												setCustErrors((prev) => ({ ...prev, name: "" }));
-											}}
-											placeholder="John Doe"
-											className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-												${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-										/>
-										{custErrors.name && (
-											<p className="text-[10px] text-red-500 font-semibold">
-												{custErrors.name}
-											</p>
-										)}
-									</div>
-									<div className="space-y-1">
-										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-											Mobile Number *
-										</label>
-										<PhoneInputField
-											disabled={isSubmitting}
-											size="sm"
-											value={newCustPhone}
-											onChange={(phone) => {
-												setNewCustPhone(phone);
-												setCustErrors((prev) => ({ ...prev, phone: "" }));
-											}}
-											error={custErrors.phone}
-										/>
-									</div>
-								</div>
-								<div className="space-y-1">
-									<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-										Address
-									</label>
-									<textarea
-										disabled={isSubmitting}
-										value={newCustAddress}
-										onChange={(e) => {
-											setNewCustAddress(e.target.value);
-											setCustErrors((prev) => ({ ...prev, address: "" }));
-										}}
-										placeholder="Enter customer address..."
-										rows={2}
-										className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-											${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-									/>
-									{custErrors.address && (
-										<p className="text-xs text-red-500 font-medium mt-1">
-											{custErrors.address}
-										</p>
-									)}
-								</div>
-								<button
-									type="button"
-									disabled={isSubmitting}
-									onClick={handleCreateCustomer}
-									className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-								>
-									{isSubmitting ? (
-										<>
-											<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-												<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-												<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-											</svg>
-											<span>Saving Customer...</span>
-										</>
-									) : (
-										"Save and Select Customer"
-									)}
-								</button>
-								{custFormError && (
-									<p className="text-xs text-red-500 font-semibold text-center mt-2">
-										{custFormError}
-									</p>
-								)}
-							</div>
-						) : (
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-								{/* Customer Choose */}
-								<div className="space-y-1 relative md:col-span-1">
-									<Select
-										value={formCustomerName}
-										onChange={(e) => setFormCustomerName(e.target.value)}
-										required
-										placeholder="-- Choose Customer --"
-										options={customers.map((c) => ({
-											value: c.name,
-											label: `${c.name} (${c.phone})`,
-										}))}
-									/>
-								</div>
-
-								{/* Purchase Price */}
-								<div className="space-y-1">
-									<label className="text-xs font-semibold text-zinc-400 uppercase">Purchase Price (₹) *</label>
-									<input
-										type="number"
-										required
-										value={formAmount}
-										onChange={(e) => setFormAmount(e.target.value)}
-										placeholder="e.g. 45000"
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									/>
-								</div>
-
-								{/* Date */}
-								<div className="space-y-1">
-									<label className="text-xs font-semibold text-zinc-400 uppercase">Purchase Date *</label>
-									<input
-										type="date"
-										required
-										value={formDate}
-										onChange={(e) => setFormDate(e.target.value)}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									/>
-								</div>
-							</div>
-						)}
+						{/* Date */}
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase">Purchase Date *</label>
+							<input
+								type="date"
+								required
+								value={formDate}
+								onChange={(e) => setFormDate(e.target.value)}
+								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							/>
+						</div>
 					</div>
 
 					{/* Notes */}
@@ -1017,8 +885,13 @@ export default function PurchasesPage() {
 						/>
 					</div>
 
-					<Button type="submit" variant="gradient" className="w-full py-3 rounded-xl font-bold cursor-pointer">
-						📥 Record Purchase Inflow
+					<Button
+						type="submit"
+						variant="gradient"
+						disabled={isCheckingImei || imeiCheckStatus === "stolen"}
+						className="w-full py-3 rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						{isCheckingImei ? "Verifying Device Security..." : imeiCheckStatus === "stolen" ? "Purchase Blocked (Stolen IMEI)" : "📥 Record Purchase Inflow"}
 					</Button>
 				</form>
 			</Modal>

@@ -8,6 +8,8 @@ export interface VendorProfile {
 	address?: string;
 	payment_methods?: string;
 	profile_img?: string;
+	gst_enabled?: boolean;
+	gst_rate?: number;
 }
 
 export interface Mobile {
@@ -64,6 +66,8 @@ export interface TradeTransaction {
 	deviceBrand: string;
 	type: "Purchase" | "Sale";
 	customerName: string;
+	partnerId?: string | number;
+	partnerType?: "Customer" | "Vendor";
 	amount: number;
 	date: string;
 	notes?: string;

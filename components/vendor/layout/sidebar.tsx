@@ -187,28 +187,19 @@ export default function Sidebar() {
 						</Link>
 
 						<Link
-							href="/trades"
+							href="/repairs"
 							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
-								isTabActive("/trades")
+								isTabActive("/repairs")
 									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
 									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
 							}`}
 						>
-							<svg
-								className="w-5 h-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth="2"
-									d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-								/>
+							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
 							</svg>
-							Device Tracker
+							Repairs
 						</Link>
+
 
 						<Link
 							href="/specifications"
@@ -640,6 +631,21 @@ export default function Sidebar() {
 							</Link>
 
 							<Link
+								href="/repairs"
+								onClick={() => setIsMobileMenuOpen(false)}
+								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
+									isTabActive("/repairs")
+										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+								}`}
+							>
+								<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+								</svg>
+								Repairs
+							</Link>
+
+							<Link
 								href="/specifications"
 								onClick={() => setIsMobileMenuOpen(false)}
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
@@ -664,30 +670,6 @@ export default function Sidebar() {
 								Specifications Setup
 							</Link>
 
-							<Link
-								href="/trades"
-								onClick={() => setIsMobileMenuOpen(false)}
-								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
-									pathname === "/trades"
-										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
-								}`}
-							>
-								<svg
-									className="w-5 h-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth="2"
-										d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-									/>
-								</svg>
-								Device Tracker
-							</Link>
 						</div>
 
 						{/* Quick Actions (Theme & Info) */}

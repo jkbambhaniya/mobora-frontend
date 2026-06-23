@@ -21,6 +21,7 @@ interface SelectProps {
 	required?: boolean;
 	size?: "sm" | "md";
 	onOptionEdit?: (value: string | number, label: string) => void;
+	showSearch?: boolean;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -37,12 +38,19 @@ export const Select: React.FC<SelectProps> = ({
 	required,
 	size = "md",
 	onOptionEdit,
+	showSearch = false,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
+	const [searchTerm, setSearchTerm] = useState("");
 	const [placement, setPlacement] = useState<"bottom" | "top">("bottom");
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	// Filtered options based on search query
+	const filteredOptions = options.filter((opt) =>
+		opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+	);
 
 	// Find currently selected option
 	const selectedOption = options.find(
@@ -57,6 +65,7 @@ export const Select: React.FC<SelectProps> = ({
 				!containerRef.current.contains(event.target as Node)
 			) {
 				setIsOpen(false);
+				setSearchTerm("");
 			}
 		};
 		document.addEventListener("mousedown", handleClickOutside);
@@ -69,7 +78,7 @@ export const Select: React.FC<SelectProps> = ({
 	useEffect(() => {
 		if (isOpen && containerRef.current) {
 			const rect = containerRef.current.getBoundingClientRect();
-			const dropdownHeight = Math.min(options.length * 40 + 10, 240); // estimate height
+			const dropdownHeight = Math.min(filteredOptions.length * 40 + (showSearch ? 50 : 10), 240); // estimate height
 			const spaceBelow = window.innerHeight - rect.bottom;
 			if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
 				setPlacement("top");
@@ -77,7 +86,7 @@ export const Select: React.FC<SelectProps> = ({
 				setPlacement("bottom");
 			}
 		}
-	}, [isOpen, options.length]);
+	}, [isOpen, filteredOptions.length, showSearch]);
 
 	const handleSelect = (optionValue: string | number) => {
 		if (disabled) return;
@@ -92,6 +101,7 @@ export const Select: React.FC<SelectProps> = ({
 			onChange(mockEvent);
 		}
 		setIsOpen(false);
+		setSearchTerm("");
 	};
 
 	// Keyboard navigation
@@ -99,24 +109,27 @@ export const Select: React.FC<SelectProps> = ({
 		if (disabled) return;
 
 		if (e.key === "Enter" || e.key === " ") {
+			// If user is typing in search input, don't trigger select on Space
+			if (document.activeElement?.tagName === "INPUT") return;
 			e.preventDefault();
 			if (!isOpen) {
 				setIsOpen(true);
 				setHighlightedIndex(
 					selectedOption
-						? options.findIndex(
+						? filteredOptions.findIndex(
 							  (o) => o.value === selectedOption.value,
 						  )
 						: 0,
 				);
 			} else if (
 				highlightedIndex >= 0 &&
-				highlightedIndex < options.length
+				highlightedIndex < filteredOptions.length
 			) {
-				handleSelect(options[highlightedIndex].value);
+				handleSelect(filteredOptions[highlightedIndex].value);
 			}
 		} else if (e.key === "Escape") {
 			setIsOpen(false);
+			setSearchTerm("");
 		} else if (e.key === "ArrowDown") {
 			e.preventDefault();
 			if (!isOpen) {
@@ -124,7 +137,7 @@ export const Select: React.FC<SelectProps> = ({
 				setHighlightedIndex(0);
 			} else {
 				setHighlightedIndex((prev) =>
-					prev < options.length - 1 ? prev + 1 : prev,
+					prev < filteredOptions.length - 1 ? prev + 1 : prev,
 				);
 			}
 		} else if (e.key === "ArrowUp") {
@@ -138,14 +151,15 @@ export const Select: React.FC<SelectProps> = ({
 	// Scroll active option into view when navigating with keyboard
 	useEffect(() => {
 		if (highlightedIndex >= 0 && dropdownRef.current) {
-			const activeEl = dropdownRef.current.children[
-				highlightedIndex
-			] as HTMLElement;
+			// Adjust index for search bar element if present
+			const childrenArray = Array.from(dropdownRef.current.children);
+			const optionElements = showSearch ? childrenArray.slice(1) : childrenArray;
+			const activeEl = optionElements[highlightedIndex] as HTMLElement;
 			if (activeEl) {
 				activeEl.scrollIntoView({ block: "nearest" });
 			}
 		}
-	}, [highlightedIndex]);
+	}, [highlightedIndex, showSearch]);
 
 	const sizeClasses = {
 		sm: "px-3 py-1.5 text-xs rounded-lg",
@@ -173,9 +187,12 @@ export const Select: React.FC<SelectProps> = ({
 				id={id}
 				type="button"
 				disabled={disabled}
-				onClick={() => setIsOpen(!isOpen)}
+				onClick={() => {
+					setIsOpen(!isOpen);
+					if (!isOpen) setSearchTerm("");
+				}}
 				onKeyDown={handleKeyDown}
-				className={`w-full flex items-center justify-between border transition-all duration-300 bg-white/40 dark:bg-zinc-900/30 text-left text-zinc-900 dark:text-zinc-50 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
+				className={`w-full flex items-center justify-between border transition-all duration-300 bg-white/40 dark:bg-zinc-900/30 text-left text-zinc-900 dark:text-zinc-550 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
 		  ${sizeClasses[size]}
 		  ${
 			  error
@@ -239,12 +256,24 @@ export const Select: React.FC<SelectProps> = ({
 				  : "opacity-0 scale-95 -translate-y-2 pointer-events-none"
 		  }`}
 			>
-				{options.length === 0 ? (
+				{showSearch && (
+					<div className="px-2 py-1.5 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0 z-20">
+						<input
+							type="text"
+							placeholder="Search..."
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 focus:outline-none focus:ring-1 focus:ring-primary text-zinc-900 dark:text-zinc-100"
+							onClick={(e) => e.stopPropagation()} // Prevent closing dropdown on input click
+						/>
+					</div>
+				)}
+				{filteredOptions.length === 0 ? (
 					<div className="px-4 py-2 text-xs text-zinc-400 dark:text-zinc-500 text-center">
 						No options available
 					</div>
 				) : (
-					options.map((opt, index) => {
+					filteredOptions.map((opt, index) => {
 						const isSelected = String(opt.value) === String(value);
 						const isHighlighted = index === highlightedIndex;
 

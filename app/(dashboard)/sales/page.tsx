@@ -12,24 +12,22 @@ import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 import Pagination from "@/components/ui/Pagination";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { toast } from "react-hot-toast";
-import * as yup from "yup";
-
-const quickPartnerSchema = yup.object().shape({
-	name: yup.string().trim().required("Full Name/Business Name is required."),
-	phone: yup.string().trim().required("Phone Number is required."),
-	address: yup.string().trim().nullable().notRequired(),
-});
+import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 
 export default function SalesPage() {
 	const {
 		customers,
-		addCustomer,
 		handleAddTradeTransaction,
 		editDevice,
 		refreshTrades,
 		refreshDevices,
 		refreshMetrics,
+		vendor,
 	} = useDashboard();
+
+	const gstEnabled = vendor?.gst_enabled !== false;
+	const gstRate = vendor?.gst_rate ?? 18;
+	const gstFactor = 1 + gstRate / 100;
 
 	// Page & Filter States
 	const [searchTerm, setSearchTerm] = useState("");
@@ -45,17 +43,8 @@ export default function SalesPage() {
 
 	// Modals State
 	const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
-	const [isAddingCust, setIsAddingCust] = useState(false);
 	const [availableDevices, setAvailableDevices] = useState<Mobile[]>([]);
 	const [isLoadingDevices, setIsLoadingDevices] = useState(false);
-
-	// Quick Add Customer States
-	const [newCustName, setNewCustName] = useState("");
-	const [newCustPhone, setNewCustPhone] = useState("");
-	const [newCustAddress, setNewCustAddress] = useState("");
-	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
-	const [custFormError, setCustFormError] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Sale Form States
 	const [selectedDeviceId, setSelectedDeviceId] = useState("");
@@ -122,7 +111,6 @@ export default function SalesPage() {
 		setFormAmount("");
 		setFormNotes("");
 		setFormDate(new Date().toISOString().split("T")[0]);
-		setIsAddingCust(false);
 		loadAvailableDevices();
 		setIsSaleModalOpen(true);
 	};
@@ -144,75 +132,16 @@ export default function SalesPage() {
 	const summaryStats = useMemo(() => {
 		const totalCount = total;
 		const totalInflow = sales.reduce((sum, s) => sum + s.amount, 0);
-		// Total profit = sum of (sale price - purchase price)
+		// Total profit = sum of (sale price - purchase price - gst)
 		const totalProfit = sales.reduce((sum, s) => {
 			const cost = (s as any).purchasePrice || 0;
-			return sum + (s.amount - cost);
+			const rawMargin = s.amount - cost;
+			const gstAmount = (gstEnabled && rawMargin > 0) ? Math.round(rawMargin - (rawMargin / gstFactor)) : 0;
+			return sum + (rawMargin - gstAmount);
 		}, 0);
 		const avgTicket = totalCount > 0 ? Math.round(totalInflow / sales.length || 0) : 0;
 		return { totalCount, totalInflow, totalProfit, avgTicket };
-	}, [sales, total]);
-
-	// Quick Register Customer
-	const handleCreateCustomer = async () => {
-		setCustErrors({});
-		setCustFormError("");
-		try {
-			await quickPartnerSchema.validate(
-				{
-					name: newCustName,
-					phone: newCustPhone,
-					address: newCustAddress || null,
-				},
-				{ abortEarly: false }
-			);
-		} catch (err: any) {
-			if (err instanceof yup.ValidationError) {
-				const errors: Record<string, string> = {};
-				err.inner.forEach((validationError: any) => {
-					if (validationError.path && !errors[validationError.path]) {
-						errors[validationError.path] = validationError.message;
-					}
-				});
-				setCustErrors(errors);
-			} else {
-				setCustFormError("Validation failed.");
-			}
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			const res = await addCustomer({
-				name: newCustName,
-				phone: newCustPhone,
-				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-				status: "Active",
-				address: newCustAddress || "Registered in Sales desk",
-				notes: "Quick registered from sales ledger.",
-			});
-
-			if (res.success) {
-				setFormCustomerName(newCustName);
-				setIsAddingCust(false);
-				setNewCustName("");
-				setNewCustPhone("");
-				setNewCustAddress("");
-				setCustErrors({});
-				toast.success(`Registered Customer: ${newCustName}`);
-			} else {
-				if (res.errors) {
-					setCustErrors(res.errors);
-				} else {
-					setCustFormError(res.message || "Registration failed.");
-				}
-			}
-		} catch (err) {
-			setCustFormError("Error saving customer details.");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
+	}, [sales, total, gstEnabled, gstFactor]);
 
 	// Record Sale Handler
 	const handleSubmitSale = async (e: React.FormEvent) => {
@@ -242,6 +171,10 @@ export default function SalesPage() {
 			description: formNotes || `Sold to ${formCustomerName}.`,
 		});
 
+		const [partnerType, partnerNameOrId] = formCustomerName.includes(":")
+			? (formCustomerName.split(":") as ["Customer" | "Vendor", string])
+			: ["Customer" as const, formCustomerName];
+
 		if (result.success) {
 			// 2. Add Sale Transaction Record
 			const tx = await handleAddTradeTransaction({
@@ -249,10 +182,11 @@ export default function SalesPage() {
 				deviceBrand: selectedDevice.brand,
 				deviceModel: selectedDevice.model,
 				type: "Sale",
-				customerName: formCustomerName,
+				customerName: partnerNameOrId,
+				partnerType: partnerType,
 				amount: priceNum,
 				date: formDate,
-				notes: formNotes || `Sold from inventory catalog to ${formCustomerName}.`,
+				notes: formNotes || `Sold from inventory catalog to ${partnerNameOrId}.`,
 				storage: selectedDevice.storage,
 				ram: selectedDevice.ram,
 				color: selectedDevice.color,
@@ -261,7 +195,7 @@ export default function SalesPage() {
 			}, true);
 
 			setIsSaleModalOpen(false);
-			toast.success(`Recorded sale of ${selectedDevice.brand} ${selectedDevice.model} to ${formCustomerName}!`);
+			toast.success(`Recorded sale of ${selectedDevice.brand} ${selectedDevice.model} to ${partnerNameOrId}!`);
 			fetchSales();
 			refreshDevices(undefined, true);
 			refreshMetrics();
@@ -356,17 +290,25 @@ export default function SalesPage() {
 				const cost = (s as any).purchasePrice;
 				if (!cost) return <span className="text-zinc-400">—</span>;
 				const profit = s.amount - cost;
+				const gstAmount = (s as any).gstAmount || 0;
 				return (
-					<span
-						suppressHydrationWarning
-						className={`px-2.5 py-1 rounded-xl text-xs font-black ${
-							profit >= 0
-								? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-								: "bg-red-500/10 text-red-600 dark:text-red-400"
-						}`}
-					>
-						{profit >= 0 ? "+" : ""}₹{profit.toLocaleString()}
-					</span>
+					<div className="flex flex-col items-end gap-0.5">
+						<span
+							suppressHydrationWarning
+							className={`px-2.5 py-0.5 rounded-xl text-xs font-black ${
+								profit >= 0
+									? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+									: "bg-red-500/10 text-red-600 dark:text-red-400"
+							}`}
+						>
+							{profit >= 0 ? "+" : ""}₹{profit.toLocaleString()}
+						</span>
+						{gstAmount > 0 && (
+							<span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-semibold" suppressHydrationWarning>
+								GST: ₹{gstAmount} (Margin Scheme)
+							</span>
+						)}
+					</div>
 				);
 			},
 		},
@@ -560,6 +502,7 @@ export default function SalesPage() {
 								onChange={(e) => setSelectedDeviceId(e.target.value)}
 								required
 								placeholder="-- Choose Available Device --"
+								showSearch={true}
 								options={availableDevices.map((d) => ({
 									value: d.id.toString(),
 									label: `${d.brand} ${d.model} (${d.storage}/${d.ram}, ${d.color}) — Cost: ₹${(
@@ -589,176 +532,106 @@ export default function SalesPage() {
 									₹{(selectedDevice.purchasePrice || 0).toLocaleString()}
 								</span>
 							</div>
-							<div className="flex justify-between items-center text-zinc-450">
-								<span>Suggested Markup Price (20%):</span>
-								<span className="font-black text-primary" suppressHydrationWarning>
-									₹{Math.round((selectedDevice.purchasePrice || 0) * 1.2).toLocaleString()}
-								</span>
-							</div>
 						</div>
 					)}
 
 					{/* Customer Select / Register Customer */}
-					<div className="space-y-2">
-						<div className="flex justify-between items-center">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Target Customer *</label>
-							<button
-								type="button"
-								onClick={() => {
-									setIsAddingCust(!isAddingCust);
-									setCustErrors({});
-									setCustFormError("");
-								}}
-								className="text-[10px] text-primary hover:underline font-bold"
-							>
-								{isAddingCust ? "Cancel" : "+ Quick Add"}
-							</button>
+					<PartnerSelector
+						value={formCustomerName}
+						onChange={setFormCustomerName}
+						label="Target Customer / Vendor *"
+						placeholder="-- Choose Partner --"
+						required={true}
+						valueType="name"
+					/>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+						{/* Sale Price */}
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase">Sale Price (₹) *</label>
+							<input
+								type="number"
+								required
+								value={formAmount}
+								onChange={(e) => setFormAmount(e.target.value)}
+								placeholder="e.g. 52000"
+								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							/>
 						</div>
 
-						{isAddingCust ? (
-							<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp text-left">
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<div className="space-y-1">
-										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-											Full Name *
-										</label>
-										<input
-											type="text"
-											disabled={isSubmitting}
-											value={newCustName}
-											onChange={(e) => {
-												setNewCustName(e.target.value);
-												setCustErrors((prev) => ({ ...prev, name: "" }));
-											}}
-											placeholder="John Doe"
-											className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-												${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-										/>
-										{custErrors.name && (
-											<p className="text-[10px] text-red-500 font-semibold">
-												{custErrors.name}
-											</p>
-										)}
-									</div>
-									<div className="space-y-1">
-										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-											Mobile Number *
-										</label>
-										<PhoneInputField
-											disabled={isSubmitting}
-											size="sm"
-											value={newCustPhone}
-											onChange={(phone) => {
-												setNewCustPhone(phone);
-												setCustErrors((prev) => ({ ...prev, phone: "" }));
-											}}
-											error={custErrors.phone}
-										/>
-									</div>
-								</div>
-								<div className="space-y-1">
-									<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-										Address
-									</label>
-									<textarea
-										disabled={isSubmitting}
-										value={newCustAddress}
-										onChange={(e) => {
-											setNewCustAddress(e.target.value);
-											setCustErrors((prev) => ({ ...prev, address: "" }));
-										}}
-										placeholder="Enter customer address..."
-										rows={2}
-										className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-											${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-									/>
-									{custErrors.address && (
-										<p className="text-xs text-red-500 font-medium mt-1">
-											{custErrors.address}
-										</p>
-									)}
-								</div>
-								<button
-									type="button"
-									disabled={isSubmitting}
-									onClick={handleCreateCustomer}
-									className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-								>
-									{isSubmitting ? (
-										<>
-											<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-												<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-												<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-											</svg>
-											<span>Saving Customer...</span>
-										</>
-									) : (
-										"Save and Select Customer"
-									)}
-								</button>
-								{custFormError && (
-									<p className="text-xs text-red-500 font-semibold text-center mt-2">
-										{custFormError}
-									</p>
-								)}
-							</div>
-						) : (
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-								{/* Customer Choose */}
-								<div className="space-y-1 relative md:col-span-1">
-									<Select
-										value={formCustomerName}
-										onChange={(e) => setFormCustomerName(e.target.value)}
-										required
-										placeholder="-- Choose Customer --"
-										options={customers.map((c) => ({
-											value: c.name,
-											label: `${c.name} (${c.phone})`,
-										}))}
-									/>
-								</div>
-
-								{/* Sale Price */}
-								<div className="space-y-1">
-									<input
-										type="number"
-										required
-										value={formAmount}
-										onChange={(e) => setFormAmount(e.target.value)}
-										placeholder="e.g. 52000"
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									/>
-								</div>
-
-								{/* Date */}
-								<div className="space-y-1">
-									<input
-										type="date"
-										required
-										value={formDate}
-										onChange={(e) => setFormDate(e.target.value)}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-									/>
-								</div>
-							</div>
-						)}
+						{/* Date */}
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase">Sale Date *</label>
+							<input
+								type="date"
+								required
+								value={formDate}
+								onChange={(e) => setFormDate(e.target.value)}
+								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							/>
+						</div>
 					</div>
 
-					{/* Real-time Profit Margin Indicator Banner */}
-					{selectedDevice && calculatedMargin !== null && (
-						<div
-							className={`p-3.5 rounded-xl border text-xs font-bold text-center animate-scaleUp flex justify-between items-center ${
-								calculatedMargin >= 0
-									? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-									: "bg-red-500/5 border-red-500/20 text-red-600 dark:text-red-400"
-							}`}
-						>
-							<span>Estimated Profit Margin:</span>
-							<span suppressHydrationWarning className="text-sm font-black">
-								{calculatedMargin >= 0 ? "+" : ""}₹{calculatedMargin.toLocaleString()}
-							</span>
-						</div>
-					)}
+					{/* Real-time Profit Margin & GST Scheme Indicator */}
+					{selectedDevice && calculatedMargin !== null && (() => {
+						const gstEnabled = vendor?.gst_enabled !== false;
+						const gstRate = vendor?.gst_rate ?? 18;
+						const gstFactor = 1 + gstRate / 100;
+						const gstAmount = (gstEnabled && calculatedMargin > 0) ? Math.round(calculatedMargin - (calculatedMargin / gstFactor)) : 0;
+						const cgst = Math.round(gstAmount / 2);
+						const sgst = gstAmount - cgst;
+						const taxableValue = (parseFloat(formAmount) || 0) - gstAmount;
+						return (
+							<div className="space-y-2">
+								<div
+									className={`p-3.5 rounded-xl border text-xs font-bold text-center animate-scaleUp flex justify-between items-center ${
+										calculatedMargin > 0
+											? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+											: calculatedMargin === 0
+											? "bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400"
+											: "bg-red-500/5 border-red-500/20 text-red-600 dark:text-red-400"
+									}`}
+								>
+									<span>
+										{calculatedMargin < 0 ? "⚠️ Warning: Selling Below Cost Price" : "Estimated Profit Margin:"}
+									</span>
+									<span suppressHydrationWarning className="text-sm font-black">
+										{calculatedMargin >= 0 ? "+" : ""}₹{calculatedMargin.toLocaleString()}
+									</span>
+								</div>
+
+								{calculatedMargin > 0 && (
+									<div className="p-3 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1 animate-scaleUp">
+										<div className="flex justify-between font-semibold">
+											<span>GST Margin Scheme Details ({gstRate}%):</span>
+											<span className="text-zinc-700 dark:text-zinc-300">GST on Margin</span>
+										</div>
+										<div className="flex justify-between">
+											<span>CGST ({gstRate / 2}% on Margin):</span>
+											<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
+												₹{cgst.toLocaleString()}
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span>SGST ({gstRate / 2}% on Margin):</span>
+											<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
+												₹{sgst.toLocaleString()}
+											</span>
+										</div>
+										<div className="flex justify-between border-t border-zinc-150 dark:border-zinc-800/80 pt-1 mt-1 font-semibold">
+											<span>Taxable Value (Item):</span>
+											<span className="font-mono text-zinc-750 dark:text-zinc-200" suppressHydrationWarning>
+												₹{taxableValue.toLocaleString()}
+											</span>
+										</div>
+										<span className="text-[9px] text-zinc-400 dark:text-zinc-500 block mt-1 leading-normal italic">
+											*GST is calculated only on the profit margin of ₹{calculatedMargin.toLocaleString()} under Rule 32(5) of CGST Rules, 2017.
+										</span>
+									</div>
+								)}
+							</div>
+						);
+					})()}
 
 					{/* Notes */}
 					<div className="space-y-1">

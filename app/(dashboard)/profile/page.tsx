@@ -99,6 +99,8 @@ export default function ProfilePage() {
 		phone: string;
 		address: string;
 		payment_methods: string;
+		gst_enabled: boolean;
+		gst_rate: number;
 	}) => {
 		setActionLoading(true);
 		try {
@@ -107,6 +109,8 @@ export default function ProfilePage() {
 				phone: data.phone,
 				address: data.address,
 				payment_methods: data.payment_methods,
+				gst_enabled: data.gst_enabled,
+				gst_rate: data.gst_rate,
 			});
 			if (response.success && response.data?.success) {
 				setVendor(response.data.vendor);
@@ -341,6 +345,8 @@ export default function ProfilePage() {
 										address: vendor.address || "",
 										payment_methods:
 											vendor.payment_methods || "",
+										gst_enabled: vendor.gst_enabled !== undefined ? !!vendor.gst_enabled : true,
+										gst_rate: vendor.gst_rate !== undefined ? Number(vendor.gst_rate) : 18,
 									}}
 									onSubmit={handleBusinessSubmit}
 									isLoading={actionLoading}

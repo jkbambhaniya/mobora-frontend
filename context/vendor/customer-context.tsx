@@ -35,7 +35,7 @@ interface CustomerContextType {
     },
     force?: boolean
   ) => Promise<void>;
-  addCustomer: (data: any) => Promise<{ success: boolean; message?: string; errors?: any }>;
+  addCustomer: (data: any) => Promise<{ success: boolean; message?: string; errors?: any; customer?: Customer }>;
   editCustomer: (id: string, data: any) => Promise<{ success: boolean; message?: string; errors?: any }>;
   removeCustomer: (id: string) => Promise<boolean>;
   bulkRemoveCustomers: (ids: string[]) => Promise<boolean>;

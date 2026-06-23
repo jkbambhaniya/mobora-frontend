@@ -18,6 +18,8 @@ interface DataTableProps<T> {
 	onSort?: (key: any) => void;
 	sortDir?: (key: any) => "asc" | "desc" | null;
 	emptyMessage?: React.ReactNode;
+	expandedRowIds?: Set<string | number>;
+	renderExpandedRow?: (row: T) => React.ReactNode;
 }
 
 export function DataTable<T>({
@@ -27,6 +29,8 @@ export function DataTable<T>({
 	onSort,
 	sortDir,
 	emptyMessage,
+	expandedRowIds,
+	renderExpandedRow,
 }: DataTableProps<T>) {
 	if (loading) {
 		return (
@@ -89,21 +93,35 @@ export function DataTable<T>({
 					</tr>
 				) : (
 					data.map((row: any, rowIndex) => (
-						<tr
-							key={row.id ?? rowIndex}
-							className="border-b border-zinc-100 dark:border-zinc-850/40 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors"
-						>
-							{columns.map((col) => (
-								<td
-									key={col.key}
-									className={`py-4 px-6 ${col.className || ""}`}
-								>
-									{col.render
-										? col.render(row, rowIndex)
-										: row[col.key]}
-								</td>
-							))}
-						</tr>
+						<React.Fragment key={row.id ?? rowIndex}>
+							<tr
+								className="border-b border-zinc-100 dark:border-zinc-850/40 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors"
+							>
+								{columns.map((col) => (
+									<td
+										key={col.key}
+										className={`py-4 px-6 ${col.className || ""}`}
+									>
+										{col.render
+											? col.render(row, rowIndex)
+											: row[col.key]}
+									</td>
+								))}
+							</tr>
+							{renderExpandedRow && (
+								<tr className="p-0 m-0 border-0">
+									<td colSpan={columns.length} className="p-0 m-0 border-0">
+										<div 
+											className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${expandedRowIds?.has(row.id ?? rowIndex) ? 'grid-rows-[1fr] opacity-100 bg-zinc-50/30 dark:bg-zinc-900/10 border-b border-zinc-100 dark:border-zinc-850/40' : 'grid-rows-[0fr] opacity-0 border-transparent'}`}
+										>
+											<div className="overflow-hidden">
+												{renderExpandedRow(row)}
+											</div>
+										</div>
+									</td>
+								</tr>
+							)}
+						</React.Fragment>
 					))
 				)}
 			</tbody>

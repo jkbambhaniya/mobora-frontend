@@ -18,21 +18,7 @@ import {
 	slugify,
 } from "@/context/vendor/dashboard-context";
 import { useSpecifications } from "@/context/vendor/specifications-context";
-import { PhoneInputField } from "@/components/ui/PhoneInputField";
-import { isValidPhoneNumber } from "libphonenumber-js";
-
-const quickCustomerSchema = yup.object().shape({
-	name: yup.string().trim().required("Full Name is required."),
-	phone: yup
-		.string()
-		.required("Phone number is required.")
-		.test(
-			"is-valid-phone",
-			"Please enter a valid international phone number.",
-			(value) => !!value && isValidPhoneNumber(value),
-		),
-	address: yup.string().trim().nullable().notRequired(),
-});
+import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 export default function ModelDetailsPage() {
 	const router = useRouter();
 	const params = useParams();
@@ -52,6 +38,7 @@ export default function ModelDetailsPage() {
 		refreshDevices,
 		customers,
 		addCustomer,
+		trades,
 	} = useDashboard();
 
 	const specs = useSpecifications();
@@ -79,6 +66,17 @@ export default function ModelDetailsPage() {
 		null,
 	);
 
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+	const toggleExpand = (id: string) => {
+		setExpandedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	};
+
 	// Deletion Confirmation States
 	const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 	const [deletingDevice, setDeletingDevice] = useState<{ id: string; name: string } | null>(null);
@@ -99,78 +97,9 @@ export default function ModelDetailsPage() {
 	const [formCustomerId, setFormCustomerId] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	// Quick-add customer states
-	const [isAddingCust, setIsAddingCust] = useState(false);
-	const [newCustName, setNewCustName] = useState("");
-	const [newCustPhone, setNewCustPhone] = useState("");
-	const [newCustAddress, setNewCustAddress] = useState("");
-	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
-
 	const [formError, setFormError] = useState("");
 	const [storageInlineError, setStorageInlineError] = useState("");
 	const [ramInlineError, setRamInlineError] = useState("");
-	const [custFormError, setCustFormError] = useState("");
-
-	const handleCreateCustomer = async () => {
-		setCustErrors({});
-		setCustFormError("");
-		try {
-			await quickCustomerSchema.validate(
-				{
-					name: newCustName,
-					phone: newCustPhone,
-					address: newCustAddress || null,
-				},
-				{ abortEarly: false },
-			);
-		} catch (err: any) {
-			if (err instanceof yup.ValidationError) {
-				const errors: Record<string, string> = {};
-				err.inner.forEach((validationError: any) => {
-					if (validationError.path && !errors[validationError.path]) {
-						errors[validationError.path] = validationError.message;
-					}
-				});
-				setCustErrors(errors);
-			} else {
-				setCustFormError("Validation failed.");
-			}
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			const res = await addCustomer({
-				name: newCustName,
-				phone: newCustPhone,
-				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-				status: "Active",
-				address: newCustAddress || "Store Walk-in Registration",
-				notes: "Quick registered during transaction from inventory catalog.",
-			});
-
-			if (res.success) {
-				// @ts-ignore
-				setFormCustomerId(res.customer?.id?.toString() || "");
-				setIsAddingCust(false);
-				setNewCustName("");
-				setNewCustPhone("");
-				setNewCustAddress("");
-				setCustErrors({});
-				toast.success(`Customer ${newCustName} registered.`);
-			} else {
-				if (res.errors) {
-					setCustErrors(res.errors);
-				} else {
-					setCustFormError(res.message || "Failed to register customer.");
-				}
-			}
-		} catch (err) {
-			setCustFormError("An unexpected error occurred registering customer.");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
 
 	// Dynamic Add Dialog States
 	const [isAddingStorage, setIsAddingStorage] = useState(false);
@@ -237,16 +166,10 @@ export default function ModelDetailsPage() {
 		setFormPurchasePrice("");
 		setFormDescription("");
 		setFormCustomerId("");
-		setIsAddingCust(false);
-		setNewCustName("");
-		setNewCustPhone("");
-		setNewCustAddress("");
-		setCustErrors({});
 		setFieldErrors({});
 		setFormError("");
 		setStorageInlineError("");
 		setRamInlineError("");
-		setCustFormError("");
 		setIsFormOpen(true);
 	};
 
@@ -265,16 +188,10 @@ export default function ModelDetailsPage() {
 		);
 		setFormDescription(device.description);
 		setFormCustomerId("");
-		setIsAddingCust(false);
-		setNewCustName("");
-		setNewCustPhone("");
-		setNewCustAddress("");
-		setCustErrors({});
 		setFieldErrors({});
 		setFormError("");
 		setStorageInlineError("");
 		setRamInlineError("");
-		setCustFormError("");
 		setIsFormOpen(true);
 	};
 	// Submit Handler
@@ -335,7 +252,7 @@ export default function ModelDetailsPage() {
 			battery_health: formBatteryHealth,
 			status: editingDevice ? editingDevice.status : "Available",
 			description: formDescription || `Registered ${selectedBrandName} ${selectedModelName}.`,
-			customer_id: formCustomerId ? Number(formCustomerId) : null,
+			customer_id: formCustomerId || null,
 		};
 
 		if (editingDevice) {
@@ -639,15 +556,11 @@ export default function ModelDetailsPage() {
 					{d.imei ? (
 						<Button
 							size="sm"
-							variant="outline"
-							onClick={() => {
-								router.push(
-									`/mobiles/${matchedBrandObj?.slug || brandSlug}/${matchedModelObj?.slug || modelSlug}/${d.imei}`,
-								);
-							}}
+							variant={expandedIds.has(d.id) ? "gradient" : "outline"}
+							onClick={() => toggleExpand(d.id)}
 							className="px-2.5 py-1 text-[11px] font-semibold hover:bg-primary hover:text-white transition-colors cursor-pointer"
 						>
-							History
+							{expandedIds.has(d.id) ? "Hide History" : "Show History"}
 						</Button>
 					) : (
 						<span className="text-[10px] text-zinc-400 italic">Cannot Trace</span>
@@ -676,6 +589,79 @@ export default function ModelDetailsPage() {
 			),
 		},
 	];
+
+	const renderImeiHistory = (device: Mobile) => {
+		if (!device.imei) return null;
+		
+		const timelineEvents = trades
+			.filter((t) => t.imei === device.imei)
+			.sort((a, b) => {
+				const timeA = new Date(a.date).getTime();
+				const timeB = new Date(b.date).getTime();
+				if (timeA !== timeB) return timeA - timeB;
+				return Number(a.id) - Number(b.id);
+			});
+
+		if (timelineEvents.length === 0) {
+			return (
+				<div className="p-6 bg-zinc-50 dark:bg-zinc-900/30 text-center text-sm text-zinc-500 rounded-b-xl">
+					No transaction history found for this IMEI.
+				</div>
+			);
+		}
+
+		return (
+			<div className="bg-zinc-50/80 dark:bg-zinc-900/40 p-4 border-t border-zinc-200 dark:border-zinc-800 shadow-inner">
+				<div className="flex justify-between items-center mb-3 px-1">
+					<h4 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Transaction Ledger</h4>
+					<Link href={`/mobiles/${matchedBrandObj?.slug || brandSlug}/${matchedModelObj?.slug || modelSlug}/${device.imei}`} className="text-[11px] text-primary font-bold hover:underline">
+						Open Full Details &rarr;
+					</Link>
+				</div>
+				<table className="w-full text-left text-xs border-collapse bg-white dark:bg-zinc-900 rounded-xl overflow-hidden shadow-sm border border-zinc-200/60 dark:border-zinc-800/60">
+					<thead>
+						<tr className="bg-zinc-100/50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+							<th className="py-2.5 px-4">Date</th>
+							<th className="py-2.5 px-4">Type</th>
+							<th className="py-2.5 px-4">Partner</th>
+							<th className="py-2.5 px-4">Notes</th>
+							<th className="py-2.5 px-4 text-right">Value (₹)</th>
+						</tr>
+					</thead>
+					<tbody>
+						{[...timelineEvents].reverse().map((event) => {
+							const isPurchase = event.type === "Purchase";
+							return (
+								<tr key={event.id} className="border-b border-zinc-100 dark:border-zinc-800/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+									<td className="py-2.5 px-4 font-mono font-medium text-zinc-600 dark:text-zinc-400">{event.date}</td>
+									<td className="py-2.5 px-4">
+										<span
+											className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+												isPurchase
+													? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+													: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+											}`}
+										>
+											{isPurchase ? "Buyback" : "Sale"}
+										</span>
+									</td>
+									<td className="py-2.5 px-4 font-semibold text-zinc-800 dark:text-zinc-200">
+										{event.customerName}
+									</td>
+									<td className="py-2.5 px-4 text-zinc-500 max-w-[200px] truncate" title={event.notes}>
+										{event.notes || "-"}
+									</td>
+									<td className="py-2.5 px-4 text-right font-black text-zinc-900 dark:text-white">
+										{event.amount.toLocaleString()}
+									</td>
+								</tr>
+							);
+						})}
+					</tbody>
+				</table>
+			</div>
+		);
+	};
 
 	return (
 		<div className="space-y-8 animate-fadeIn">
@@ -786,6 +772,8 @@ export default function ModelDetailsPage() {
 					loading={isLoading}
 					onSort={handleSort}
 					sortDir={getSortDir}
+					expandedRowIds={expandedIds}
+					renderExpandedRow={renderImeiHistory}
 					emptyMessage={
 						<div className="text-center py-16 space-y-3">
 							<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
@@ -1078,123 +1066,16 @@ export default function ModelDetailsPage() {
 						</div>
 					</div>
 
-					{/* Customer Select */}
+					{/* Customer Selection */}
 					{!editingDevice && (
-						<div className="space-y-1.5 animate-fadeIn">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Select Customer (for Purchase Transaction)
-								</label>
-								<button
-									type="button"
-									onClick={() => {
-										setIsAddingCust(!isAddingCust);
-										setCustErrors({});
-									}}
-									className="text-[10px] text-primary hover:underline font-bold"
-								>
-									{isAddingCust ? "Cancel" : "+ Quick-Add New Customer"}
-								</button>
-							</div>
-
-							{isAddingCust ? (
-								<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp text-left">
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Full Name *
-											</label>
-											<input
-												type="text"
-												disabled={isSubmitting}
-												value={newCustName}
-												onChange={(e) => {
-													setNewCustName(e.target.value);
-													setCustErrors((prev) => ({ ...prev, name: "" }));
-												}}
-												placeholder="John Doe"
-												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-													${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-											/>
-											{custErrors.name && (
-												<p className="text-[10px] text-red-500 font-semibold">
-													{custErrors.name}
-												</p>
-											)}
-										</div>
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Mobile Number *
-											</label>
-											<PhoneInputField
-												disabled={isSubmitting}
-												size="sm"
-												value={newCustPhone}
-												onChange={(phone) => {
-													setNewCustPhone(phone);
-													setCustErrors((prev) => ({ ...prev, phone: "" }));
-												}}
-												error={custErrors.phone}
-											/>
-										</div>
-									</div>
-									<div className="space-y-1">
-										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-											Address
-										</label>
-										<textarea
-											disabled={isSubmitting}
-											value={newCustAddress}
-											onChange={(e) => {
-												setNewCustAddress(e.target.value);
-												setCustErrors((prev) => ({ ...prev, address: "" }));
-											}}
-											placeholder="Enter customer address..."
-											rows={2}
-											className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-												${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-										/>
-										{custErrors.address && (
-											<p className="text-xs text-red-500 font-medium mt-1">
-												{custErrors.address}
-											</p>
-										)}
-									</div>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										onClick={handleCreateCustomer}
-										className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-									>
-										{isSubmitting ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving Customer...</span>
-											</>
-										) : (
-											"Save and Select Customer"
-										)}
-									</button>
-									{custFormError && (
-										<p className="text-xs text-red-500 font-semibold text-center mt-2">
-											{custFormError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formCustomerId}
-									onChange={(e) => setFormCustomerId(e.target.value)}
-									options={[
-										{ value: "", label: "-- Select Customer --" },
-										...customers.map((c) => ({ value: c.id.toString(), label: `${c.name} (${c.phone})` })),
-									]}
-								/>
-							)}
-						</div>
+						<PartnerSelector
+							value={formCustomerId}
+							onChange={setFormCustomerId}
+							label="Select Customer / Vendor (for Purchase Transaction)"
+							placeholder="-- Choose Partner --"
+							required={false}
+							valueType="id"
+						/>
 					)}
 
 					{/* Cost Price */}

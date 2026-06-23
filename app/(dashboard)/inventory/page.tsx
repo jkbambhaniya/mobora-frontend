@@ -10,30 +10,11 @@ import Pagination from "@/components/ui/Pagination";
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import * as yup from "yup";
 import { mobileValidationSchema, sellValidationSchema, buybackValidationSchema } from "@/utils/validation";
-import {
-	useDashboard,
-	Mobile,
-	Customer,
-	slugify,
-} from "@/context/vendor/dashboard-context";
+import { useDashboard, Mobile, slugify } from "@/context/vendor/dashboard-context";
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { useInventory } from "@/context/vendor/inventory-context";
+import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { MobileFilters } from "@/actions/mobiles";
-import { isValidPhoneNumber } from "libphonenumber-js";
-
-const quickCustomerSchema = yup.object().shape({
-	name: yup.string().trim().required("Full Name is required."),
-	phone: yup
-		.string()
-		.trim()
-		.required("Phone Number is required.")
-		.test(
-			"is-valid-phone",
-			"Please enter a valid international phone number.",
-			(value) => !!value && isValidPhoneNumber(value),
-		),
-	address: yup.string().trim().nullable().notRequired(),
-});
 
 export default function InventoryPage() {
 	const {
@@ -45,12 +26,9 @@ export default function InventoryPage() {
 		editDevice,
 		removeDevice,
 		customers,
-		setCustomers,
 		handleAddTradeTransaction,
 		trades,
-		orders,
 		triggerToast,
-		addCustomer,
 	} = useDashboard();
 
 	const specs = useSpecifications();
@@ -64,6 +42,17 @@ export default function InventoryPage() {
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 	const [page, setPage] = useState(1);
 	const [limit, setLimit] = useState(10);
+
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+	const toggleExpand = (id: string) => {
+		setExpandedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	};
 
 	// Modal State
 	const [isFormOpen, setIsFormOpen] = useState(false);
@@ -136,12 +125,7 @@ export default function InventoryPage() {
 		setBuybackFormError("");
 	};
 
-	// Quick Add Customer States
-	const [isAddingCust, setIsAddingCust] = useState(false);
-	const [newCustName, setNewCustName] = useState("");
-	const [newCustPhone, setNewCustPhone] = useState("");
-	const [newCustAddress, setNewCustAddress] = useState("");
-	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
+
 
 	// Form Fields
 	const [formImei, setFormImei] = useState("");
@@ -290,12 +274,6 @@ export default function InventoryPage() {
 		setSellCustomer(customers[0]?.name || "");
 		setSellDate(new Date().toISOString().split("T")[0]);
 		setSellNotes(`Sold from inventory catalog.`);
-		setIsAddingCust(false);
-		setNewCustName("");
-		setNewCustPhone("");
-		setNewCustAddress("");
-		setCustErrors({});
-		setCustFormError("");
 		setSellErrors({});
 		setSellFormError("");
 		setIsSellFormOpen(true);
@@ -340,12 +318,17 @@ export default function InventoryPage() {
 			});
 
 			if (result.success) {
+				const [partnerType, partnerNameOrId] = sellCustomer.includes(":")
+					? (sellCustomer.split(":") as ["Customer" | "Vendor", string])
+					: ["Customer" as const, sellCustomer];
+
 				handleAddTradeTransaction({
 					imei: sellingDevice.imei || "N/A",
 					deviceBrand: sellingDevice.brand,
 					deviceModel: sellingDevice.model,
 					type: "Sale",
-					customerName: sellCustomer,
+					customerName: partnerNameOrId,
+					partnerType: partnerType,
 					amount: priceNum,
 					date: sellDate,
 					notes: sellNotes || `Sold from inventory catalog.`,
@@ -358,7 +341,7 @@ export default function InventoryPage() {
 
 				setIsSellFormOpen(false);
 				triggerToast(
-					`Recorded sale of ${sellingDevice.brand} ${sellingDevice.model} to ${sellCustomer}.`,
+					`Recorded sale of ${sellingDevice.brand} ${sellingDevice.model} to ${partnerNameOrId}.`,
 				);
 			} else {
 				if (result.errors) {
@@ -415,12 +398,6 @@ export default function InventoryPage() {
 		setBuybackBatteryHealth(device.batteryHealth || 90);
 		setBuybackDate(new Date().toISOString().split("T")[0]);
 		setBuybackNotes(`Re-acquired device from customer.`);
-		setIsAddingCust(false);
-		setNewCustName("");
-		setNewCustPhone("");
-		setNewCustAddress("");
-		setCustErrors({});
-		setCustFormError("");
 		setBuybackErrors({});
 		setBuybackFormError("");
 		setIsBuybackFormOpen(true);
@@ -470,17 +447,22 @@ export default function InventoryPage() {
 			});
 
 			if (result.success) {
+				const [partnerType, partnerNameOrId] = buybackCustomer.includes(":")
+					? (buybackCustomer.split(":") as ["Customer" | "Vendor", string])
+					: ["Customer" as const, buybackCustomer];
+
 				handleAddTradeTransaction({
 					imei: buybackDevice.imei || "N/A",
 					deviceBrand: buybackDevice.brand,
 					deviceModel: buybackDevice.model,
 					type: "Purchase",
-					customerName: buybackCustomer,
+					customerName: partnerNameOrId,
+					partnerType: partnerType,
 					amount: priceNum,
 					date: buybackDate,
 					notes:
 						buybackNotes ||
-						`Re-acquired via buyback from ${buybackCustomer}.`,
+						`Re-acquired via buyback from ${partnerNameOrId}.`,
 					storage: buybackDevice.storage,
 					ram: buybackDevice.ram,
 					color: buybackDevice.color,
@@ -490,7 +472,7 @@ export default function InventoryPage() {
 
 				setIsBuybackFormOpen(false);
 				triggerToast(
-					`Recorded buyback of ${buybackDevice.brand} ${buybackDevice.model} from ${buybackCustomer}.`,
+					`Recorded buyback of ${buybackDevice.brand} ${buybackDevice.model} from ${partnerNameOrId}.`,
 				);
 			} else {
 				if (result.errors) {
@@ -506,72 +488,7 @@ export default function InventoryPage() {
 		}
 	};
 
-	const handleCreateCustomer = async () => {
-		setCustErrors({});
-		setCustFormError("");
-		try {
-			await quickCustomerSchema.validate(
-				{
-					name: newCustName,
-					phone: newCustPhone,
-					address: newCustAddress || null,
-				},
-				{ abortEarly: false },
-			);
-		} catch (err: any) {
-			if (err instanceof yup.ValidationError) {
-				const errors: Record<string, string> = {};
-				err.inner.forEach((validationError: any) => {
-					if (validationError.path && !errors[validationError.path]) {
-						errors[validationError.path] = validationError.message;
-					}
-				});
-				setCustErrors(errors);
-			} else {
-				setCustFormError("Validation failed.");
-			}
-			return;
-		}
 
-		setIsSubmitting(true);
-		try {
-			const res = await addCustomer({
-				name: newCustName,
-				phone: newCustPhone,
-				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-				status: "Active",
-				address: newCustAddress || "Store Walk-in Registration",
-				notes: "Quick registered during transaction from inventory catalog.",
-			});
-
-			if (res.success) {
-				if (isSellFormOpen) {
-					setSellCustomer(newCustName);
-				} else if (isBuybackFormOpen) {
-					setBuybackCustomer(newCustName);
-				} else if (isFormOpen) {
-					// @ts-ignore
-					setFormCustomerId(res.customer?.id?.toString() || "");
-				}
-				setIsAddingCust(false);
-				setNewCustName("");
-				setNewCustPhone("");
-				setNewCustAddress("");
-				setCustErrors({});
-				triggerToast(`Customer ${newCustName} registered.`);
-			} else {
-				if (res.errors) {
-					setCustErrors(res.errors);
-				} else {
-					setCustFormError(res.message || "Failed to register customer.");
-				}
-			}
-		} catch (err) {
-			setCustFormError("An unexpected error occurred registering customer.");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
 
 	const handleDelete = (id: string, name: string) => {
 		setDeletingDevice({ id, name });
@@ -605,10 +522,10 @@ export default function InventoryPage() {
 		setIsSubmitting(true);
 
 		try {
-			const selectedBrandName = specs.allBrands.find(b => b.id.toString() === formBrand)?.name || "";
-			const selectedModelName = specs.allModels.find(m => m.id.toString() === formModel)?.name || "";
-			const selectedStorageValue = specs.allStorages.find(s => s.id.toString() === formStorage)?.value || "";
-			const selectedRamValue = specs.allRams.find(r => r.id.toString() === formRam)?.value || "";
+			const selectedBrandName = specs.allBrands.find((b: { id: number; name: string; slug: string }) => b.id.toString() === formBrand)?.name || "";
+			const selectedModelName = specs.allModels.find((m: { id: number; name: string; slug: string; brand_id: number; brand_name: string }) => m.id.toString() === formModel)?.name || "";
+			const selectedStorageValue = specs.allStorages.find((s: { id: number; value: string }) => s.id.toString() === formStorage)?.value || "";
+			const selectedRamValue = specs.allRams.find((r: { id: number; value: string }) => r.id.toString() === formRam)?.value || "";
 
 			await mobileValidationSchema.validate(
 				{
@@ -658,7 +575,7 @@ export default function InventoryPage() {
 				battery_health: isAppleSelected ? formBatteryHealth : null,
 				status: editingDevice ? editingDevice.status : "Available",
 				description: formDescription || null,
-				customer_id: formCustomerId ? Number(formCustomerId) : null,
+				customer_id: formCustomerId || null,
 			};
 
 			let res;
@@ -816,6 +733,82 @@ export default function InventoryPage() {
 					)}
 				</div>
 			</th>
+		);
+	};
+
+	const renderImeiHistory = (device: Mobile) => {
+		if (!device.imei) return null;
+		
+		const timelineEvents = trades
+			.filter((t) => t.imei === device.imei)
+			.sort((a, b) => {
+				const timeA = new Date(a.date).getTime();
+				const timeB = new Date(b.date).getTime();
+				if (timeA !== timeB) return timeA - timeB;
+				return Number(a.id) - Number(b.id);
+			});
+
+		if (timelineEvents.length === 0) {
+			return (
+				<div className="p-6 bg-zinc-50 dark:bg-zinc-900/30 text-center text-sm text-zinc-500 rounded-b-xl">
+					No transaction history found for this IMEI.
+				</div>
+			);
+		}
+
+		const brandSlug = specs.allBrands.find((b: any) => b.id === device.brandId)?.slug || slugify(device.brand);
+		const modelSlug = specs.allModels.find((m: any) => m.id === device.modelId)?.slug || slugify(device.model);
+
+		return (
+			<div className="bg-zinc-50/80 dark:bg-zinc-900/40 p-4 border-t border-zinc-200 dark:border-zinc-800 shadow-inner">
+				<div className="flex justify-between items-center mb-3 px-1">
+					<h4 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Transaction Ledger</h4>
+					<Link href={`/mobiles/${brandSlug}/${modelSlug}/${device.imei}`} className="text-[11px] text-primary font-bold hover:underline">
+						Open Full Details &rarr;
+					</Link>
+				</div>
+				<table className="w-full text-left text-xs border-collapse bg-white dark:bg-zinc-900 rounded-xl overflow-hidden shadow-sm border border-zinc-200/60 dark:border-zinc-800/60">
+					<thead>
+						<tr className="bg-zinc-100/50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800">
+							<th className="py-2.5 px-4">Date</th>
+							<th className="py-2.5 px-4">Type</th>
+							<th className="py-2.5 px-4">Partner</th>
+							<th className="py-2.5 px-4">Notes</th>
+							<th className="py-2.5 px-4 text-right">Value (₹)</th>
+						</tr>
+					</thead>
+					<tbody>
+						{[...timelineEvents].reverse().map((event) => {
+							const isPurchase = event.type === "Purchase";
+							return (
+								<tr key={event.id} className="border-b border-zinc-100 dark:border-zinc-800/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+									<td className="py-2.5 px-4 font-mono font-medium text-zinc-600 dark:text-zinc-400">{event.date}</td>
+									<td className="py-2.5 px-4">
+										<span
+											className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+												isPurchase
+													? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+													: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+											}`}
+										>
+											{isPurchase ? "Buyback" : "Sale"}
+										</span>
+									</td>
+									<td className="py-2.5 px-4 font-semibold text-zinc-800 dark:text-zinc-200">
+										{event.customerName}
+									</td>
+									<td className="py-2.5 px-4 text-zinc-500 max-w-[200px] truncate" title={event.notes}>
+										{event.notes || "-"}
+									</td>
+									<td className="py-2.5 px-4 text-right font-black text-zinc-900 dark:text-white">
+										{event.amount.toLocaleString()}
+									</td>
+								</tr>
+							);
+						})}
+					</tbody>
+				</table>
+			</div>
 		);
 	};
 
@@ -1012,8 +1005,8 @@ export default function InventoryPage() {
 						) : devices.length > 0 ? (
 							<tbody>
 								{devices.map((d) => (
+									<React.Fragment key={d.id}>
 									<tr
-										key={d.id}
 										className="border-b border-zinc-100 dark:border-zinc-850/40 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors"
 									>
 										<td className="py-4 px-6 font-mono font-bold text-zinc-400 text-xs">
@@ -1033,7 +1026,7 @@ export default function InventoryPage() {
 										<td className="py-4 px-6 font-mono text-xs text-zinc-650 dark:text-zinc-300">
 											{d.imei ? (
 												<Link
-													href={`/mobiles/${specs.allBrands.find(b => b.id === d.brandId)?.slug || slugify(d.brand)}/${specs.allModels.find(m => m.id === d.modelId)?.slug || slugify(d.model)}/${d.imei}`}
+													href={`/mobiles/${specs.allBrands.find((b: { id: number; name: string; slug: string }) => b.id === d.brandId)?.slug || slugify(d.brand)}/${specs.allModels.find((m: { id: number; name: string; slug: string; brand_id: number; brand_name: string }) => m.id === d.modelId)?.slug || slugify(d.model)}/${d.imei}`}
 													className="text-primary hover:text-primary/80 hover:underline font-semibold transition-colors cursor-pointer"
 												>
 													{d.imei}
@@ -1073,6 +1066,18 @@ export default function InventoryPage() {
 										</td>
 										<td className="py-4 px-6 text-center">
 											<div className="flex items-center justify-center gap-2">
+												{d.imei && (
+													<button
+														disabled={isSubmitting}
+														onClick={() => toggleExpand(d.id)}
+														title={expandedIds.has(d.id) ? "Hide History" : "View History"}
+														className={`p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 hover:text-primary hover:scale-105 transition-all cursor-pointer disabled:opacity-50 ${expandedIds.has(d.id) ? "bg-zinc-100 dark:bg-zinc-850 text-primary" : "text-zinc-600 dark:text-zinc-400"}`}
+													>
+														<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+															<path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+														</svg>
+													</button>
+												)}
 												{d.status === "Available" && (
 													<button
 														disabled={isSubmitting}
@@ -1173,6 +1178,18 @@ export default function InventoryPage() {
 											</div>
 										</td>
 									</tr>
+									<tr className="p-0 m-0 border-0">
+										<td colSpan={8} className="p-0 m-0 border-0">
+											<div 
+												className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${expandedIds.has(d.id) ? 'grid-rows-[1fr] opacity-100 bg-zinc-50/30 dark:bg-zinc-900/10 border-b border-zinc-100 dark:border-zinc-850/40' : 'grid-rows-[0fr] opacity-0 border-transparent'}`}
+											>
+												<div className="overflow-hidden">
+													{renderImeiHistory(d)}
+												</div>
+											</div>
+										</td>
+									</tr>
+									</React.Fragment>
 								))}
 							</tbody>
 						) : (
@@ -1334,7 +1351,7 @@ export default function InventoryPage() {
 									}}
 									required
 									placeholder="-- Choose Brand --"
-									options={specs.allBrands.map((b) => ({ value: b.id.toString(), label: b.name }))}
+									options={specs.allBrands.map((b: { id: number; name: string; slug: string }) => ({ value: b.id.toString(), label: b.name }))}
 									error={fieldErrors.brand}
 								/>
 							)}
@@ -1407,8 +1424,8 @@ export default function InventoryPage() {
 									required
 									placeholder={formBrand ? "-- Choose Model --" : "-- Choose Brand First --"}
 									options={specs.allModels
-										.filter((m) => m.brand_id.toString() === formBrand)
-										.map((m) => ({ value: m.id.toString(), label: m.name }))}
+										.filter((m: { id: number; name: string; brand_id: number }) => m.brand_id.toString() === formBrand)
+										.map((m: { id: number; name: string; brand_id: number }) => ({ value: m.id.toString(), label: m.name }))}
 									error={fieldErrors.model}
 								/>
 							)}
@@ -1484,7 +1501,7 @@ export default function InventoryPage() {
 									}}
 									required
 									placeholder="-- Choose Storage --"
-									options={specs.allStorages.map((s) => ({ value: s.id.toString(), label: s.value }))}
+									options={specs.allStorages.map((s: { id: number; value: string }) => ({ value: s.id.toString(), label: s.value }))}
 									error={fieldErrors.storage}
 								/>
 							)}
@@ -1556,7 +1573,7 @@ export default function InventoryPage() {
 									}}
 									required
 									placeholder="-- Choose RAM --"
-									options={specs.allRams.map((r) => ({ value: r.id.toString(), label: r.value }))}
+									options={specs.allRams.map((r: { id: number; value: string }) => ({ value: r.id.toString(), label: r.value }))}
 									error={fieldErrors.ram}
 								/>
 							)}
@@ -1614,121 +1631,14 @@ export default function InventoryPage() {
 
 					{/* Customer Selection */}
 					{!editingDevice && (
-						<div className="space-y-1.5 text-left animate-fadeIn">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Select Customer (for Purchase Transaction)
-								</label>
-								<button
-									type="button"
-									onClick={() => {
-										setIsAddingCust(!isAddingCust);
-										setCustErrors({});
-									}}
-									className="text-[10px] text-primary hover:underline font-bold"
-								>
-									{isAddingCust ? "Cancel" : "+ Quick-Add New Customer"}
-								</button>
-							</div>
-
-							{isAddingCust ? (
-								<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp">
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Full Name *
-											</label>
-											<input
-												type="text"
-												disabled={isSubmitting}
-												value={newCustName}
-												onChange={(e) => {
-													setNewCustName(e.target.value);
-													setCustErrors((prev) => ({ ...prev, name: "" }));
-												}}
-												placeholder="John Doe"
-												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-													${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-											/>
-											{custErrors.name && (
-												<p className="text-[10px] text-red-500 font-semibold">
-													{custErrors.name}
-												</p>
-											)}
-										</div>
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Mobile Number *
-											</label>
-											<PhoneInputField
-												disabled={isSubmitting}
-												size="sm"
-												value={newCustPhone}
-												onChange={(phone) => {
-													setNewCustPhone(phone);
-													setCustErrors((prev) => ({ ...prev, phone: "" }));
-												}}
-												error={custErrors.phone}
-											/>
-										</div>
-									</div>
-									<div className="space-y-1">
-										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-											Address
-										</label>
-										<textarea
-											disabled={isSubmitting}
-											value={newCustAddress}
-											onChange={(e) => {
-												setNewCustAddress(e.target.value);
-												setCustErrors((prev) => ({ ...prev, address: "" }));
-											}}
-											placeholder="Enter customer address..."
-											rows={2}
-											className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-												${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-										/>
-										{custErrors.address && (
-											<p className="text-xs text-red-500 font-medium mt-1">
-												{custErrors.address}
-											</p>
-										)}
-									</div>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										onClick={handleCreateCustomer}
-										className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-									>
-										{isSubmitting ? (
-											<>
-												<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-												</svg>
-												<span>Saving Customer...</span>
-											</>
-										) : (
-											"Save and Select Customer"
-										)}
-									</button>
-									{custFormError && (
-										<p className="text-xs text-red-500 font-semibold text-center mt-2">
-											{custFormError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formCustomerId}
-									onChange={(e) => setFormCustomerId(e.target.value)}
-									options={[
-										{ value: "", label: "-- Select Customer --" },
-										...customers.map((c) => ({ value: c.id.toString(), label: `${c.name} (${c.phone})` })),
-									]}
-								/>
-							)}
-						</div>
+						<PartnerSelector
+							value={formCustomerId}
+							onChange={setFormCustomerId}
+							label="Select Customer / Vendor (for Purchase Transaction)"
+							placeholder="-- Choose Partner --"
+							required={false}
+							valueType="id"
+						/>
 					)}
 
 					{/* Cost Price */}
@@ -1897,131 +1807,18 @@ export default function InventoryPage() {
 						{/* Form inputs */}
 						<div className="space-y-4 text-left">
 							{/* Customer selection */}
-							<div className="space-y-1.5 relative">
-								<div className="flex justify-between items-center">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Customer *
-									</label>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										onClick={() =>
-											setIsAddingCust(!isAddingCust)
-										}
-										className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline cursor-pointer"
-									>
-										{isAddingCust
-											? "Cancel"
-											: "+ Quick Add"}
-									</button>
-								</div>
-
-								{isAddingCust ? (
-									<div className="p-4 border border-primary/20 bg-primary/5 rounded-2xl space-y-3 animate-scaleUp">
-										<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Full Name
-												</label>
-												<input
-													type="text"
-													disabled={isSubmitting}
-													value={newCustName}
-													onChange={(e) => {
-														setNewCustName(e.target.value);
-														setCustErrors((prev) => ({ ...prev, name: "" }));
-													}}
-													placeholder="e.g. John Doe"
-													className={`w-full px-3 py-2.5 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-														${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-												/>
-												{custErrors.name && (
-													<p className="text-xs text-red-500 font-medium mt-1">
-														{custErrors.name}
-													</p>
-												)}
-											</div>
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Phone Number
-												</label>
-												<PhoneInputField
-													disabled={isSubmitting}
-													size="sm"
-													value={newCustPhone}
-													onChange={(phone) => {
-														setNewCustPhone(phone);
-														setCustErrors((prev) => ({ ...prev, phone: "" }));
-													}}
-													error={custErrors.phone}
-												/>
-											</div>
-										</div>
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Address
-											</label>
-											<textarea
-												disabled={isSubmitting}
-												value={newCustAddress}
-												onChange={(e) => {
-													setNewCustAddress(e.target.value);
-													setCustErrors((prev) => ({ ...prev, address: "" }));
-												}}
-												placeholder="Enter customer address..."
-												rows={2}
-												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-													${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-											/>
-											{custErrors.address && (
-												<p className="text-xs text-red-500 font-medium mt-1">
-													{custErrors.address}
-												</p>
-											)}
-										</div>
-										<button
-											type="button"
-											disabled={isSubmitting}
-											onClick={handleCreateCustomer}
-											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-										>
-											{isSubmitting ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving Customer...</span>
-												</>
-											) : (
-												"Save and Select Customer"
-											)}
-										</button>
-										{custFormError && (
-											<p className="text-xs text-red-500 font-semibold text-center mt-2">
-												{custFormError}
-											</p>
-										)}
-									</div>
-								) : (
-									<Select
-										value={sellCustomer}
-										disabled={isSubmitting}
-										onChange={(e) => {
-											setSellCustomer(e.target.value);
-											clearSellError("sellCustomer");
-										}}
-										required
-										placeholder="-- Choose Customer --"
-										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
-									/>
-								)}
-								{sellErrors.sellCustomer && (
-									<p className="text-xs text-red-500 font-medium mt-1">
-										{sellErrors.sellCustomer}
-									</p>
-								)}
-							</div>
+							<PartnerSelector
+								value={sellCustomer}
+								onChange={(val) => {
+									setSellCustomer(val);
+									clearSellError("sellCustomer");
+								}}
+								label="Customer / Vendor *"
+								placeholder="-- Choose Partner --"
+								required={true}
+								valueType="name"
+								error={sellErrors.sellCustomer}
+							/>
 
 							{/* Price & Date */}
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2205,131 +2002,18 @@ export default function InventoryPage() {
 						{/* Form inputs */}
 						<div className="space-y-4 text-left">
 							{/* Customer selection */}
-							<div className="space-y-1.5 relative">
-								<div className="flex justify-between items-center">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Customer (Selling back to store) *
-									</label>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										onClick={() =>
-											setIsAddingCust(!isAddingCust)
-										}
-										className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline cursor-pointer"
-									>
-										{isAddingCust
-											? "Cancel"
-											: "+ Quick Add"}
-									</button>
-								</div>
-
-								{isAddingCust ? (
-									<div className="p-4 border border-primary/20 bg-primary/5 rounded-2xl space-y-3 animate-scaleUp">
-										<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Full Name
-												</label>
-												<input
-													type="text"
-													disabled={isSubmitting}
-													value={newCustName}
-													onChange={(e) => {
-														setNewCustName(e.target.value);
-														setCustErrors((prev) => ({ ...prev, name: "" }));
-													}}
-													placeholder="e.g. John Doe"
-													className={`w-full px-3 py-2.5 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-														${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-												/>
-												{custErrors.name && (
-													<p className="text-xs text-red-500 font-medium mt-1">
-														{custErrors.name}
-													</p>
-												)}
-											</div>
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Phone Number
-												</label>
-												<PhoneInputField
-													disabled={isSubmitting}
-													size="sm"
-													value={newCustPhone}
-													onChange={(phone) => {
-														setNewCustPhone(phone);
-														setCustErrors((prev) => ({ ...prev, phone: "" }));
-													}}
-													error={custErrors.phone}
-												/>
-											</div>
-										</div>
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Address
-											</label>
-											<textarea
-												disabled={isSubmitting}
-												value={newCustAddress}
-												onChange={(e) => {
-													setNewCustAddress(e.target.value);
-													setCustErrors((prev) => ({ ...prev, address: "" }));
-												}}
-												placeholder="Enter customer address..."
-												rows={2}
-												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-													${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-											/>
-											{custErrors.address && (
-												<p className="text-xs text-red-500 font-medium mt-1">
-													{custErrors.address}
-												</p>
-											)}
-										</div>
-										<button
-											type="button"
-											disabled={isSubmitting}
-											onClick={handleCreateCustomer}
-											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-										>
-											{isSubmitting ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving Customer...</span>
-												</>
-											) : (
-												"Save and Select Customer"
-											)}
-										</button>
-										{custFormError && (
-											<p className="text-xs text-red-500 font-semibold text-center mt-2">
-												{custFormError}
-											</p>
-										)}
-									</div>
-								) : (
-									<Select
-										value={buybackCustomer}
-										disabled={isSubmitting}
-										onChange={(e) => {
-											setBuybackCustomer(e.target.value);
-											clearBuybackError("buybackCustomer");
-										}}
-										required
-										placeholder="-- Choose Customer --"
-										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
-									/>
-								)}
-								{buybackErrors.buybackCustomer && (
-									<p className="text-xs text-red-500 font-medium mt-1">
-										{buybackErrors.buybackCustomer}
-									</p>
-								)}
-							</div>
+							<PartnerSelector
+								value={buybackCustomer}
+								onChange={(val) => {
+									setBuybackCustomer(val);
+									clearBuybackError("buybackCustomer");
+								}}
+								label="Customer / Vendor (Selling back to store) *"
+								placeholder="-- Choose Partner --"
+								required={true}
+								valueType="name"
+								error={buybackErrors.buybackCustomer}
+							/>
 
 							{/* Price, Date, and specs updates */}
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

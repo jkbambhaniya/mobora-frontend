@@ -72,6 +72,8 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
 
     const payload = {
       mobile_id: existingListing ? Number(existingListing.id) : null,
+      partner_id: transaction.partnerId ? Number(transaction.partnerId) : null,
+      partner_type: transaction.partnerType || "Customer",
       customer_name: transaction.customerName,
       type: transaction.type,
       amount: transaction.amount,

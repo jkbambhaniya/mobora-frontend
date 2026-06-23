@@ -11,7 +11,7 @@ import {
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { PhoneInputField } from "@/components/ui/PhoneInputField";
+import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { toast as hotToast } from "react-hot-toast";
 import * as yup from "yup";
 import { streamInvoice, downloadInvoice } from "@/utils/invoice";
@@ -38,6 +38,7 @@ export default function ImeiDetailsPage() {
 		refreshTrades,
 		refreshDevices,
 		refreshMetrics,
+		vendor,
 	} = useDashboard();
 	const specs = useSpecifications();
 
@@ -59,6 +60,10 @@ export default function ImeiDetailsPage() {
 
 	const brand = matchedBrandObj ? matchedBrandObj.name : brandSlug;
 	const model = matchedModelObj ? matchedModelObj.name : modelSlug;
+
+	const gstEnabled = vendor?.gst_enabled !== false;
+	const gstRate = vendor?.gst_rate ?? 18;
+	const gstFactor = 1 + gstRate / 100;
 
 	// Find chronological timeline events for this IMEI
 	const timelineEvents = useMemo(() => {
@@ -90,24 +95,22 @@ export default function ImeiDetailsPage() {
 	// Level 3 Financial Calculations (profit margin)
 	const timelineWithCalculations = useMemo(() => {
 		let cumulativeProfit = 0;
-		const items = timelineEvents.map((event, idx) => {
-			let margin = 0;
-			if (event.type === "Sale") {
-				// Find preceding purchase transaction of the same IMEI
-				const precedingPurchases = timelineEvents
-					.slice(0, idx)
-					.filter((t) => t.type === "Purchase");
-				if (precedingPurchases.length > 0) {
-					const lastPurchase =
-						precedingPurchases[precedingPurchases.length - 1];
-					margin = event.amount - lastPurchase.amount;
-					cumulativeProfit += margin;
-				}
-			}
+		const items = timelineEvents.map((event) => {
+			const margin = (event as any).margin !== undefined ? (event as any).margin : 0;
+			const gstAmount = (event as any).gstAmount !== undefined ? (event as any).gstAmount : 0;
+			const netMargin = margin - gstAmount;
+			cumulativeProfit += netMargin;
 			return { ...event, margin };
 		});
 		return { items, cumulativeProfit };
 	}, [timelineEvents]);
+
+	// Helper status resolution
+	const currentStatus = useMemo(() => {
+		if (device) return device.status;
+		const lastEvent = timelineEvents[timelineEvents.length - 1];
+		return lastEvent?.type === "Sale" ? "Sold" : "Available";
+	}, [device, timelineEvents]);
 
 	// Helper to find customer profile details
 	const findCustomerProfile = (name: string): Customer | undefined => {
@@ -119,13 +122,6 @@ export default function ImeiDetailsPage() {
 	// Modal visibility
 	const [isSellOpen, setIsSellOpen] = useState(false);
 	const [isBuybackOpen, setIsBuybackOpen] = useState(false);
-
-	// Customer quick-add states
-	const [isAddingCust, setIsAddingCust] = useState(false);
-	const [newCustName, setNewCustName] = useState("");
-	const [newCustPhone, setNewCustPhone] = useState("");
-	const [newCustAddress, setNewCustAddress] = useState("");
-	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
 
 	// Form values
 	const [sellCustomer, setSellCustomer] = useState("");
@@ -140,8 +136,52 @@ export default function ImeiDetailsPage() {
 	const [buybackBattery, setBuybackBattery] = useState("90");
 	const [buybackNotes, setBuybackNotes] = useState("");
 
+	// Smart Grading Checklist States
+	const [checkScreen, setCheckScreen] = useState<"clean" | "scratched" | "cracked">("clean");
+	const [checkBody, setCheckBody] = useState<"clean" | "scratched" | "dented">("clean");
+	const [checkFunc, setCheckFunc] = useState<"working" | "issues">("working");
+	const [checkBiometrics, setCheckBiometrics] = useState<"working" | "broken">("working");
+	const [checkAccessories, setCheckAccessories] = useState<"all" | "box" | "none">("all");
+
+	// Smart Grading Calculator
+	const gradingResult = useMemo(() => {
+		let score = 0;
+		if (checkScreen === "clean") score += 3;
+		else if (checkScreen === "scratched") score += 1;
+
+		if (checkBody === "clean") score += 2;
+		else if (checkBody === "scratched") score += 1;
+
+		if (checkFunc === "working") score += 2;
+		if (checkBiometrics === "working") score += 2;
+
+		if (checkAccessories === "all") score += 2;
+		else if (checkAccessories === "box") score += 1;
+
+		let grade: "A+" | "A" | "B" | "C" = "C";
+		let multiplier = 0.45;
+
+		if (score >= 10) {
+			grade = "A+";
+			multiplier = 0.75;
+		} else if (score >= 8) {
+			grade = "A";
+			multiplier = 0.65;
+		} else if (score >= 6) {
+			grade = "B";
+			multiplier = 0.55;
+		}
+
+		const basePrice = device ? (device.price || 30000) : 30000;
+		const recommendedPrice = Math.round(basePrice * multiplier);
+
+		return { grade, recommendedPrice, score };
+	}, [checkScreen, checkBody, checkFunc, checkBiometrics, checkAccessories, device]);
+
 	// Dynamic financial calculations for modals
-	const saleProfit = device ? (parseFloat(sellPrice) || 0) - (device.purchasePrice || 0) : 0;
+	const rawSaleProfit = device ? (parseFloat(sellPrice) || 0) - (device.purchasePrice || 0) : 0;
+	const saleGstAmount = (gstEnabled && rawSaleProfit > 0) ? Math.round(rawSaleProfit - (rawSaleProfit / gstFactor)) : 0;
+	const saleProfit = rawSaleProfit - saleGstAmount;
 	const buybackProfit = device ? (device.price || 0) - (parseFloat(buybackPrice) || 0) : 0;
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -152,7 +192,6 @@ export default function ImeiDetailsPage() {
 
 	const [sellFormError, setSellFormError] = useState("");
 	const [buybackFormError, setBuybackFormError] = useState("");
-	const [custFormError, setCustFormError] = useState("");
 
 	const clearSellError = (field: string) => {
 		setSellErrors((prev) => {
@@ -172,13 +211,6 @@ export default function ImeiDetailsPage() {
 		setBuybackFormError("");
 	};
 
-	// Helper status resolution
-	const currentStatus = useMemo(() => {
-		if (device) return device.status;
-		const lastEvent = timelineEvents[timelineEvents.length - 1];
-		return lastEvent?.type === "Sale" ? "Sold" : "Available";
-	}, [device, timelineEvents]);
-
 	const handleOpenSell = () => {
 		if (!device) {
 			hotToast.error("Device details not loaded yet.");
@@ -187,11 +219,8 @@ export default function ImeiDetailsPage() {
 		setSellCustomer(customers[0]?.name || "");
 		setSellNotes("");
 		setSellDate(new Date().toISOString().split("T")[0]);
-		setIsAddingCust(false);
 		setSellErrors({});
 		setSellFormError("");
-		setCustFormError("");
-		setCustErrors({});
 		setIsSellOpen(true);
 	};
 
@@ -205,59 +234,9 @@ export default function ImeiDetailsPage() {
 		setBuybackCondition(device.condition);
 		setBuybackBattery(device.batteryHealth ? device.batteryHealth.toString() : "90");
 		setBuybackNotes(`Re-acquired device from customer.`);
-		setIsAddingCust(false);
 		setBuybackErrors({});
 		setBuybackFormError("");
-		setCustFormError("");
-		setCustErrors({});
 		setIsBuybackOpen(true);
-	};
-
-	const handleCreateCustomer = async () => {
-		setCustErrors({});
-		setCustFormError("");
-		if (!newCustName.trim()) {
-			setCustErrors({ name: "Full Name is required." });
-			return;
-		}
-		if (!newCustPhone.trim()) {
-			setCustErrors({ phone: "Phone is required." });
-			return;
-		}
-		setIsSubmitting(true);
-		try {
-			const res = await addCustomer({
-				name: newCustName,
-				phone: newCustPhone,
-				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-				status: "Active",
-				address: newCustAddress || "Store Walk-in Registration",
-				notes: "Quick registered during transaction from device history.",
-			});
-			if (res.success) {
-				if (isSellOpen) {
-					setSellCustomer(newCustName);
-				} else if (isBuybackOpen) {
-					setBuybackCustomer(newCustName);
-				}
-				setIsAddingCust(false);
-				setNewCustName("");
-				setNewCustPhone("");
-				setNewCustAddress("");
-				setCustErrors({});
-				hotToast.success(`Customer ${newCustName} registered.`);
-			} else {
-				if (res.errors) {
-					setCustErrors(res.errors);
-				} else {
-					setCustFormError(res.message || "Failed to register customer.");
-				}
-			}
-		} catch (err) {
-			setCustFormError("Failed to add customer.");
-		} finally {
-			setIsSubmitting(false);
-		}
 	};
 
 	const handleSellSubmit = async (e: React.FormEvent) => {
@@ -296,12 +275,17 @@ export default function ImeiDetailsPage() {
 				description: sellNotes || `Sold to ${sellCustomer}.`
 			});
 			if (result.success) {
+				const [partnerType, partnerNameOrId] = sellCustomer.includes(":")
+					? (sellCustomer.split(":") as ["Customer" | "Vendor", string])
+					: ["Customer" as const, sellCustomer];
+
 				const tx = await handleAddTradeTransaction({
 					imei: device.imei || "N/A",
 					deviceBrand: device.brand,
 					deviceModel: device.model,
 					type: "Sale",
-					customerName: sellCustomer,
+					customerName: partnerNameOrId,
+					partnerType: partnerType,
 					amount: priceNum,
 					date: sellDate,
 					notes: sellNotes || `Sold from inventory catalog.`,
@@ -312,7 +296,7 @@ export default function ImeiDetailsPage() {
 					batteryHealth: device.batteryHealth,
 				}, true);
 				setIsSellOpen(false);
-				hotToast.success(`Device sale recorded successfully! Sold to ${sellCustomer} for ₹${priceNum.toLocaleString()}.`);
+				hotToast.success(`Device sale recorded successfully! Sold to ${partnerNameOrId} for ₹${priceNum.toLocaleString()}.`);
 				await refreshDevices();
 				await refreshMetrics();
 				await refreshTrades();
@@ -374,12 +358,17 @@ export default function ImeiDetailsPage() {
 				description: buybackNotes || `Re-acquired from ${buybackCustomer}.`
 			});
 			if (result.success) {
+				const [partnerType, partnerNameOrId] = buybackCustomer.includes(":")
+					? (buybackCustomer.split(":") as ["Customer" | "Vendor", string])
+					: ["Customer" as const, buybackCustomer];
+
 				const tx = await handleAddTradeTransaction({
 					imei: device.imei || "N/A",
 					deviceBrand: device.brand,
 					deviceModel: device.model,
 					type: "Purchase",
-					customerName: buybackCustomer,
+					customerName: partnerNameOrId,
+					partnerType: partnerType,
 					amount: priceNum,
 					date: buybackDate,
 					notes: buybackNotes || `Acquired via buyback.`,
@@ -390,7 +379,7 @@ export default function ImeiDetailsPage() {
 					batteryHealth: parseInt(buybackBattery) || 90,
 				}, true);
 				setIsBuybackOpen(false);
-				hotToast.success(`Device buyback recorded successfully! Re-acquired from ${buybackCustomer} for ₹${priceNum.toLocaleString()}.`);
+				hotToast.success(`Device buyback recorded successfully! Re-acquired from ${partnerNameOrId} for ₹${priceNum.toLocaleString()}.`);
 				await refreshDevices();
 				await refreshMetrics();
 				await refreshTrades();
@@ -691,19 +680,44 @@ export default function ImeiDetailsPage() {
 														</div>
 													)}
 													{event.margin > 0 && (
-														<div className="flex justify-between pt-1 border-t border-dashed border-zinc-200 dark:border-zinc-800/50">
-															<span className="text-emerald-500 font-bold">
-																Calculated
-																profit:
-															</span>
-															<span
-																className="font-extrabold text-emerald-500"
-																suppressHydrationWarning
-															>
-																+₹
-																{event.margin.toLocaleString()}
-															</span>
-														</div>
+														<>
+															<div className="flex justify-between pt-1 border-t border-dashed border-zinc-200 dark:border-zinc-800/50">
+																<span className="text-emerald-500 font-bold">
+																	Calculated profit:
+																</span>
+																<span
+																	className="font-extrabold text-emerald-500"
+																	suppressHydrationWarning
+																>
+																	+₹
+																	{event.margin.toLocaleString()}
+																</span>
+															</div>
+															{(event as any).gstAmount > 0 && (
+																<div className="text-[10px] text-zinc-400 dark:text-zinc-505 flex flex-col gap-0.5 mt-1 border-t border-zinc-100 dark:border-zinc-850/50 pt-1.5 pl-1.5 space-y-0.5 text-left">
+																	<div className="flex justify-between">
+																		<span>GST on Margin ({(event as any).gstRate}%):</span>
+																		<span className="font-semibold text-zinc-650 dark:text-zinc-350">₹{(event as any).gstAmount.toLocaleString()}</span>
+																	</div>
+																	<div className="flex justify-between text-[9px] pl-2 text-zinc-400">
+																		<span>CGST ({(event as any).gstRate / 2}%):</span>
+																		<span>₹{(event as any).cgst.toLocaleString()}</span>
+																	</div>
+																	<div className="flex justify-between text-[9px] pl-2 text-zinc-400">
+																		<span>SGST ({(event as any).gstRate / 2}%):</span>
+																		<span>₹{(event as any).sgst.toLocaleString()}</span>
+																	</div>
+																	<div className="flex justify-between text-[9px] pl-2 text-zinc-400">
+																		<span>Taxable Value:</span>
+																		<span>₹{(event as any).taxableValue.toLocaleString()}</span>
+																	</div>
+																	<div className="flex justify-between text-emerald-500 font-bold border-t border-dashed border-zinc-150 dark:border-zinc-800/60 pt-1.5 mt-1">
+																		<span>Net Profit (after tax):</span>
+																		<span suppressHydrationWarning>+₹{(event.margin - (event as any).gstAmount).toLocaleString()}</span>
+																	</div>
+																</div>
+															)}
+														</>
 													)}
 												</div>
 
@@ -742,7 +756,38 @@ export default function ImeiDetailsPage() {
 														</div>
 													</div>
 
-													{clientProfile ? (
+													{event.partnerType === "Vendor" ? (
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+															<div className="space-y-2">
+																<div>
+																	<span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
+																		Wholesale Partner
+																	</span>
+																	<span className="font-semibold text-zinc-700 dark:text-zinc-300">
+																		🏢 B2B Trade Dealer
+																	</span>
+																</div>
+																<div>
+																	<span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
+																		Entity Status
+																	</span>
+																	<span className="font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full text-[10px] inline-block mt-0.5 uppercase tracking-wider">
+																		Verified Merchant
+																	</span>
+																</div>
+															</div>
+															<div className="space-y-2 border-t md:border-t-0 md:border-l border-zinc-150 dark:border-zinc-800/80 pt-2 md:pt-0 md:pl-4">
+																<div>
+																	<span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
+																		Trade Channel
+																	</span>
+																	<p className="text-zinc-550 dark:text-zinc-400 italic leading-relaxed">
+																		This transaction was compiled under the B2B Dealer Trade network protocol.
+																	</p>
+																</div>
+															</div>
+														</div>
+													) : clientProfile ? (
 														<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
 															<div className="space-y-2">
 																<div>
@@ -808,7 +853,7 @@ export default function ImeiDetailsPage() {
 																		Profile
 																		Notes
 																	</span>
-																	<p className="text-zinc-500 dark:text-zinc-400 italic leading-relaxed">
+																	<p className="text-zinc-550 dark:text-zinc-400 italic leading-relaxed">
 																		{clientProfile.notes ||
 																			"No extra profile notes logged."}
 																	</p>
@@ -816,7 +861,7 @@ export default function ImeiDetailsPage() {
 															</div>
 														</div>
 													) : (
-														<div className="text-xs text-zinc-400 italic py-4">
+														<div className="text-xs text-zinc-450 italic py-4">
 															No matches found for
 															customer profile in
 															store database.
@@ -926,132 +971,15 @@ export default function ImeiDetailsPage() {
 
 						{/* Form inputs */}
 						<div className="space-y-4 text-left">
-							{/* Customer selection */}
-							<div className="space-y-1.5 relative">
-								<div className="flex justify-between items-center">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Customer *
-									</label>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										onClick={() =>
-											setIsAddingCust(!isAddingCust)
-										}
-										className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline cursor-pointer"
-									>
-										{isAddingCust
-											? "Cancel"
-											: "+ Quick Add"}
-									</button>
-								</div>
-
-								{isAddingCust ? (
-									<div className="p-4 border border-primary/20 bg-primary/5 rounded-2xl space-y-3 animate-scaleUp">
-										<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Full Name
-												</label>
-												<input
-													type="text"
-													disabled={isSubmitting}
-													value={newCustName}
-													onChange={(e) => {
-														setNewCustName(e.target.value);
-														setCustErrors((prev) => ({ ...prev, name: "" }));
-													}}
-													placeholder="e.g. John Doe"
-													className={`w-full px-3 py-2.5 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-														${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-												/>
-												{custErrors.name && (
-													<p className="text-xs text-red-500 font-medium mt-1">
-														{custErrors.name}
-													</p>
-												)}
-											</div>
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Phone Number
-												</label>
-												<PhoneInputField
-													disabled={isSubmitting}
-													size="sm"
-													value={newCustPhone}
-													onChange={(phone) => {
-														setNewCustPhone(phone);
-														setCustErrors((prev) => ({ ...prev, phone: "" }));
-													}}
-													error={custErrors.phone}
-												/>
-											</div>
-										</div>
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Address
-											</label>
-											<textarea
-												disabled={isSubmitting}
-												value={newCustAddress}
-												onChange={(e) => {
-													setNewCustAddress(e.target.value);
-													setCustErrors((prev) => ({ ...prev, address: "" }));
-												}}
-												placeholder="Enter customer address..."
-												rows={2}
-												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-													${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-											/>
-											{custErrors.address && (
-												<p className="text-xs text-red-500 font-medium mt-1">
-													{custErrors.address}
-												</p>
-											)}
-										</div>
-										<button
-											type="button"
-											disabled={isSubmitting}
-											onClick={handleCreateCustomer}
-											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-										>
-											{isSubmitting ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving Customer...</span>
-												</>
-											) : (
-												"Save and Select Customer"
-											)}
-										</button>
-										{custFormError && (
-											<p className="text-xs text-red-500 font-semibold text-center mt-2">
-												{custFormError}
-											</p>
-										)}
-									</div>
-								) : (
-									<Select
-										value={sellCustomer}
-										disabled={isSubmitting}
-										onChange={(e) => {
-											setSellCustomer(e.target.value);
-											clearSellError("sellCustomer");
-										}}
-										required
-										placeholder="-- Choose Customer --"
-										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
-									/>
-								)}
-								{sellErrors.sellCustomer && (
-									<p className="text-xs text-red-500 font-medium mt-1">
-										{sellErrors.sellCustomer}
-									</p>
-								)}
-							</div>
+							<PartnerSelector
+								value={sellCustomer}
+								onChange={setSellCustomer}
+								label="Customer *"
+								placeholder="-- Choose Partner --"
+								required={true}
+								valueType="name"
+								error={sellErrors.sellCustomer}
+							/>
 
 							{/* Price & Date */}
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1110,6 +1038,69 @@ export default function ImeiDetailsPage() {
 									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 								/>
 							</div>
+
+							{/* Real-time Profit Margin & GST Scheme Indicator */}
+							{device && sellPrice && (() => {
+								const gstEnabled = vendor?.gst_enabled !== false;
+								const gstRate = vendor?.gst_rate ?? 18;
+								const gstFactor = 1 + gstRate / 100;
+								const rawProfit = device ? (parseFloat(sellPrice) || 0) - (device.purchasePrice || 0) : 0;
+								const gstAmount = (gstEnabled && rawProfit > 0) ? Math.round(rawProfit - (rawProfit / gstFactor)) : 0;
+								const cgst = Math.round(gstAmount / 2);
+								const sgst = gstAmount - cgst;
+								const taxableValue = (parseFloat(sellPrice) || 0) - gstAmount;
+								const netProfit = rawProfit - gstAmount;
+								return (
+									<div className="space-y-2 text-left">
+										<div
+											className={`p-3.5 rounded-xl border text-xs font-bold text-center animate-scaleUp flex justify-between items-center ${
+												netProfit > 0
+													? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+													: netProfit === 0
+													? "bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400"
+													: "bg-red-500/5 border-red-500/20 text-red-600 dark:text-red-400"
+											}`}
+										>
+											<span>
+												{netProfit < 0 ? "⚠️ Warning: Selling Below Cost Price" : "Estimated Profit Margin:"}
+											</span>
+											<span suppressHydrationWarning className="text-sm font-black">
+												{netProfit >= 0 ? "+" : ""}₹{netProfit.toLocaleString()}
+											</span>
+										</div>
+
+										{netProfit > 0 && (
+											<div className="p-3 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-[11px] text-zinc-550 dark:text-zinc-400 space-y-1 animate-scaleUp">
+												<div className="flex justify-between font-semibold">
+													<span>GST Margin Scheme Details ({gstRate}%):</span>
+													<span className="text-zinc-700 dark:text-zinc-300">GST on Margin</span>
+												</div>
+												<div className="flex justify-between">
+													<span>CGST ({gstRate / 2}% on Margin):</span>
+													<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
+														₹{cgst.toLocaleString()}
+													</span>
+												</div>
+												<div className="flex justify-between">
+													<span>SGST ({gstRate / 2}% on Margin):</span>
+													<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
+														₹{sgst.toLocaleString()}
+													</span>
+												</div>
+												<div className="flex justify-between border-t border-zinc-150 dark:border-zinc-850 pt-1 mt-1 font-semibold">
+													<span>Taxable Value (Item):</span>
+													<span className="font-mono text-zinc-750 dark:text-zinc-250" suppressHydrationWarning>
+														₹{taxableValue.toLocaleString()}
+													</span>
+												</div>
+												<span className="text-[9px] text-zinc-400 dark:text-zinc-505 block mt-1 leading-normal italic">
+													*GST is calculated only on the profit margin of ₹{rawProfit.toLocaleString()} under Rule 32(5) of CGST Rules, 2017.
+												</span>
+											</div>
+										)}
+									</div>
+								);
+							})()}
 						</div>
 
 						{sellFormError && (
@@ -1234,173 +1225,142 @@ export default function ImeiDetailsPage() {
 
 						{/* Form inputs */}
 						<div className="space-y-4 text-left">
-							{/* Customer selection */}
-							<div className="space-y-1.5 relative">
-								<div className="flex justify-between items-center">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Customer (Selling back to store) *
-									</label>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										onClick={() =>
-											setIsAddingCust(!isAddingCust)
-										}
-										className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline cursor-pointer"
-									>
-										{isAddingCust
-											? "Cancel"
-											: "+ Quick Add"}
-									</button>
+							<PartnerSelector
+								value={buybackCustomer}
+								onChange={setBuybackCustomer}
+								label="Customer (Selling back to store) *"
+								placeholder="-- Choose Partner --"
+								required={true}
+								valueType="name"
+								error={buybackErrors.buybackCustomer}
+							/>
+
+							{/* Smart Grading Checklist Section */}
+							<div className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/30 text-left space-y-4">
+								<h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+									Smart Inspection Checklist & Grading
+								</h4>
+								
+								<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+									{/* Screen */}
+									<div className="space-y-1">
+										<label className="text-[10px] font-bold text-zinc-400 uppercase">Screen Glass</label>
+										<Select
+											value={checkScreen}
+											onChange={(e) => setCheckScreen(e.target.value as any)}
+											options={[
+												{ value: "clean", label: "Pristine / No Scratches" },
+												{ value: "scratched", label: "Minor Scratches" },
+												{ value: "cracked", label: "Cracked / Broken" },
+											]}
+										/>
+									</div>
+
+									{/* Body */}
+									<div className="space-y-1">
+										<label className="text-[10px] font-bold text-zinc-400 uppercase">Body / Frame</label>
+										<Select
+											value={checkBody}
+											onChange={(e) => setCheckBody(e.target.value as any)}
+											options={[
+												{ value: "clean", label: "Pristine / Like New" },
+												{ value: "scratched", label: "Scratched / Scuffed" },
+												{ value: "dented", label: "Dented / Cracked Glass" },
+											]}
+										/>
+									</div>
+
+									{/* Biometrics */}
+									<div className="space-y-1">
+										<label className="text-[10px] font-bold text-zinc-400 uppercase">Face / Touch ID</label>
+										<Select
+											value={checkBiometrics}
+											onChange={(e) => setCheckBiometrics(e.target.value as any)}
+											options={[
+												{ value: "working", label: "Working Perfectly" },
+												{ value: "broken", label: "Not Working / Faulty" },
+											]}
+										/>
+									</div>
+
+									{/* Core Functions */}
+									<div className="space-y-1">
+										<label className="text-[10px] font-bold text-zinc-400 uppercase">Wifi / Speaker / Camera</label>
+										<Select
+											value={checkFunc}
+											onChange={(e) => setCheckFunc(e.target.value as any)}
+											options={[
+												{ value: "working", label: "All OK" },
+												{ value: "issues", label: "Has Faults / Not Working" },
+											]}
+										/>
+									</div>
+
+									{/* Accessories */}
+									<div className="space-y-1">
+										<label className="text-[10px] font-bold text-zinc-400 uppercase">Accessories Included</label>
+										<Select
+											value={checkAccessories}
+											onChange={(e) => setCheckAccessories(e.target.value as any)}
+											options={[
+												{ value: "all", label: "Box & Original Charger" },
+												{ value: "box", label: "Box Only / No Charger" },
+												{ value: "none", label: "Device Only" },
+											]}
+										/>
+									</div>
+
+									{/* Battery Health Input */}
+									<div className="space-y-1">
+										<label className="text-[10px] font-bold text-zinc-400 uppercase">Battery Health (%)</label>
+										<input
+											type="number"
+											min={50}
+											max={100}
+											disabled={isSubmitting}
+											value={buybackBattery}
+											onChange={(e) => {
+												setBuybackBattery(e.target.value);
+												clearBuybackError("buybackBattery");
+											}}
+											className={`w-full px-4 py-2 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none text-zinc-900 dark:text-white disabled:opacity-50
+												${buybackErrors.buybackBattery ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
+										/>
+									</div>
 								</div>
 
-								{isAddingCust ? (
-									<div className="p-4 border border-primary/20 bg-primary/5 rounded-2xl space-y-3 animate-scaleUp">
-										<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Full Name
-												</label>
-												<input
-													type="text"
-													disabled={isSubmitting}
-													value={newCustName}
-													onChange={(e) => {
-														setNewCustName(e.target.value);
-														setCustErrors((prev) => ({ ...prev, name: "" }));
-													}}
-													placeholder="e.g. John Doe"
-													className={`w-full px-3 py-2.5 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-														${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-												/>
-												{custErrors.name && (
-													<p className="text-xs text-red-500 font-medium mt-1">
-														{custErrors.name}
-													</p>
-												)}
-											</div>
-											<div className="space-y-1">
-												<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-													Phone Number
-												</label>
-												<PhoneInputField
-													disabled={isSubmitting}
-													size="sm"
-													value={newCustPhone}
-													onChange={(phone) => {
-														setNewCustPhone(phone);
-														setCustErrors((prev) => ({ ...prev, phone: "" }));
-													}}
-													error={custErrors.phone}
-												/>
-											</div>
+								{/* Evaluation Result Banner */}
+								<div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 animate-scaleUp">
+									<div className="text-xs">
+										<div className="flex items-center gap-2">
+											<span className="text-[10px] font-bold text-zinc-400 uppercase">Calculated Grade:</span>
+											<span className="px-2 py-0.5 rounded font-black bg-indigo-500/10 text-indigo-500 text-xs">
+												Grade {gradingResult.grade}
+											</span>
 										</div>
-										<div className="space-y-1">
-											<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-												Address
-											</label>
-											<textarea
-												disabled={isSubmitting}
-												value={newCustAddress}
-												onChange={(e) => {
-													setNewCustAddress(e.target.value);
-													setCustErrors((prev) => ({ ...prev, address: "" }));
-												}}
-												placeholder="Enter customer address..."
-												rows={2}
-												className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-													${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-											/>
-											{custErrors.address && (
-												<p className="text-xs text-red-500 font-medium mt-1">
-													{custErrors.address}
-												</p>
-											)}
+										<p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
+											Inspection checklist points score: {gradingResult.score} / 11.
+										</p>
+									</div>
+									<div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+										<div className="text-right">
+											<span className="text-[10px] font-bold text-zinc-400 uppercase block">Recommended Value:</span>
+											<span className="text-sm font-black text-indigo-550 dark:text-indigo-400" suppressHydrationWarning>
+												₹{gradingResult.recommendedPrice.toLocaleString()}
+											</span>
 										</div>
 										<button
 											type="button"
-											disabled={isSubmitting}
-											onClick={handleCreateCustomer}
-											className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
+											onClick={() => {
+												setBuybackPrice(gradingResult.recommendedPrice.toString());
+												setBuybackCondition(gradingResult.grade === "A+" || gradingResult.grade === "A" ? "NEW" : "OLD");
+												clearBuybackError("buybackPrice");
+											}}
+											className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all duration-150 cursor-pointer shadow-sm rounded-xl"
 										>
-											{isSubmitting ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving Customer...</span>
-												</>
-											) : (
-												"Save and Select Customer"
-											)}
+											Use Recommended
 										</button>
-										{custFormError && (
-											<p className="text-xs text-red-500 font-semibold text-center mt-2">
-												{custFormError}
-											</p>
-										)}
 									</div>
-								) : (
-									<Select
-										value={buybackCustomer}
-										disabled={isSubmitting}
-										onChange={(e) => {
-											setBuybackCustomer(e.target.value);
-											clearBuybackError("buybackCustomer");
-										}}
-										required
-										placeholder="-- Choose Customer --"
-										options={customers.map((c) => ({ value: c.name, label: `${c.name} (${c.phone})` }))}
-									/>
-								)}
-								{buybackErrors.buybackCustomer && (
-									<p className="text-xs text-red-500 font-medium mt-1">
-										{buybackErrors.buybackCustomer}
-									</p>
-								)}
-							</div>
-
-							{/* Condition & Battery Health */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Current Condition *
-									</label>
-									<Select
-										value={buybackCondition}
-										disabled={isSubmitting}
-										onChange={(e) =>
-											setBuybackCondition(e.target.value as any)
-										}
-										options={[
-											{ value: "NEW", label: "New" },
-											{ value: "OLD", label: "Old" },
-										]}
-									/>
-								</div>
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Battery Health (%)
-									</label>
-									<input
-										type="number"
-										min={50}
-										max={100}
-										disabled={isSubmitting}
-										value={buybackBattery}
-										onChange={(e) => {
-											setBuybackBattery(e.target.value);
-											clearBuybackError("buybackBattery");
-										}}
-										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none text-zinc-900 dark:text-white disabled:opacity-50
-											${buybackErrors.buybackBattery ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
-									/>
-									{buybackErrors.buybackBattery && (
-										<p className="text-xs text-red-500 font-medium mt-1">
-											{buybackErrors.buybackBattery}
-										</p>
-									)}
 								</div>
 							</div>
 
