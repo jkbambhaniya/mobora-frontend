@@ -10,7 +10,7 @@ import { logoutAction } from "@/actions/auth";
 import { confirmLogout } from "@/utils/confirm";
 
 export default function Sidebar() {
-	const { exchanges, vendor, chats, setVendor } = useDashboard();
+	const { vendor, chats, setVendor } = useDashboard();
 
 	const handleLogout = () => {
 		confirmLogout(async () => {
@@ -24,9 +24,6 @@ export default function Sidebar() {
 		});
 	};
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-	const activeExchanges = exchanges.filter(
-		(e) => e.status === "Pending",
-	).length;
 	const hasUnreadMessages = chats?.some((c) => c.unreadCount > 0) || false;
 	const contactPerson = vendor?.name || "Vendor";
 	const pathname = usePathname();
@@ -139,69 +136,6 @@ export default function Sidebar() {
 						</Link>
 
 						<Link
-							href="/purchases"
-							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
-								isTabActive("/purchases")
-									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
-							}`}
-						>
-							<svg
-								className="w-5 h-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth="2"
-									d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20"
-								/>
-							</svg>
-							Purchases
-						</Link>
-
-						<Link
-							href="/sales"
-							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
-								isTabActive("/sales")
-									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
-							}`}
-						>
-							<svg
-								className="w-5 h-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth="2"
-									d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z"
-								/>
-							</svg>
-							Sales
-						</Link>
-
-						<Link
-							href="/repairs"
-							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
-								isTabActive("/repairs")
-									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
-							}`}
-						>
-							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-							</svg>
-							Repairs
-						</Link>
-
-
-						<Link
 							href="/specifications"
 							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
 								isTabActive("/specifications")
@@ -228,7 +162,7 @@ export default function Sidebar() {
 						<Link
 							href="/customer"
 							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
-								pathname === "/customer"
+								isTabActive("/customer")
 									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
 									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
 							}`}
@@ -342,42 +276,9 @@ export default function Sidebar() {
 				</Link>
 
 				<Link
-					href="/exchanges"
-					className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
-						isTabActive("/exchanges")
-							? "text-primary dark:text-secondary font-bold"
-							: "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-					}`}
-				>
-					<div className="relative">
-						<svg
-							className="w-5 h-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth="2"
-								d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-							/>
-						</svg>
-						{activeExchanges > 0 && (
-							<span className="absolute -top-1.5 -right-1.5 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white px-0.5">
-								{activeExchanges}
-							</span>
-						)}
-					</div>
-					<span className="text-[10px] tracking-tight">
-						Exchanges
-					</span>
-				</Link>
-
-				<Link
-					href="/customer"
+					href="/inventory"
 					className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer ${
-						pathname === "/customer"
+						isTabActive("/inventory")
 							? "text-primary dark:text-secondary font-bold"
 							: "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
 					}`}
@@ -392,11 +293,11 @@ export default function Sidebar() {
 							strokeLinecap="round"
 							strokeLinejoin="round"
 							strokeWidth="2"
-							d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+							d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
 						/>
 					</svg>
 					<span className="text-[10px] tracking-tight">
-						Customers
+						Inventory
 					</span>
 				</Link>
 
@@ -580,70 +481,7 @@ export default function Sidebar() {
 								Mobiles
 							</Link>
 
-							<Link
-								href="/purchases"
-								onClick={() => setIsMobileMenuOpen(false)}
-								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
-									isTabActive("/purchases")
-										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
-								}`}
-							>
-								<svg
-									className="w-5 h-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth="2"
-										d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20"
-									/>
-								</svg>
-								Purchases
-							</Link>
 
-							<Link
-								href="/sales"
-								onClick={() => setIsMobileMenuOpen(false)}
-								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
-									isTabActive("/sales")
-										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
-								}`}
-							>
-								<svg
-									className="w-5 h-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth="2"
-										d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z"
-									/>
-								</svg>
-								Sales
-							</Link>
-
-							<Link
-								href="/repairs"
-								onClick={() => setIsMobileMenuOpen(false)}
-								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
-									isTabActive("/repairs")
-										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
-								}`}
-							>
-								<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-								</svg>
-								Repairs
-							</Link>
 
 							<Link
 								href="/specifications"
@@ -651,7 +489,7 @@ export default function Sidebar() {
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
 									isTabActive("/specifications")
 										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
 								}`}
 							>
 								<svg
@@ -668,6 +506,31 @@ export default function Sidebar() {
 									/>
 								</svg>
 								Specifications Setup
+							</Link>
+
+							<Link
+								href="/customer"
+								onClick={() => setIsMobileMenuOpen(false)}
+								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
+									isTabActive("/customer")
+										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+								}`}
+							>
+								<svg
+									className="w-5 h-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth="2"
+										d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+									/>
+								</svg>
+								Customers
 							</Link>
 
 						</div>

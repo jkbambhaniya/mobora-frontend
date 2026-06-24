@@ -3,7 +3,7 @@ import { ExchangeRequest, OrderRecord, TradeTransaction, InvoiceRecord, Mobile }
 import { useUi } from "./ui-context";
 import { useInventory } from "./inventory-context";
 import { useAuth } from "./auth-context";
-import { getTransactionsAction, createTransactionAction } from "@/actions/transactions";
+import { getTransactionsAction, createTransactionAction, updateTransactionAction } from "@/actions/transactions";
 
 interface TransactionContextType {
   exchanges: ExchangeRequest[];
@@ -17,6 +17,7 @@ interface TransactionContextType {
   handleAcceptExchange: (id: string, name: string, offer: number, target: string, price: number) => void;
   handleRejectExchange: (id: string) => void;
   handleAddTradeTransaction: (transaction: Omit<TradeTransaction, "id">, suppressToast?: boolean) => Promise<any>;
+  handleUpdateTradeTransaction: (id: string, transaction: Partial<TradeTransaction>, suppressToast?: boolean) => Promise<any>;
   handleAddInvoice: (invoice: Omit<InvoiceRecord, "id">) => void;
   refreshTrades: () => Promise<void>;
 }
@@ -108,6 +109,35 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     }
   };
 
+  const handleUpdateTradeTransaction = async (id: string, transaction: Partial<TradeTransaction>, suppressToast = false) => {
+    const payload = {
+      partner_id: transaction.partnerId ? Number(transaction.partnerId) : undefined,
+      partner_type: transaction.partnerType,
+      customer_name: transaction.customerName,
+      amount: transaction.amount,
+      date: transaction.date,
+      notes: transaction.notes,
+    };
+
+    try {
+      const res = await updateTransactionAction(id, payload);
+      if (res.success && res.data && res.data.success) {
+        if (!suppressToast) {
+          triggerToast("Successfully updated transaction.");
+        }
+        await refreshDevices(undefined, true);
+        await refreshMetrics();
+        await refreshTrades();
+        return res.data.transaction;
+      } else {
+        triggerToast(res.message || "Failed to update transaction.", "error");
+      }
+    } catch (err) {
+      console.error("[TransactionContext] Error updating trade transaction:", err);
+      triggerToast("An error occurred while updating the transaction.", "error");
+    }
+  };
+
   const handleAddInvoice = (newInvoice: Omit<InvoiceRecord, "id">) => {
     triggerToast(`Invoice recorded successfully.`);
   };
@@ -126,6 +156,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
         handleAcceptExchange,
         handleRejectExchange,
         handleAddTradeTransaction,
+        handleUpdateTradeTransaction,
         handleAddInvoice,
         refreshTrades,
       }}

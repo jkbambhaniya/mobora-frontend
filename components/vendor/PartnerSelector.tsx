@@ -41,7 +41,7 @@ export function PartnerSelector({
 	valueType = "name",
 	error,
 }: PartnerSelectorProps) {
-	const { customers, addCustomer, fetchVendors } = useDashboard();
+	const { customers, addCustomer, fetchVendors, refreshCustomers } = useDashboard();
 	const [systemVendors, setSystemVendors] = useState<any[]>([]);
 	const [isAddingCust, setIsAddingCust] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,16 +54,21 @@ export function PartnerSelector({
 	const [custFormError, setCustFormError] = useState("");
 
 	useEffect(() => {
-		const loadVendors = async () => {
+		const loadData = async () => {
 			try {
-				const list = await fetchVendors();
-				setSystemVendors(list);
+				if (typeof fetchVendors === "function") {
+					const list = await fetchVendors();
+					setSystemVendors(list || []);
+				}
+				if (typeof refreshCustomers === "function") {
+					await refreshCustomers({ limit: 1000 });
+				}
 			} catch (err) {
-				console.error("Failed to load vendors:", err);
+				console.error("Failed to load partner options:", err);
 			}
 		};
-		loadVendors();
-	}, [fetchVendors]);
+		loadData();
+	}, [fetchVendors, refreshCustomers]);
 
 	// Build dropdown options dynamically
 	const selectOptions = useMemo(() => {

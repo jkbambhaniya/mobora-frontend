@@ -155,89 +155,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 			},
 		},
 		{
-			id: "nav-exchanges",
+			id: "nav-customer",
 			category: "Navigation",
-			label: "Go to Trade-In & Exchange Desk",
-			subLabel: "Appraise trade requests & submit valuations",
-			badge: "G E",
-			icon: (
-				<svg
-					className="w-4 h-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth="2"
-						d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-					/>
-				</svg>
-			),
-			action: () => {
-				router.push("/exchanges");
-				onClose();
-			},
-		},
-		{
-			id: "nav-orders",
-			category: "Navigation",
-			label: "Go to Sales Orders Ledger",
-			subLabel: "Track customer purchases and exchange orders",
-			badge: "G O",
-			icon: (
-				<svg
-					className="w-4 h-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth="2"
-						d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-					/>
-				</svg>
-			),
-			action: () => {
-				router.push("/orders");
-				onClose();
-			},
-		},
-		{
-			id: "nav-billing",
-			category: "Navigation",
-			label: "Go to Smart Invoicing Desk",
-			subLabel: "GST & Margin Scheme POS billing terminal",
-			badge: "G B",
-			icon: (
-				<svg
-					className="w-4 h-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth="2"
-						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-					/>
-				</svg>
-			),
-			action: () => {
-				router.push("/billing");
-				onClose();
-			},
-		},
-
-		{
-			id: "nav-customers",
-			category: "Navigation",
-			label: "Go to Customers Desk Directory",
-			subLabel: "View clients profiles & historical interaction list",
+			label: "Go to Customers Desk",
+			subLabel: "View registered customer directory, spending & order history",
 			badge: "G C",
 			icon: (
 				<svg
@@ -256,32 +177,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 			),
 			action: () => {
 				router.push("/customer");
-				onClose();
-			},
-		},
-		{
-			id: "nav-trades",
-			category: "Navigation",
-			label: "Go to Device Lifecycle Tracker",
-			subLabel: "Audit specific IMEI buybacks and sales history",
-			badge: "G T",
-			icon: (
-				<svg
-					className="w-4 h-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth="2"
-						d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-					/>
-				</svg>
-			),
-			action: () => {
-				router.push("/trades");
 				onClose();
 			},
 		},

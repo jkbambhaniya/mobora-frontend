@@ -93,7 +93,16 @@ export const mobileValidationSchema = yup.object().shape({
 		.number()
 		.typeError("Purchase/Cost price must be a number.")
 		.positive("Purchase/Cost price must be positive.")
-		.required("Purchase/Cost price is required."),
+		.notRequired()
+		.test(
+			"is-required",
+			"Purchase/Cost price is required.",
+			function (value) {
+				const isEdit = this.options.context?.isEdit;
+				if (isEdit) return true;
+				return value !== undefined && value !== null;
+			}
+		),
 	description: yup
 		.string()
 		.trim()

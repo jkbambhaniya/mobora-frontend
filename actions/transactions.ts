@@ -48,3 +48,12 @@ export async function createTransactionAction(data: any): Promise<ActionResponse
 		return formatError(error, "Failed to record transaction.");
 	}
 }
+
+export async function updateTransactionAction(id: string, data: any): Promise<ActionResponse> {
+	try {
+		const response = await apiClient.put(`/vendor/transactions/${id}`, data);
+		return { success: true, data: response.data };
+	} catch (error: any) {
+		return formatError(error, "Failed to update transaction.");
+	}
+}

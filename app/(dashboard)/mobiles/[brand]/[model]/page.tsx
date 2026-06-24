@@ -216,10 +216,13 @@ export default function ModelDetailsPage() {
 					imei: formImei || null,
 					condition: formCondition,
 					batteryHealth: formBatteryHealth,
-					purchasePrice: formPurchasePrice ? parseFloat(formPurchasePrice) : undefined,
+					purchasePrice: editingDevice ? undefined : (formPurchasePrice ? parseFloat(formPurchasePrice) : undefined),
 					description: formDescription || null,
 				},
-				{ abortEarly: false },
+				{
+					abortEarly: false,
+					context: { isEdit: !!editingDevice }
+				},
 			);
 		} catch (err: any) {
 			if (err instanceof yup.ValidationError) {
@@ -236,10 +239,7 @@ export default function ModelDetailsPage() {
 			return;
 		}
 
-		const purchasePriceNum = parseFloat(formPurchasePrice);
-		const priceNum = Math.round(purchasePriceNum * 1.2); // Markup selling price by 20%
-
-		const payload = {
+		const payload: any = {
 			brand_id: Number(formBrand),
 			model_id: Number(formModel),
 			storage_id: Number(formStorage),
@@ -247,13 +247,17 @@ export default function ModelDetailsPage() {
 			color: formColor || "Space Gray",
 			imei: formImei || null,
 			condition: formCondition,
-			price: priceNum,
-			purchase_price: purchasePriceNum,
 			battery_health: formBatteryHealth,
 			status: editingDevice ? editingDevice.status : "Available",
 			description: formDescription || `Registered ${selectedBrandName} ${selectedModelName}.`,
-			customer_id: formCustomerId || null,
 		};
+
+		if (!editingDevice) {
+			const purchasePriceNum = parseFloat(formPurchasePrice);
+			payload.purchase_price = purchasePriceNum;
+			payload.price = Math.round(purchasePriceNum * 1.2); // Markup selling price by 20%
+			payload.customer_id = formCustomerId || null;
+		}
 
 		if (editingDevice) {
 			const res = await editDevice(editingDevice.id, payload);
@@ -1079,31 +1083,33 @@ export default function ModelDetailsPage() {
 					)}
 
 					{/* Cost Price */}
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Purchase / Cost Price * (₹)
-						</label>
-						<input
-							type="number"
-							required
-							value={formPurchasePrice}
-							onChange={(e) => {
-								setFormPurchasePrice(e.target.value);
-								clearFieldError("purchasePrice");
-							}}
-							placeholder="e.g. 30000"
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
-								fieldErrors.purchasePrice
-									? "border-red-400 focus:ring-red-400"
-									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-							}`}
-						/>
-						{fieldErrors.purchasePrice && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.purchasePrice}
-							</p>
-						)}
-					</div>
+					{!editingDevice && (
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Purchase / Cost Price * (₹)
+							</label>
+							<input
+								type="number"
+								required
+								value={formPurchasePrice}
+								onChange={(e) => {
+									setFormPurchasePrice(e.target.value);
+									clearFieldError("purchasePrice");
+								}}
+								placeholder="e.g. 30000"
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+									fieldErrors.purchasePrice
+										? "border-red-400 focus:ring-red-400"
+										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
+								}`}
+							/>
+							{fieldErrors.purchasePrice && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.purchasePrice}
+								</p>
+							)}
+						</div>
+					)}
 
 					{/* Description */}
 					<div className="space-y-1">

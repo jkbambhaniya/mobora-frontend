@@ -118,7 +118,7 @@ apiClient.interceptors.response.use(
 
     // Intercept 401 unauthorized to trigger silent refresh
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      if (originalRequest.url?.includes("/vendor/auth/refresh")) {
+      if (originalRequest.url?.includes("/vendor/auth/refresh") || originalRequest.url?.includes("/admin/auth/refresh")) {
         return Promise.reject(error);
       }
 
@@ -137,9 +137,13 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      const refreshUrl = originalRequest.url?.includes("/admin")
+        ? "/admin/auth/refresh"
+        : "/vendor/auth/refresh";
+
       return new Promise((resolve, reject) => {
         apiClient
-          .post("/vendor/auth/refresh")
+          .post(refreshUrl)
           .then(async (refreshResponse) => {
             await syncServerCookies(refreshResponse);
             processQueue(null);

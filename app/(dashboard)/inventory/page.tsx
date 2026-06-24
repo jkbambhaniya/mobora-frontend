@@ -27,6 +27,7 @@ export default function InventoryPage() {
 		removeDevice,
 		customers,
 		handleAddTradeTransaction,
+		handleUpdateTradeTransaction,
 		trades,
 		triggerToast,
 	} = useDashboard();
@@ -123,6 +124,46 @@ export default function InventoryPage() {
 			return n;
 		});
 		setBuybackFormError("");
+	};
+
+	// Edit Transaction Modal State
+	const [isEditTxOpen, setIsEditTxOpen] = useState(false);
+	const [editingTx, setEditingTx] = useState<any>(null);
+	const [txAmount, setTxAmount] = useState("");
+	const [txDate, setTxDate] = useState("");
+	const [txNotes, setTxNotes] = useState("");
+	const [txPartnerName, setTxPartnerName] = useState("");
+	const [isSubmittingTx, setIsSubmittingTx] = useState(false);
+
+	const handleOpenEditTransaction = (tx: any) => {
+		setEditingTx(tx);
+		setTxAmount(tx.amount.toString());
+		setTxDate(tx.date);
+		setTxNotes(tx.notes || "");
+		setTxPartnerName(tx.customerName || "");
+		setIsEditTxOpen(true);
+	};
+
+	const handleSaveEditTransaction = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!editingTx) return;
+		setIsSubmittingTx(true);
+		try {
+			await handleUpdateTradeTransaction(editingTx.id, {
+				amount: Number(txAmount),
+				date: txDate,
+				notes: txNotes,
+				customerName: txPartnerName,
+				partnerType: editingTx.partnerType,
+				partnerId: editingTx.partnerId,
+			});
+			setIsEditTxOpen(false);
+			setEditingTx(null);
+		} catch (error) {
+			console.error("Error saving transaction:", error);
+		} finally {
+			setIsSubmittingTx(false);
+		}
 	};
 
 
@@ -537,10 +578,13 @@ export default function InventoryPage() {
 					imei: formImei || null,
 					condition: formCondition,
 					batteryHealth: selectedBrandName.toLowerCase() === "apple" ? formBatteryHealth : null,
-					purchasePrice: formPurchasePrice ? parseFloat(formPurchasePrice) : undefined,
+					purchasePrice: editingDevice ? undefined : (formPurchasePrice ? parseFloat(formPurchasePrice) : undefined),
 					description: formDescription || null,
 				},
-				{ abortEarly: false },
+				{
+					abortEarly: false,
+					context: { isEdit: !!editingDevice }
+				},
 			);
 		} catch (err: any) {
 			setIsSubmitting(false);
@@ -559,10 +603,7 @@ export default function InventoryPage() {
 		}
 
 		try {
-			const purchasePriceNum = parseFloat(formPurchasePrice);
-			const priceNum = Math.round(purchasePriceNum * 1.2);
-
-			const data = {
+			const data: any = {
 				brand_id: Number(formBrand),
 				model_id: Number(formModel),
 				storage_id: Number(formStorage),
@@ -570,13 +611,17 @@ export default function InventoryPage() {
 				color: formColor || "Space Gray",
 				imei: formImei || null,
 				condition: formCondition,
-				price: priceNum,
-				purchase_price: purchasePriceNum,
 				battery_health: isAppleSelected ? formBatteryHealth : null,
 				status: editingDevice ? editingDevice.status : "Available",
 				description: formDescription || null,
-				customer_id: formCustomerId || null,
 			};
+
+			if (!editingDevice) {
+				const purchasePriceNum = parseFloat(formPurchasePrice);
+				data.purchase_price = purchasePriceNum;
+				data.price = Math.round(purchasePriceNum * 1.2);
+				data.customer_id = formCustomerId || null;
+			}
 
 			let res;
 			if (editingDevice) {
@@ -775,6 +820,7 @@ export default function InventoryPage() {
 							<th className="py-2.5 px-4">Partner</th>
 							<th className="py-2.5 px-4">Notes</th>
 							<th className="py-2.5 px-4 text-right">Value (₹)</th>
+							<th className="py-2.5 px-4 text-center">Actions</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -802,6 +848,27 @@ export default function InventoryPage() {
 									</td>
 									<td className="py-2.5 px-4 text-right font-black text-zinc-900 dark:text-white">
 										{event.amount.toLocaleString()}
+									</td>
+									<td className="py-2.5 px-4 text-center">
+										<button
+											onClick={() => handleOpenEditTransaction(event)}
+											className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400 hover:text-primary hover:scale-105 transition-all cursor-pointer"
+											title="Edit Transaction"
+										>
+											<svg
+												className="w-3.5 h-3.5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+												strokeWidth="2"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+												/>
+											</svg>
+										</button>
 									</td>
 								</tr>
 							);
@@ -1642,53 +1709,57 @@ export default function InventoryPage() {
 					)}
 
 					{/* Cost Price */}
-					<div className="space-y-1 text-left">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Purchase / Cost Price * (₹)
-						</label>
-						<input
-							type="number"
-							required
-							disabled={isSubmitting}
-							value={formPurchasePrice}
-							onChange={(e) => {
-								setFormPurchasePrice(e.target.value);
-								clearFieldError("purchasePrice");
-							}}
-							placeholder="e.g. 30000"
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-								${fieldErrors.purchasePrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-						/>
-						{fieldErrors.purchasePrice && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.purchasePrice}
-							</p>
-						)}
-					</div>
+					{!editingDevice && (
+						<div className="space-y-1 text-left">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Purchase / Cost Price * (₹)
+							</label>
+							<input
+								type="number"
+								required
+								disabled={isSubmitting}
+								value={formPurchasePrice}
+								onChange={(e) => {
+									setFormPurchasePrice(e.target.value);
+									clearFieldError("purchasePrice");
+								}}
+								placeholder="e.g. 30000"
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+									${fieldErrors.purchasePrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
+							/>
+							{fieldErrors.purchasePrice && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.purchasePrice}
+								</p>
+							)}
+						</div>
+					)}
 
 					{/* Description */}
-					<div className="space-y-1 text-left">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Listing Description
-						</label>
-						<textarea
-							disabled={isSubmitting}
-							value={formDescription}
-							onChange={(e) => {
-								setFormDescription(e.target.value);
-								clearFieldError("description");
-							}}
-							placeholder="e.g. Mint condition. Minor scratch on screen protector, box and original cable available..."
-							rows={3}
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-								${fieldErrors.description ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-						/>
-						{fieldErrors.description && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.description}
-							</p>
-						)}
-					</div>
+					{!editingDevice && (
+						<div className="space-y-1 text-left">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Listing Description
+							</label>
+							<textarea
+								disabled={isSubmitting}
+								value={formDescription}
+								onChange={(e) => {
+									setFormDescription(e.target.value);
+									clearFieldError("description");
+								}}
+								placeholder="e.g. Mint condition. Minor scratch on screen protector, box and original cable available..."
+								rows={3}
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+									${fieldErrors.description ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
+							/>
+							{fieldErrors.description && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.description}
+								</p>
+							)}
+						</div>
+					)}
 
 					{formError && (
 						<p className="text-xs text-red-500 font-semibold text-center mt-2">
@@ -2172,6 +2243,110 @@ export default function InventoryPage() {
 				itemName={deletingDevice?.name || ""}
 				loading={isSubmitting}
 			/>
+
+			{/* Edit Transaction Modal */}
+			<Modal
+				isOpen={isEditTxOpen}
+				onClose={() => !isSubmittingTx && setIsEditTxOpen(false)}
+				title="Edit Transaction Details"
+				size="md"
+			>
+				<form onSubmit={handleSaveEditTransaction} className="space-y-5">
+					<div className="space-y-4 text-left">
+						{/* Partner / Customer selection */}
+						<PartnerSelector
+							value={txPartnerName}
+							onChange={(val) => {
+								setTxPartnerName(val);
+							}}
+							label="Partner / Customer *"
+							placeholder="-- Choose Partner --"
+							required={true}
+							valueType="name"
+						/>
+
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							{/* Value / Amount */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									Transaction Amount (₹) *
+								</label>
+								<input
+									type="number"
+									required
+									disabled={isSubmittingTx}
+									value={txAmount}
+									onChange={(e) => setTxAmount(e.target.value)}
+									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white"
+								/>
+							</div>
+
+							{/* Date */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									Transaction Date *
+								</label>
+								<input
+									type="date"
+									required
+									disabled={isSubmittingTx}
+									value={txDate}
+									onChange={(e) => setTxDate(e.target.value)}
+									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+								/>
+							</div>
+						</div>
+
+						{/* Notes */}
+						<div className="space-y-1.5">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Notes
+							</label>
+							<textarea
+								disabled={isSubmittingTx}
+								value={txNotes}
+								onChange={(e) => setTxNotes(e.target.value)}
+								placeholder="Transaction notes..."
+								rows={3}
+								className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+							/>
+						</div>
+					</div>
+
+					{/* Actions */}
+					<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							disabled={isSubmittingTx}
+							onClick={() => setIsEditTxOpen(false)}
+							className="cursor-pointer"
+						>
+							Cancel
+						</Button>
+						<Button
+							type="submit"
+							variant="gradient"
+							size="sm"
+							disabled={isSubmittingTx}
+							className="bg-primary hover:bg-primary/95 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5 min-w-[120px] h-9"
+						>
+							{isSubmittingTx ? (
+								<>
+									<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+									</svg>
+									<span>Saving...</span>
+								</>
+							) : (
+								"Save Changes"
+							)}
+						</Button>
+					</div>
+				</form>
+			</Modal>
 		</div>
 	);
 }

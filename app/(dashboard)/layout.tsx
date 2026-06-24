@@ -12,8 +12,11 @@ import Footer from "@/components/vendor/layout/footer";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { PendingReview } from "@/components/vendor/auth/pending-review";
 import { SuspendedAccount } from "@/components/vendor/auth/suspended-account";
-import { logoutAction } from "@/actions/auth";
+import { logoutAction, updateProfileAction } from "@/actions/auth";
 import { confirmLogout } from "@/utils/confirm";
+import { Modal } from "@/components/ui/modal";
+import { BusinessDetails } from "@/components/vendor/profile/BusinessDetails";
+import toast from "react-hot-toast";
 
 export default function DashboardLayout({
 	children,
@@ -28,14 +31,45 @@ export default function DashboardLayout({
 }
 
 function DashboardInnerLayout({ children }: { children: React.ReactNode }) {
-	const { vendor, isLoadingVendor, fetchVendorProfile } = useDashboard();
+	const { vendor, isLoadingVendor, fetchVendorProfile, setVendor } = useDashboard();
 	const [isCommandOpen, setIsCommandOpen] = useState(false);
 	const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 	const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
+	const [isSavingDetails, setIsSavingDetails] = useState(false);
 
 	const router = useRouter();
 	const pathname = usePathname();
 	const isChat = pathname === "/chat";
+
+	const handleLogout = () => {
+		confirmLogout(async () => {
+			try {
+				await logoutAction();
+			} catch (err) {
+				console.error("Logout failed:", err);
+			}
+			setVendor(null);
+			window.location.href = "/login";
+		});
+	};
+
+	const handleBusinessDetailsSubmit = async (data: any) => {
+		setIsSavingDetails(true);
+		try {
+			const response = await updateProfileAction(data);
+			if (response.success && response.data?.success) {
+				setVendor(response.data.vendor);
+				await fetchVendorProfile();
+				toast.success("Business profile configured successfully!");
+			} else {
+				toast.error(response.errorData?.message || "Failed to update business details.");
+			}
+		} catch (err) {
+			toast.error("An unexpected error occurred.");
+		} finally {
+			setIsSavingDetails(false);
+		}
+	};
 
 	// Redirect to login if user is not authenticated and loading has finished
 	useEffect(() => {
@@ -88,15 +122,10 @@ function DashboardInnerLayout({ children }: { children: React.ReactNode }) {
 					d: "/dashboard",
 					i: "/inventory",
 					v: "/inventory",
-					p: "/purchases",
-					l: "/sales",
 					f: "/specifications",
-					e: "/exchanges",
-					c: "/customer",
-					t: "/trades",
 					m: "/chat",
 					s: "/profile",
-					b: "/billing",
+					c: "/customer",
 				};
 
 				if (key in routeMap) {
@@ -219,17 +248,6 @@ function DashboardInnerLayout({ children }: { children: React.ReactNode }) {
 			}
 		};
 
-		const handleLogout = () => {
-			confirmLogout(async () => {
-				try {
-					await logoutAction();
-				} catch (err) {
-					console.error("Logout failed:", err);
-				}
-				window.location.href = "/login";
-			});
-		};
-
 		return (
 			<div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 transition-colors duration-300">
 				<div className="w-full max-w-[480px] p-6 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/50 backdrop-blur-md shadow-xl animate-fadeIn">
@@ -244,18 +262,7 @@ function DashboardInnerLayout({ children }: { children: React.ReactNode }) {
 		);
 	}
 
-	if (vendor.status === "suspended") {
-		const handleLogout = () => {
-			confirmLogout(async () => {
-				try {
-					await logoutAction();
-				} catch (err) {
-					console.error("Logout failed:", err);
-				}
-				window.location.href = "/login";
-			});
-		};
-
+	if (vendor.status === "suspended" || vendor.status === "inactive") {
 		return (
 			<div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 transition-colors duration-300">
 				<div className="w-full max-w-[480px] p-6 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/50 backdrop-blur-md shadow-xl animate-fadeIn">
@@ -301,6 +308,41 @@ function DashboardInnerLayout({ children }: { children: React.ReactNode }) {
 				isOpen={isCommandOpen}
 				onClose={() => setIsCommandOpen(false)}
 			/>
+
+			{/* Onboarding Profile Completion Modal */}
+			{vendor && (!vendor.phone || !vendor.address) && (
+				<Modal
+					isOpen={true}
+					onClose={() => {}}
+					isDismissible={false}
+					title="Setup Your Business Profile"
+					size="lg"
+				>
+					<div className="space-y-4">
+						<div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-xs font-semibold text-amber-800 dark:text-amber-400 leading-relaxed flex justify-between items-center gap-4">
+							<span>Welcome to Mobora! Please complete your shop contact phone and address to unlock full portal access.</span>
+							<button
+								onClick={handleLogout}
+								className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-955/20 dark:hover:bg-red-955/40 dark:text-red-400 rounded-xl font-bold transition-all text-[11px] whitespace-nowrap cursor-pointer shrink-0"
+							>
+								Sign Out
+							</button>
+						</div>
+						<BusinessDetails
+							initialData={{
+								shop_name: vendor.shop_name || "",
+								phone: vendor.phone || "",
+								address: vendor.address || "",
+								payment_methods: vendor.payment_methods || "Cash, UPI",
+								gst_enabled: vendor.gst_enabled ?? true,
+								gst_rate: vendor.gst_rate ?? 18,
+							}}
+							onSubmit={handleBusinessDetailsSubmit}
+							isLoading={isSavingDetails}
+						/>
+					</div>
+				</Modal>
+			)}
 		</div>
 	);
 }

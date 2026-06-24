@@ -33,7 +33,7 @@ export const LoginForm: React.FC = () => {
 				if (
 					result.success &&
 					result.data?.success &&
-					result.data?.vendor?.status === "approved"
+					(result.data?.vendor?.status === "approved" || result.data?.vendor?.status === "active")
 				) {
 					router.push("/dashboard");
 				}
@@ -100,7 +100,11 @@ export const LoginForm: React.FC = () => {
 					if (result.status === 401) {
 						setErrors({ email: errMsg });
 					} else if (result.status === 403) {
-						if (errMsg.toLowerCase().includes("suspended")) {
+						if (
+							errMsg.toLowerCase().includes("suspended") ||
+							errMsg.toLowerCase().includes("deactivated") ||
+							errMsg.toLowerCase().includes("inactive")
+						) {
 							setReviewState("suspended");
 						} else {
 							setReviewState("pending_review");
@@ -138,9 +142,13 @@ export const LoginForm: React.FC = () => {
 				if (result.status === 403) {
 					const errMsg =
 						(result.errorData && result.errorData.message) || "";
-					if (errMsg.toLowerCase().includes("suspended")) {
+					if (
+						errMsg.toLowerCase().includes("suspended") ||
+						errMsg.toLowerCase().includes("deactivated") ||
+						errMsg.toLowerCase().includes("inactive")
+					) {
 						setReviewState("suspended");
-						setStatusFeedback("Account is suspended.");
+						setStatusFeedback("Account is deactivated.");
 					} else {
 						setStatusFeedback(
 							"Your account is still under review by our administrators.",
