@@ -103,7 +103,7 @@ interface SpecificationsContextType {
 	addModel: (
 		name: string,
 		brand_id: number,
-	) => Promise<{ success: boolean; message?: string; errors?: any }>;
+	) => Promise<{ success: boolean; message?: string; errors?: any; data?: any }>;
 	editModel: (
 		id: number,
 		data: { name?: string; brand_id?: number },
@@ -314,6 +314,7 @@ export function SpecificationsProvider({
 			success: res.success,
 			message: res.message,
 			errors: res.errors,
+			data: res.data,
 		};
 	};
 

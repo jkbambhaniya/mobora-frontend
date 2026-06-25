@@ -14,6 +14,7 @@ const FILTER_TABS = [
 	{ key: "new_message", label: "Messages" },
 	{ key: "vendor_message", label: "Vendors" },
 	{ key: "group_message", label: "Groups" },
+	{ key: "requirement_match", label: "Matches" },
 	{ key: "info", label: "Info" },
 ] as const;
 
@@ -78,6 +79,25 @@ function NotifIcon({ type }: { type: AppNotification["type"] }) {
 			</div>
 		);
 	}
+	if (type === "requirement_match") {
+		return (
+			<div className="h-10 w-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm">
+				<svg
+					className="w-5 h-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					strokeWidth="2"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+			</div>
+		);
+	}
 	return (
 		<div className="h-10 w-10 rounded-2xl bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0 shadow-sm">
 			<svg
@@ -136,6 +156,11 @@ function NotificationRow({
 						>
 							{notif.title}
 						</p>
+						{notif.type === "requirement_match" && (
+							<span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded-full">
+								Requirement Alert Match
+							</span>
+						)}
 						{notif.type === "group_message" && notif.senderName && (
 							<span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-full">
 								<svg

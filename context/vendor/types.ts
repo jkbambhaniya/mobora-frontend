@@ -166,4 +166,5 @@ export interface ChatSession {
 	groupName?: string;
 	groupMembers?: number[];
 	messages: ChatMessage[];
+	profileImg?: string;
 }

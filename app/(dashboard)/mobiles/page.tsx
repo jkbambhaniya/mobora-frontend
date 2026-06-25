@@ -19,6 +19,7 @@ import { useSpecifications } from "@/context/vendor/specifications-context";
 import { useInventory } from "@/context/vendor/inventory-context";
 import Link from "next/link";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
+import { checkBlacklistAction } from "@/actions/blacklist";
 interface ModelGroup {
 	brand: string;
 	model: string;
@@ -91,6 +92,13 @@ export default function MobilesPage() {
 	const [isSubmittingStorage, setIsSubmittingStorage] = useState(false);
 	const [isSubmittingRam, setIsSubmittingRam] = useState(false);
 	const [isEditingModel, setIsEditingModel] = useState(false);
+	const [blacklistWarning, setBlacklistWarning] = useState<{
+		isBlacklisted: boolean;
+		imei: string;
+		reason?: string;
+		blacklistedBy?: string;
+		createdAt?: string;
+	} | null>(null);
 
 	// Field Validation Errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -132,12 +140,31 @@ export default function MobilesPage() {
 		setIsFormOpen(true);
 	};
 
-	// Submit Handler
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
+	const handleSubmit = async (e: React.FormEvent | null, forceBypass = false) => {
+		if (e) e.preventDefault();
 		setFieldErrors({});
 		setFormError("");
 		setIsSubmitting(true);
+
+		// If IMEI is provided, check if it's blacklisted
+		if (formImei && !forceBypass) {
+			try {
+				const blacklistRes = await checkBlacklistAction(formImei);
+				if (blacklistRes.success && blacklistRes.data?.isBlacklisted) {
+					setBlacklistWarning({
+						isBlacklisted: true,
+						imei: formImei,
+						reason: blacklistRes.data.reason,
+						blacklistedBy: blacklistRes.data.blacklistedBy,
+						createdAt: blacklistRes.data.createdAt,
+					});
+					setIsSubmitting(false);
+					return;
+				}
+			} catch (err) {
+				console.error("Blacklist check failed:", err);
+			}
+		}
 
 		try {
 			// Find names for frontend yup validation matching
@@ -1400,6 +1427,77 @@ export default function MobilesPage() {
 						</Button>
 					</div>
 				</form>
+			</Modal>
+
+			{/* Blacklist Warning Modal */}
+			<Modal
+				isOpen={!!blacklistWarning}
+				onClose={() => setBlacklistWarning(null)}
+				title="⚠️ WARNING: Blacklisted Mobile Device"
+				size="md"
+			>
+				{blacklistWarning && (
+					<div className="space-y-6 text-left">
+						<div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3">
+							<svg className="w-6 h-6 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+							</svg>
+							<div>
+								<h4 className="font-extrabold text-red-700 dark:text-red-400 text-sm">Device has been Blacklisted!</h4>
+								<p className="text-zinc-600 dark:text-zinc-400 text-xs mt-1 leading-relaxed">
+									This device (IMEI: <span className="font-mono font-bold text-zinc-900 dark:text-white">{blacklistWarning.imei}</span>) is listed in the global blacklist.
+								</p>
+							</div>
+						</div>
+
+						<div className="space-y-3 bg-zinc-50 dark:bg-zinc-900/40 p-5 rounded-2xl border border-zinc-150 dark:border-zinc-800">
+							<div>
+								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Blacklisted By</span>
+								<strong className="text-zinc-800 dark:text-zinc-200 text-sm">{blacklistWarning.blacklistedBy}</strong>
+							</div>
+							<div>
+								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Date Flagged</span>
+								<span className="text-zinc-700 dark:text-zinc-300 text-xs">
+									{blacklistWarning.createdAt ? new Date(blacklistWarning.createdAt).toLocaleString() : "N/A"}
+								</span>
+							</div>
+							<div>
+								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Reason / Details</span>
+								<p className="text-zinc-700 dark:text-zinc-350 text-xs mt-1 italic">
+									"{blacklistWarning.reason || "No details provided."}"
+								</p>
+							</div>
+						</div>
+
+						<div className="p-3 bg-yellow-500/5 border border-yellow-500/10 rounded-xl text-[11px] text-yellow-600 dark:text-yellow-400 leading-normal">
+							Proceeding with this device may violate local security standards or business policies. Make sure you have checked appropriate documentation.
+						</div>
+
+						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => setBlacklistWarning(null)}
+								className="cursor-pointer"
+							>
+								Cancel / Reject
+							</Button>
+							<Button
+								type="button"
+								variant="gradient"
+								size="sm"
+								onClick={() => {
+									setBlacklistWarning(null);
+									handleSubmit(null, true);
+								}}
+								className="bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
+							>
+								Acknowledge & Proceed
+							</Button>
+						</div>
+					</div>
+				)}
 			</Modal>
 		</div>
 	);

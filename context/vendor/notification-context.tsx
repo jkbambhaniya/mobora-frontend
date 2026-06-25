@@ -5,7 +5,7 @@ import { apiClient } from "@/actions/apiClient";
 
 export interface AppNotification {
   id: string;
-  type: "new_message" | "vendor_message" | "group_message" | "info";
+  type: "new_message" | "vendor_message" | "group_message" | "info" | "requirement_match";
   title: string;
   body: string;
   chatId?: string;

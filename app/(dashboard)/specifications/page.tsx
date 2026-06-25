@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
 import { useSpecifications } from "@/context/vendor/specifications-context";
@@ -50,6 +50,16 @@ export default function SpecificationsPage() {
 	const { vendor } = useAuth();
 
 	const [activeTab, setActiveTab] = useState<Tab>("brands");
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			const params = new URLSearchParams(window.location.search);
+			const tabParam = params.get("tab") as Tab;
+			if (tabParam && ["brands", "models", "storages", "rams"].includes(tabParam)) {
+				setActiveTab(tabParam);
+			}
+		}
+	}, []);
 
 	// Custom hook for search, pagination, limits, sorting
 	const {

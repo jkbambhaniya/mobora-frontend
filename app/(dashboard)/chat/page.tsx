@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
 	useDashboard,
@@ -16,7 +17,14 @@ const quickReplies = [
 	"Our store hours are 10:30 AM to 8:30 PM, Monday through Saturday. You are welcome to visit anytime!",
 ];
 
-export default function ChatPage() {
+const getAttachmentUrl = (url?: string) => {
+	if (!url) return "";
+	if (url.startsWith("http://") || url.startsWith("https://")) return url;
+	const backendHost = typeof window !== "undefined" ? `${window.location.protocol}//${window.location.hostname}:5000` : "http://localhost:5000";
+	return `${backendHost}${url}`;
+};
+
+function ChatPageInner() {
 	const {
 		chats,
 		activeChatMessages,
@@ -68,6 +76,28 @@ export default function ChatPage() {
 			fetchVendors().then((list) => setVendors(list));
 		}
 	}, [vendor]);
+
+	const searchParams = useSearchParams();
+	const partnerId = searchParams.get("partnerId");
+
+	useEffect(() => {
+		if (partnerId && vendor && chats && chats.length > 0) {
+			const expectedChatId = `chat-${vendor.id}-${partnerId}`;
+			const existingChat = chats.find((c) => c.id === expectedChatId);
+			if (existingChat) {
+				setActiveChatId(existingChat.id);
+			} else {
+				createChatSession({
+					recipientVendorId: Number(partnerId),
+					initialMessage: "Hi, I saw your listed matching device. Is it still available?",
+				}).then((newChatId) => {
+					if (newChatId) {
+						setActiveChatId(newChatId);
+					}
+				});
+			}
+		}
+	}, [partnerId, vendor, chats]);
 
 	const getMemberDetails = (memberId: string | number) => {
 		if (vendor && memberId.toString() === vendor.id.toString()) {
@@ -345,7 +375,7 @@ export default function ChatPage() {
 	const filteredChats = chats.filter(
 		(c) =>
 			c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			c.deviceInterest.toLowerCase().includes(searchTerm.toLowerCase()),
+			(c.deviceInterest && c.deviceInterest.toLowerCase().includes(searchTerm.toLowerCase())),
 	);
 
 	const isTyping = activeChatId ? typingStatus[activeChatId] : false;
@@ -438,9 +468,17 @@ export default function ChatPage() {
 									}`}
 								>
 									<div className="relative shrink-0">
-										<div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 flex items-center justify-center font-bold text-xs text-primary dark:text-secondary">
-											{chat.avatar}
-										</div>
+										{chat.profileImg ? (
+											<img
+												src={chat.profileImg}
+												alt={chat.customerName}
+												className="h-10 w-10 rounded-xl object-cover"
+											/>
+										) : (
+											<div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 flex items-center justify-center font-bold text-xs text-primary dark:text-secondary">
+												{chat.avatar}
+											</div>
+										)}
 										{chat.status === "online" && (
 											<span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
 										)}
@@ -613,9 +651,7 @@ export default function ChatPage() {
 													<div className="rounded-lg overflow-hidden border border-zinc-200/30 dark:border-zinc-800/30 max-w-full sm:max-w-sm">
 														{/* eslint-disable-next-line @next/next/no-img-element */}
 														<img
-															src={
-																m.attachment.url
-															}
+															src={getAttachmentUrl(m.attachment.url)}
 															alt={
 																m.attachment
 																	.name
@@ -630,10 +666,7 @@ export default function ChatPage() {
 																}
 															</span>
 															<a
-																href={
-																	m.attachment
-																		.url
-																}
+																href={getAttachmentUrl(m.attachment.url)}
 																download
 																target="_blank"
 																rel="noreferrer"
@@ -661,9 +694,7 @@ export default function ChatPage() {
 													"video" && (
 													<div className="rounded-lg overflow-hidden border border-zinc-200/30 dark:border-zinc-800/30 max-w-full sm:max-w-sm bg-black">
 														<video
-															src={
-																m.attachment.url
-															}
+															src={getAttachmentUrl(m.attachment.url)}
 															controls
 															className="w-full max-h-48 object-contain"
 														/>
@@ -711,9 +742,7 @@ export default function ChatPage() {
 																m.attachment
 																	.url === "#"
 																	? undefined
-																	: m
-																		  .attachment
-																		  .url
+																	: getAttachmentUrl(m.attachment.url)
 															}
 															download
 															onClick={(e) => {
@@ -950,9 +979,17 @@ export default function ChatPage() {
 					<div className="space-y-6 overflow-y-auto no-scrollbar pr-1">
 						{/* Avatar header */}
 						<div className="text-center space-y-2 pb-4 border-b border-zinc-150 dark:border-zinc-800">
-							<div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-base flex items-center justify-center mx-auto shadow-md">
-								{activeChat.avatar}
-							</div>
+							{activeChat.profileImg ? (
+								<img
+									src={activeChat.profileImg}
+									alt={activeChat.customerName}
+									className="h-14 w-14 rounded-2xl object-cover mx-auto shadow-md"
+								/>
+							) : (
+								<div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-base flex items-center justify-center mx-auto shadow-md">
+									{activeChat.avatar}
+								</div>
+							)}
 							<div>
 								<h4 className="font-bold text-sm text-zinc-950 dark:text-white leading-tight">
 									{activeChat.customerName}
@@ -1471,5 +1508,13 @@ export default function ChatPage() {
 				</div>
 			)}
 		</div>
+	);
+}
+
+export default function ChatPage() {
+	return (
+		<Suspense fallback={<div className="p-8 text-center text-xs text-zinc-500">Loading B2B chat console...</div>}>
+			<ChatPageInner />
+		</Suspense>
 	);
 }

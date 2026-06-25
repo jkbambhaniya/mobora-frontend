@@ -9,6 +9,7 @@ import { CustomerProvider, useCustomers } from "./customer-context";
 import { ChatProvider, useChats } from "./chat-context";
 import { NotificationProvider, useNotifications } from "./notification-context";
 import { SpecificationsProvider } from "./specifications-context";
+import { RequirementsProvider, useRequirements } from "./requirements-context";
 
 // Re-export types for backward compatibility
 export type {
@@ -35,7 +36,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 						<TransactionProvider>
 							<CustomerProvider>
 								<NotificationProvider>
-									<ChatProvider>{children}</ChatProvider>
+									<RequirementsProvider>
+										<ChatProvider>{children}</ChatProvider>
+									</RequirementsProvider>
 								</NotificationProvider>
 							</CustomerProvider>
 						</TransactionProvider>
@@ -54,6 +57,7 @@ export function useDashboard() {
 	const customer = useCustomers();
 	const chat = useChats();
 	const notifications = useNotifications();
+	const requirements = useRequirements();
 
 	return {
 		...ui,
@@ -63,6 +67,7 @@ export function useDashboard() {
 		...customer,
 		...chat,
 		...notifications,
+		...requirements,
 	};
 }
 

@@ -148,6 +148,20 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 					</a>
 
 					<a
+						href="/admin/customer"
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+							pathname.includes("/admin/customer")
+								? "bg-indigo-50 dark:bg-indigo-600/10 border border-indigo-100 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+								: "text-zinc-600 dark:text-gray-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-950 dark:hover:text-white"
+						}`}
+					>
+						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a3 3 0 11-6 0 3 3 0 016 0z" />
+						</svg>
+						<span>Customers</span>
+					</a>
+
+					<a
 						href="/admin/specifications"
 						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
 							pathname.includes("/admin/specifications")
@@ -159,6 +173,48 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
 						</svg>
 						<span>Specifications</span>
+					</a>
+
+					<a
+						href="/admin/blacklist"
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+							pathname.includes("/admin/blacklist")
+								? "bg-red-50 dark:bg-red-600/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400"
+								: "text-zinc-600 dark:text-gray-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-950 dark:hover:text-white"
+						}`}
+					>
+						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+						</svg>
+						<span>Blacklist</span>
+					</a>
+
+					<a
+						href="/admin/requirements"
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+							pathname.includes("/admin/requirements")
+								? "bg-violet-50 dark:bg-violet-600/10 border border-violet-100 dark:border-violet-500/20 text-violet-600 dark:text-violet-400"
+								: "text-zinc-600 dark:text-gray-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-950 dark:hover:text-white"
+						}`}
+					>
+						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+						</svg>
+						<span>Requirements</span>
+					</a>
+
+					<a
+						href="/admin/chat"
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+							pathname.includes("/admin/chat")
+								? "bg-[#6366f1]/10 dark:bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] dark:text-[#818cf8]"
+								: "text-zinc-600 dark:text-gray-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-950 dark:hover:text-white"
+						}`}
+					>
+						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+						</svg>
+						<span>Chat</span>
 					</a>
 				</nav>
 
