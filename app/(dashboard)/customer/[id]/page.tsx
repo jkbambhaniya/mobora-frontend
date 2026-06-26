@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDeleteModal } from "@/components/ui/confirm-modal";
 import { ProfileImageUpload } from "@/components/vendor/profile/ProfileImageUpload";
+import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload";
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import {
 	useDashboard,
@@ -16,7 +17,7 @@ import { toast as hotToast } from "react-hot-toast";
 import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { Select } from "@/components/ui/select";
-import { getCustomerByIdAction } from "@/actions/customer";
+import { getCustomerByIdAction, updateCustomerKycAction, approveCustomerKycAction, rejectCustomerKycAction } from "@/actions/customer";
 import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 
 const customerSchema = yup.object().shape({
@@ -100,6 +101,9 @@ export default function CustomerDetailPage() {
 	);
 	const [formAddress, setFormAddress] = useState("");
 	const [formProfileImg, setFormProfileImg] = useState<string | null>(null);
+	const [formIdType, setFormIdType] = useState("");
+	const [formIdNumber, setFormIdNumber] = useState("");
+	const [formKycDocImg, setFormKycDocImg] = useState<string | null>(null);
 
 	// Field-level validation errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -192,6 +196,9 @@ export default function CustomerDetailPage() {
 			status: formStatus,
 			address: formAddress || null,
 			profileImg: formProfileImg || null,
+			idType: formIdType || null,
+			idNumber: formIdNumber || null,
+			kycDocumentImg: formKycDocImg || null,
 		});
 		if (result.success) {
 			setIsEditModalOpen(false);
@@ -213,6 +220,9 @@ export default function CustomerDetailPage() {
 		setFormStatus(customer.status);
 		setFormAddress(customer.address || "");
 		setFormProfileImg(profileImgUrl || null);
+		setFormIdType(customer.idType || "");
+		setFormIdNumber(customer.idNumber || "");
+		setFormKycDocImg(customer.kycDocumentImg || null);
 		setFieldErrors({});
 		setFormError("");
 		setIsEditModalOpen(true);
@@ -334,6 +344,56 @@ export default function CustomerDetailPage() {
 							{ value: "Inactive", label: "Inactive / Suspended" },
 						]}
 					/>
+					{/* Government ID KYC Fields */}
+					<div className="p-4 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/80 space-y-4">
+						<h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-200 uppercase tracking-wider">
+							Government ID KYC Details (Optional)
+						</h3>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="space-y-1">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									ID Proof Type
+								</label>
+								<select
+									value={formIdType}
+									onChange={(e) => setFormIdType(e.target.value)}
+									className="w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none dark:text-zinc-200"
+								>
+									<option value="" className="bg-white dark:bg-zinc-950">Select ID Type</option>
+									<option value="Aadhaar Card" className="bg-white dark:bg-zinc-950">Aadhaar Card</option>
+									<option value="PAN Card" className="bg-white dark:bg-zinc-950">PAN Card</option>
+									<option value="Voter ID" className="bg-white dark:bg-zinc-950">Voter ID</option>
+									<option value="Driving License" className="bg-white dark:bg-zinc-950">Driving License</option>
+								</select>
+							</div>
+
+							<div className="space-y-1">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									ID Document Number
+								</label>
+								<input
+									type="text"
+									value={formIdNumber}
+									onChange={(e) => setFormIdNumber(e.target.value)}
+									placeholder="e.g. 12-digit Aadhaar / 10-digit PAN"
+									className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none dark:text-zinc-200"
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-2">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide block">
+								Upload ID Document Copy (Front/Back Image)
+							</label>
+							<KycDocumentUpload
+								name="kyc_document_img"
+								value={formKycDocImg || undefined}
+								onChange={(base64) => setFormKycDocImg(base64)}
+							/>
+						</div>
+					</div>
+
 					<div className="space-y-1">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 							Address
@@ -429,8 +489,15 @@ export default function CustomerDetailPage() {
 									})}
 								</span>
 							</div>
-							<h1 className="text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white leading-tight">
+							<h1 className="text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white leading-tight flex items-center gap-2">
 								{customer.name}
+								{customer.kycStatus === "Verified" && (
+									<span className="inline-flex items-center justify-center w-5.5 h-5.5 bg-emerald-500 text-white rounded-full shrink-0 shadow-sm shadow-emerald-500/20" title="Government KYC Verified">
+										<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+											<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+										</svg>
+									</span>
+								)}
 							</h1>
 							<div className="flex flex-wrap gap-4 text-sm text-zinc-500 dark:text-zinc-400">
 								<span className="flex items-center gap-1.5">
@@ -769,6 +836,129 @@ export default function CustomerDetailPage() {
 
 					{/* ── Sidebar (1/3 width): Notes + Contact ── */}
 					<div className="space-y-5">
+						{/* Government KYC Card */}
+						<div className="p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/50 backdrop-blur-md space-y-4">
+							<div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 pb-3">
+								<h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5 font-sans">
+									<svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+										<path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+									</svg>
+									Government KYC
+								</h3>
+								{customer.kycStatus ? (
+									<span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+										customer.kycStatus === "Verified"
+											? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+											: customer.kycStatus === "Pending"
+											? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+											: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+									}`}>
+										{customer.kycStatus}
+									</span>
+								) : (
+									<span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-500 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
+										No KYC
+									</span>
+								)}
+							</div>
+
+							{customer.idType ? (
+								<div className="space-y-3">
+									<div className="flex justify-between items-center text-xs">
+										<span className="text-zinc-400 font-semibold">ID Type:</span>
+										<span className="font-bold text-zinc-800 dark:text-zinc-200">{customer.idType}</span>
+									</div>
+									<div className="flex justify-between items-center text-xs">
+										<span className="text-zinc-400 font-semibold">ID Number:</span>
+										<span className="font-bold font-mono text-zinc-800 dark:text-zinc-200">{customer.idNumber}</span>
+									</div>
+									{customer.kycDocumentImg && (
+										<div className="space-y-2">
+											<span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400">ID Document Copies</span>
+											<div className="grid grid-cols-2 gap-2">
+												{customer.kycDocumentImg.split(",").filter(Boolean).map((docUrl, idx) => (
+													<a
+														key={idx}
+														href={docUrl}
+														target="_blank"
+														rel="noreferrer"
+														className="block relative rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden group cursor-pointer aspect-video"
+													>
+														<img
+															src={docUrl}
+															alt={`ID Document Page ${idx + 1}`}
+															className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+														/>
+														<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+															<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+																<path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+																<path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+															</svg>
+															View Page {idx + 1}
+														</div>
+													</a>
+												))}
+											</div>
+										</div>
+									)}
+
+									{/* Consent declaration */}
+									<div className="p-2.5 bg-zinc-50 dark:bg-zinc-950/40 rounded-xl border border-zinc-200/50 dark:border-zinc-800/80 text-[10px] text-zinc-500 leading-relaxed font-sans">
+										✔ Consent given by customer under Section 411 IPC anti-theft rules to collect and verify this government identity.
+									</div>
+
+									{/* Approve / Reject actions for Vendor */}
+									<div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+										<button
+											type="button"
+											onClick={async () => {
+												const res = await approveCustomerKycAction(customerId);
+												if (res.success) {
+													hotToast.success("KYC verified successfully!");
+													fetchCustomerDetails();
+												} else {
+													hotToast.error(res.message || "Failed to verify KYC.");
+												}
+											}}
+											disabled={customer.kycStatus === "Verified"}
+											className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-all cursor-pointer text-center"
+										>
+											Approve KYC
+										</button>
+										<button
+											type="button"
+											onClick={async () => {
+												const res = await rejectCustomerKycAction(customerId);
+												if (res.success) {
+													hotToast.success("KYC rejected.");
+													fetchCustomerDetails();
+												} else {
+													hotToast.error(res.message || "Failed to reject KYC.");
+												}
+											}}
+											disabled={customer.kycStatus === "Rejected"}
+											className="py-2 px-3 border border-red-200 dark:border-red-900/50 disabled:opacity-40 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-lg text-xs font-bold transition-all cursor-pointer text-center"
+										>
+											Reject
+										</button>
+									</div>
+								</div>
+							) : (
+								<div className="space-y-3">
+									<p className="text-xs text-zinc-400 leading-normal font-sans">
+										No government identity proof has been uploaded. You must upload one to comply with secondhand mobile trading regulations.
+									</p>
+									<button
+										type="button"
+										onClick={handleOpenEdit}
+										className="w-full py-2 bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer text-center"
+									>
+										+ Upload ID Proof
+									</button>
+								</div>
+							)}
+						</div>
+
 						{/* Contact Details Card */}
 						<div className="p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/50 backdrop-blur-md space-y-4">
 							<h3 className="text-sm font-bold text-zinc-900 dark:text-white">

@@ -116,3 +116,39 @@ export async function bulkUpdateStatusAction(ids: string[], status: "Active" | "
     };
   }
 }
+
+export async function updateCustomerKycAction(id: string, kycData: { idType: string; idNumber: string; kycDocumentImg: string | null }) {
+  try {
+    const response = await apiClient.post(`/vendor/customers/${id}/kyc`, kycData);
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || "Failed to update customer KYC details.",
+    };
+  }
+}
+
+export async function approveCustomerKycAction(id: string) {
+  try {
+    const response = await apiClient.post(`/vendor/customers/${id}/kyc/approve`);
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || "Failed to approve customer KYC.",
+    };
+  }
+}
+
+export async function rejectCustomerKycAction(id: string) {
+  try {
+    const response = await apiClient.post(`/vendor/customers/${id}/kyc/reject`);
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || "Failed to reject customer KYC.",
+    };
+  }
+}

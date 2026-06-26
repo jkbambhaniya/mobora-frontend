@@ -74,3 +74,27 @@ export async function deleteAdminCustomerAction(id: string): Promise<AdminCustom
 		return formatError(error, "Failed to delete customer.");
 	}
 }
+
+/**
+ * Approve customer KYC.
+ */
+export async function approveAdminCustomerKycAction(id: string): Promise<AdminCustomerResponse> {
+	try {
+		const response = await apiClient.put(`/admin/customers/${id}/kyc/approve`);
+		return { success: true, data: response.data };
+	} catch (error: any) {
+		return formatError(error, "Failed to approve customer KYC.");
+	}
+}
+
+/**
+ * Reject customer KYC.
+ */
+export async function rejectAdminCustomerKycAction(id: string): Promise<AdminCustomerResponse> {
+	try {
+		const response = await apiClient.put(`/admin/customers/${id}/kyc/reject`);
+		return { success: true, data: response.data };
+	} catch (error: any) {
+		return formatError(error, "Failed to reject customer KYC.");
+	}
+}

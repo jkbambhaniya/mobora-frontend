@@ -11,6 +11,7 @@ import {
 	updateAdminCustomerAction,
 	deleteAdminCustomerAction
 } from "@/actions/admin-customers";
+import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload";
 
 export interface CustomerDetail {
 	id: string;
@@ -28,6 +29,10 @@ export interface CustomerDetail {
 		name: string;
 		shopName: string;
 	} | null;
+	kycStatus?: string | null;
+	idType?: string | null;
+	idNumber?: string | null;
+	kycDocumentImg?: string | null;
 }
 
 export default function AdminCustomersPage() {
@@ -62,6 +67,9 @@ export default function AdminCustomersPage() {
 	const [editStatus, setEditStatus] = useState("Active");
 	const [editAddress, setEditAddress] = useState("");
 	const [editProfileImg, setEditProfileImg] = useState("");
+	const [editIdType, setEditIdType] = useState("");
+	const [editIdNumber, setEditIdNumber] = useState("");
+	const [editKycDocImg, setEditKycDocImg] = useState<string | null>(null);
 
 	// Delete Modal state
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -136,12 +144,18 @@ export default function AdminCustomersPage() {
 		setEditStatus(customer.status || "Active");
 		setEditAddress(customer.address || "");
 		setEditProfileImg(customer.profileImg || "");
+		setEditIdType(customer.idType || "");
+		setEditIdNumber(customer.idNumber || "");
+		setEditKycDocImg(customer.kycDocumentImg || null);
 		setEditOpen(true);
 	};
 
 	const handleCloseEdit = () => {
 		setEditCustomer(null);
 		setEditProfileImg("");
+		setEditIdType("");
+		setEditIdNumber("");
+		setEditKycDocImg(null);
 		setEditOpen(false);
 	};
 
@@ -169,6 +183,9 @@ export default function AdminCustomersPage() {
 				status: editStatus,
 				address: editAddress,
 				profileImg: editProfileImg,
+				idType: editIdType || null,
+				idNumber: editIdNumber || null,
+				kycDocumentImg: editKycDocImg || null,
 			});
 			if (res.success) {
 				handleCloseEdit();
@@ -303,6 +320,7 @@ export default function AdminCustomersPage() {
 								</th>
 								<th className="px-6 py-4">Orders</th>
 								<th className="px-6 py-4">Status</th>
+								<th className="px-6 py-4">KYC Status</th>
 								<th className="px-6 py-4 cursor-pointer group" onClick={() => handleSort("joinedDate")}>
 									<div className="flex items-center gap-1">
 										Joined Date
@@ -316,14 +334,14 @@ export default function AdminCustomersPage() {
 							{isLoading ? (
 								Array.from({ length: limit }).map((_, idx) => (
 									<tr key={idx} className="animate-pulse">
-										<td className="px-6 py-4.5" colSpan={8}>
+										<td className="px-6 py-4.5" colSpan={9}>
 											<div className="h-5 bg-zinc-200 dark:bg-white/5 rounded w-1/3"></div>
 										</td>
 									</tr>
 								))
 							) : customers.length === 0 ? (
 								<tr>
-									<td className="px-6 py-12 text-center text-zinc-500 dark:text-gray-400" colSpan={8}>
+									<td className="px-6 py-12 text-center text-zinc-500 dark:text-gray-400" colSpan={9}>
 										No customers found matching filters.
 									</td>
 								</tr>
@@ -375,6 +393,17 @@ export default function AdminCustomersPage() {
 											}`}>
 												{c.status}
 											</span>
+										</td>
+										<td className="px-6 py-4">
+											{c.idType || c.kycStatus ? (
+												<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+													Uploaded
+												</span>
+											) : (
+												<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-zinc-100 dark:bg-white/5 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-white/10">
+													Not Uploaded
+												</span>
+											)}
 										</td>
 										<td className="px-6 py-4 text-zinc-500 dark:text-gray-400 text-xs">
 											{c.joinedDate}
@@ -501,6 +530,45 @@ export default function AdminCustomersPage() {
 									<option value="Inactive">Inactive</option>
 								</select>
 							</div>
+						</div>
+
+						<div className="grid grid-cols-2 gap-4">
+							<div className="flex flex-col gap-1.5">
+								<label className="text-xs font-semibold text-zinc-700 dark:text-gray-300">ID Document Type</label>
+								<select
+									value={editIdType}
+									onChange={(e) => setEditIdType(e.target.value)}
+									className="px-3 py-2 text-sm bg-zinc-50 dark:bg-[#0d0e12] border border-zinc-200 dark:border-white/5 rounded-xl text-zinc-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+								>
+									<option value="">Select ID Type</option>
+									<option value="Aadhaar Card">Aadhaar Card</option>
+									<option value="PAN Card">PAN Card</option>
+									<option value="Voter ID">Voter ID</option>
+									<option value="Driving License">Driving License</option>
+								</select>
+							</div>
+
+							<div className="flex flex-col gap-1.5">
+								<label className="text-xs font-semibold text-zinc-700 dark:text-gray-300">ID Document Number</label>
+								<input
+									type="text"
+									value={editIdNumber}
+									onChange={(e) => setEditIdNumber(e.target.value)}
+									placeholder="e.g. Aadhaar / PAN"
+									className="px-3 py-2 text-sm bg-zinc-50 dark:bg-[#0d0e12] border border-zinc-200 dark:border-white/5 rounded-xl text-zinc-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-2">
+							<label className="text-xs font-semibold text-zinc-700 dark:text-gray-300 block">
+								Upload ID Document Copy (Front/Back Image)
+							</label>
+							<KycDocumentUpload
+								name="kyc_document_img"
+								value={editKycDocImg || undefined}
+								onChange={(base64) => setEditKycDocImg(base64)}
+							/>
 						</div>
 
 						<div className="flex flex-col gap-1.5">

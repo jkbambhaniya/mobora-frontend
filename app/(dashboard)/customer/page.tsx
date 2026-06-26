@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDeleteModal } from "@/components/ui/confirm-modal";
 import { useDashboard, Customer } from "@/context/vendor/dashboard-context";
 import { ProfileImageUpload } from "@/components/vendor/profile/ProfileImageUpload";
+import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload";
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import { toast } from "react-hot-toast";
 import * as yup from "yup";
@@ -108,6 +109,9 @@ export default function CustomerPage() {
 	);
 	const [formAddress, setFormAddress] = useState("");
 	const [formProfileImg, setFormProfileImg] = useState<string | null>(null);
+	const [formIdType, setFormIdType] = useState("");
+	const [formIdNumber, setFormIdNumber] = useState("");
+	const [formKycDocImg, setFormKycDocImg] = useState<string | null>(null);
 
 	// Field-level validation errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -131,6 +135,9 @@ export default function CustomerPage() {
 		setFormStatus("Active");
 		setFormAddress("");
 		setFormProfileImg(null);
+		setFormIdType("");
+		setFormIdNumber("");
+		setFormKycDocImg(null);
 		setFieldErrors({});
 		setFormError("");
 		setIsFormOpen(true);
@@ -147,6 +154,9 @@ export default function CustomerPage() {
 		setFormProfileImg(
 			customer.profileImg || (customer as any).profile_img || null,
 		);
+		setFormIdType(customer.idType || "");
+		setFormIdNumber(customer.idNumber || "");
+		setFormKycDocImg(customer.kycDocumentImg || null);
 		setFieldErrors({});
 		setFormError("");
 		setIsFormOpen(true);
@@ -197,6 +207,9 @@ export default function CustomerPage() {
 				status: formStatus,
 				address: formAddress || null,
 				profileImg: formProfileImg || null,
+				idType: formIdType || null,
+				idNumber: formIdNumber || null,
+				kycDocumentImg: formKycDocImg || null,
 			});
 			if (result.success) {
 				triggerToast(`Updated profile of ${formName}`);
@@ -217,6 +230,9 @@ export default function CustomerPage() {
 				status: formStatus,
 				address: formAddress || null,
 				profile_img: formProfileImg || null,
+				idType: formIdType || null,
+				idNumber: formIdNumber || null,
+				kycDocumentImg: formKycDocImg || null,
 			});
 			if (result.success) {
 				triggerToast(`Successfully registered ${formName}`);
@@ -361,6 +377,29 @@ export default function CustomerPage() {
 					})}
 				</span>
 			),
+		},
+		{
+			key: "kycStatus",
+			title: "KYC Status",
+			sortable: false,
+			headerClassName: "text-center",
+			className: "text-center",
+			render: (cust) => {
+				const status = cust.kycStatus;
+				let badgeStyle = "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800";
+				if (status === "Verified") {
+					badgeStyle = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+				} else if (status === "Pending") {
+					badgeStyle = "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+				} else if (status === "Rejected") {
+					badgeStyle = "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+				}
+				return (
+					<span className={`px-2.5 py-0.5 rounded-full text-xs font-bold inline-block border ${badgeStyle}`}>
+						{status || "No KYC"}
+					</span>
+				);
+			}
 		},
 		{
 			key: "status",
@@ -842,6 +881,56 @@ export default function CustomerPage() {
 							{ value: "Inactive", label: "Inactive / Suspended" },
 						]}
 					/>
+
+					{/* Government ID KYC Fields */}
+					<div className="p-4 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/80 space-y-4">
+						<h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-200 uppercase tracking-wider">
+							Government ID KYC Details (Optional)
+						</h3>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="space-y-1">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									ID Proof Type
+								</label>
+								<select
+									value={formIdType}
+									onChange={(e) => setFormIdType(e.target.value)}
+									className="w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none dark:text-zinc-200"
+								>
+									<option value="" className="bg-white dark:bg-zinc-950">Select ID Type</option>
+									<option value="Aadhaar Card" className="bg-white dark:bg-zinc-950">Aadhaar Card</option>
+									<option value="PAN Card" className="bg-white dark:bg-zinc-950">PAN Card</option>
+									<option value="Voter ID" className="bg-white dark:bg-zinc-950">Voter ID</option>
+									<option value="Driving License" className="bg-white dark:bg-zinc-950">Driving License</option>
+								</select>
+							</div>
+
+							<div className="space-y-1">
+								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+									ID Document Number
+								</label>
+								<input
+									type="text"
+									value={formIdNumber}
+									onChange={(e) => setFormIdNumber(e.target.value)}
+									placeholder="e.g. 12-digit Aadhaar / 10-digit PAN"
+									className="w-full h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none dark:text-zinc-200"
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-2">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide block">
+								Upload ID Document Copy (Front/Back Image)
+							</label>
+							<KycDocumentUpload
+								name="kyc_document_img"
+								value={formKycDocImg || undefined}
+								onChange={(base64) => setFormKycDocImg(base64)}
+							/>
+						</div>
+					</div>
 
 					<div className="space-y-1">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">

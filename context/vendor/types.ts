@@ -130,6 +130,11 @@ export interface Customer {
 	notes?: string | null;
 	profileImg?: string | null;
 	purchases: PurchaseHistoryItem[];
+	kycStatus?: "Pending" | "Verified" | "Rejected" | null;
+	idType?: string | null;
+	idNumber?: string | null;
+	kycDocumentImg?: string | null;
+	verifiedAt?: string | null;
 }
 
 export interface Attachment {
