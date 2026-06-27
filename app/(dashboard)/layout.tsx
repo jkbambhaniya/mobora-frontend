@@ -336,6 +336,7 @@ function DashboardInnerLayout({ children }: { children: React.ReactNode }) {
 								payment_methods: vendor.payment_methods || "Cash, UPI",
 								gst_enabled: vendor.gst_enabled ?? true,
 								gst_rate: vendor.gst_rate ?? 18,
+								markup: vendor.markup ?? 20,
 							}}
 							onSubmit={handleBusinessDetailsSubmit}
 							isLoading={isSavingDetails}

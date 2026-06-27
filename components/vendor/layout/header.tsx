@@ -147,16 +147,17 @@ export default function Header() {
 
 			{/* Global Actions */}
 			<div className="flex items-center gap-3 ml-auto md:ml-0">
-				{/* Search Box */}
+				{/* Responsive Search Box */}
 				<div
 					onClick={() =>
 						window.dispatchEvent(new Event("opencommandpalette"))
 					}
-					className="relative hidden md:block cursor-pointer"
+					className="relative cursor-pointer group"
 				>
-					<span className="absolute inset-y-0 left-2.5 flex items-center text-zinc-400">
+					{/* Mobile: Simple search icon button, Desktop: Full search input */}
+					<div className="flex md:hidden items-center justify-center h-8 w-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
 						<svg
-							className="w-3.5 h-3.5"
+							className="w-4 h-4"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -168,16 +169,34 @@ export default function Header() {
 								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 							/>
 						</svg>
-					</span>
-					<input
-						type="text"
-						readOnly
-						placeholder="Search campaign, devices..."
-						className="w-48 pl-8 pr-4 py-1 text-[11px] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 focus:outline-none cursor-pointer focus:ring-1 focus:ring-primary/40 focus:border-primary transition-all duration-300"
-					/>
-					<kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[8px] font-mono text-zinc-400 bg-white dark:bg-zinc-850 px-1 py-0.2 rounded border border-zinc-200 dark:border-zinc-850 shadow-sm pointer-events-none">
-						⌘K
-					</kbd>
+					</div>
+
+					<div className="hidden md:block relative">
+						<span className="absolute inset-y-0 left-2.5 flex items-center text-zinc-400 group-hover:text-primary transition-colors">
+							<svg
+								className="w-3.5 h-3.5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth="2.5"
+									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+								/>
+							</svg>
+						</span>
+						<input
+							type="text"
+							readOnly
+							placeholder="Search devices, customer, actions..."
+							className="w-48 lg:w-56 pl-8 pr-10 py-1.5 text-[11px] font-semibold rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 focus:outline-none cursor-pointer group-hover:border-zinc-300 dark:group-hover:border-zinc-700 transition-all duration-300"
+						/>
+						<kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-mono text-zinc-400 bg-white dark:bg-zinc-850 px-1 py-0.2 rounded border border-zinc-200 dark:border-zinc-800 shadow-sm pointer-events-none">
+							⌘K
+						</kbd>
+					</div>
 				</div>
 
 				{/* Notifications - Dynamic Bell */}

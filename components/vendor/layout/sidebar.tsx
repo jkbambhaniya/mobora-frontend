@@ -136,6 +136,31 @@ export default function Sidebar() {
 						</Link>
 
 						<Link
+							href="/courier"
+							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
+								isTabActive("/courier")
+									? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+									: "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+							}`}
+						>
+							<svg
+								className="w-5 h-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth="2"
+									d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+								/>
+							</svg>
+							Courier Orders
+						</Link>
+
+
+						<Link
 							href="/blacklist"
 							className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer w-full text-left ${
 								isTabActive("/blacklist")
@@ -528,6 +553,32 @@ export default function Sidebar() {
 								</svg>
 								Mobiles
 							</Link>
+
+							<Link
+								href="/courier"
+								onClick={() => setIsMobileMenuOpen(false)}
+								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
+									isTabActive("/courier")
+										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
+										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+								}`}
+							>
+								<svg
+									className="w-5 h-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth="2"
+										d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+									/>
+								</svg>
+								Courier Orders
+							</Link>
+
 
 							<Link
 								href="/blacklist"

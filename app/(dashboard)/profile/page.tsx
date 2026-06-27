@@ -101,6 +101,7 @@ export default function ProfilePage() {
 		payment_methods: string;
 		gst_enabled: boolean;
 		gst_rate: number;
+		markup: number;
 	}) => {
 		setActionLoading(true);
 		try {
@@ -111,6 +112,7 @@ export default function ProfilePage() {
 				payment_methods: data.payment_methods,
 				gst_enabled: data.gst_enabled,
 				gst_rate: data.gst_rate,
+				markup: data.markup,
 			});
 			if (response.success && response.data?.success) {
 				setVendor(response.data.vendor);
@@ -347,6 +349,7 @@ export default function ProfilePage() {
 											vendor.payment_methods || "",
 										gst_enabled: vendor.gst_enabled !== undefined ? !!vendor.gst_enabled : true,
 										gst_rate: vendor.gst_rate !== undefined ? Number(vendor.gst_rate) : 18,
+										markup: vendor.markup !== undefined ? Number(vendor.markup) : 20,
 									}}
 									onSubmit={handleBusinessSubmit}
 									isLoading={actionLoading}

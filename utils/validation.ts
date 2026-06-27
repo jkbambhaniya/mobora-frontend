@@ -109,6 +109,12 @@ export const mobileValidationSchema = yup.object().shape({
 		.transform((value) => (value === "" ? null : value))
 		.nullable()
 		.notRequired(),
+	repairingCost: yup
+		.number()
+		.typeError("Repairing cost must be a number.")
+		.min(0, "Repairing cost cannot be negative.")
+		.nullable()
+		.notRequired(),
 });
 
 export const sellValidationSchema = yup.object().shape({

@@ -10,6 +10,7 @@ export interface VendorProfile {
 	profile_img?: string;
 	gst_enabled?: boolean;
 	gst_rate?: number;
+	markup?: number;
 }
 
 export interface Mobile {
@@ -23,6 +24,7 @@ export interface Mobile {
 	condition: "NEW" | "OLD";
 	price: number;
 	purchasePrice?: number;
+	repairingCost?: number;
 	stock: number;
 	batteryHealth: number;
 	status: "Available" | "Sold" | "Review";

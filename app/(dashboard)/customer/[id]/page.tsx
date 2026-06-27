@@ -17,7 +17,7 @@ import { toast as hotToast } from "react-hot-toast";
 import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { Select } from "@/components/ui/select";
-import { getCustomerByIdAction, updateCustomerKycAction, approveCustomerKycAction, rejectCustomerKycAction } from "@/actions/customer";
+import { getCustomerByIdAction, updateCustomerKycAction } from "@/actions/customer";
 import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 
 const customerSchema = yup.object().shape({
@@ -907,41 +907,6 @@ export default function CustomerDetailPage() {
 										✔ Consent given by customer under Section 411 IPC anti-theft rules to collect and verify this government identity.
 									</div>
 
-									{/* Approve / Reject actions for Vendor */}
-									<div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
-										<button
-											type="button"
-											onClick={async () => {
-												const res = await approveCustomerKycAction(customerId);
-												if (res.success) {
-													hotToast.success("KYC verified successfully!");
-													fetchCustomerDetails();
-												} else {
-													hotToast.error(res.message || "Failed to verify KYC.");
-												}
-											}}
-											disabled={customer.kycStatus === "Verified"}
-											className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-all cursor-pointer text-center"
-										>
-											Approve KYC
-										</button>
-										<button
-											type="button"
-											onClick={async () => {
-												const res = await rejectCustomerKycAction(customerId);
-												if (res.success) {
-													hotToast.success("KYC rejected.");
-													fetchCustomerDetails();
-												} else {
-													hotToast.error(res.message || "Failed to reject KYC.");
-												}
-											}}
-											disabled={customer.kycStatus === "Rejected"}
-											className="py-2 px-3 border border-red-200 dark:border-red-900/50 disabled:opacity-40 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-lg text-xs font-bold transition-all cursor-pointer text-center"
-										>
-											Reject
-										</button>
-									</div>
 								</div>
 							) : (
 								<div className="space-y-3">

@@ -187,7 +187,7 @@ export default function ImeiDetailsPage() {
 	}, [checkScreen, checkBody, checkFunc, checkBiometrics, checkAccessories, device]);
 
 	// Dynamic financial calculations for modals
-	const rawSaleProfit = device ? (parseFloat(sellPrice) || 0) - (device.purchasePrice || 0) : 0;
+	const rawSaleProfit = device ? (parseFloat(sellPrice) || 0) - ((device.purchasePrice || 0) + (device.repairingCost || 0)) : 0;
 	const saleGstAmount = (gstEnabled && rawSaleProfit > 0) ? Math.round(rawSaleProfit - (rawSaleProfit / gstFactor)) : 0;
 	const saleProfit = rawSaleProfit - saleGstAmount;
 	const buybackProfit = device ? (device.price || 0) - (parseFloat(buybackPrice) || 0) : 0;
@@ -988,6 +988,16 @@ export default function ImeiDetailsPage() {
 										{device.purchasePrice ? `₹${device.purchasePrice.toLocaleString()}` : "-"}
 									</span>
 								</div>
+								{device.repairingCost ? (
+									<div>
+										<span className="text-zinc-400 block">
+											Repairing Cost:
+										</span>
+										<span className="font-semibold text-amber-600 dark:text-amber-400">
+											₹{device.repairingCost.toLocaleString()}
+										</span>
+									</div>
+								) : null}
 								<div>
 									<span className="text-zinc-400 block">
 										Profit:
@@ -1074,7 +1084,7 @@ export default function ImeiDetailsPage() {
 								const gstEnabled = vendor?.gst_enabled !== false;
 								const gstRate = vendor?.gst_rate ?? 18;
 								const gstFactor = 1 + gstRate / 100;
-								const rawProfit = device ? (parseFloat(sellPrice) || 0) - (device.purchasePrice || 0) : 0;
+								const rawProfit = device ? (parseFloat(sellPrice) || 0) - ((device.purchasePrice || 0) + (device.repairingCost || 0)) : 0;
 								const gstAmount = (gstEnabled && rawProfit > 0) ? Math.round(rawProfit - (rawProfit / gstFactor)) : 0;
 								const cgst = Math.round(gstAmount / 2);
 								const sgst = gstAmount - cgst;

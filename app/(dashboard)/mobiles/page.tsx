@@ -20,6 +20,9 @@ import { useInventory } from "@/context/vendor/inventory-context";
 import Link from "next/link";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { checkBlacklistAction } from "@/actions/blacklist";
+import { ImeiInput } from "@/components/ui/imei-input";
+import { RamSelector } from "@/components/ui/ram-selector";
+import { StorageSelector } from "@/components/ui/storage-selector";
 interface ModelGroup {
 	brand: string;
 	model: string;
@@ -63,6 +66,7 @@ export default function MobilesPage() {
 	>("NEW");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
+	const [formRepairingCost, setFormRepairingCost] = useState("");
 	const [formDescription, setFormDescription] = useState("");
 	const [formCustomerId, setFormCustomerId] = useState("");
 
@@ -79,18 +83,11 @@ export default function MobilesPage() {
 	const [isAddingModel, setIsAddingModel] = useState(false);
 	const [newModelVal, setNewModelVal] = useState("");
 
-	const [isAddingStorage, setIsAddingStorage] = useState(false);
-	const [newStorageVal, setNewStorageVal] = useState("");
-
-	const [isAddingRam, setIsAddingRam] = useState(false);
-	const [newRamVal, setNewRamVal] = useState("");
-
 	// Submission States
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
 	const [isSubmittingModel, setIsSubmittingModel] = useState(false);
-	const [isSubmittingStorage, setIsSubmittingStorage] = useState(false);
-	const [isSubmittingRam, setIsSubmittingRam] = useState(false);
+
 	const [isEditingModel, setIsEditingModel] = useState(false);
 	const [blacklistWarning, setBlacklistWarning] = useState<{
 		isBlacklisted: boolean;
@@ -129,6 +126,7 @@ export default function MobilesPage() {
 		setFormCondition("NEW");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
+		setFormRepairingCost("");
 		setFormDescription("");
 		setFormCustomerId("");
 		setFieldErrors({});
@@ -185,6 +183,7 @@ export default function MobilesPage() {
 					batteryHealth: isAppleSelected ? formBatteryHealth : null,
 					purchasePrice: formPurchasePrice ? parseFloat(formPurchasePrice) : undefined,
 					description: formDescription || null,
+					repairingCost: formRepairingCost ? parseFloat(formRepairingCost) : undefined,
 				},
 				{ abortEarly: false },
 			);
@@ -218,6 +217,7 @@ export default function MobilesPage() {
 				condition: formCondition,
 				price: priceNum,
 				purchase_price: purchasePriceNum,
+				repairing_cost: formRepairingCost ? parseFloat(formRepairingCost) : 0,
 				battery_health: isAppleSelected ? formBatteryHealth : null,
 				status: "Available",
 				description: formDescription || `Registered device in inventory.`,
@@ -306,47 +306,7 @@ export default function MobilesPage() {
 		}
 	};
 
-	const handleCreateStorage = async () => {
-		if (newStorageVal.trim()) {
-			setIsSubmittingStorage(true);
-			setStorageInlineError("");
-			try {
-				const res = await specs.addStorage(newStorageVal.trim());
-				if (res.success) {
-					toast.success("Storage capacity request submitted.");
-					setNewStorageVal("");
-					setIsAddingStorage(false);
-				} else {
-					setStorageInlineError(res.message || "Failed to add storage.");
-				}
-			} catch (err) {
-				setStorageInlineError("Failed to add storage.");
-			} finally {
-				setIsSubmittingStorage(false);
-			}
-		}
-	};
 
-	const handleCreateRam = async () => {
-		if (newRamVal.trim()) {
-			setIsSubmittingRam(true);
-			setRamInlineError("");
-			try {
-				const res = await specs.addRam(newRamVal.trim());
-				if (res.success) {
-					toast.success("RAM capacity request submitted.");
-					setNewRamVal("");
-					setIsAddingRam(false);
-				} else {
-					setRamInlineError(res.message || "Failed to add RAM.");
-				}
-			} catch (err) {
-				setRamInlineError("Failed to add RAM.");
-			} finally {
-				setIsSubmittingRam(false);
-			}
-		}
-	};
 
 	// Search/Filter states for Catalog
 	const [searchTerm, setSearchTerm] = useState("");
@@ -555,7 +515,7 @@ export default function MobilesPage() {
 							`/mobiles/${g.brandSlug}/${g.modelSlug}`,
 						);
 					}}
-					className="py-1.5 px-3.5 rounded-xl text-xs font-bold hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer"
+					className="py-1.5 px-3.5 rounded-xl text-xs font-bold hover:!bg-primary hover:!text-white hover:!border-primary transition-colors cursor-pointer"
 				>
 					View Devices
 				</Button>
@@ -825,7 +785,7 @@ export default function MobilesPage() {
 												`/mobiles/${g.brandSlug}/${g.modelSlug}`,
 											);
 										}}
-										className="w-full mt-6 py-2.5 rounded-xl text-xs font-bold hover:bg-primary hover:text-white hover:border-primary transition-all duration-300 cursor-pointer"
+										className="w-full mt-6 py-2.5 rounded-xl text-xs font-bold hover:!bg-primary hover:!text-white hover:!border-primary transition-all duration-300 cursor-pointer"
 									>
 										View Devices
 									</Button>
@@ -894,32 +854,15 @@ export default function MobilesPage() {
 				<form onSubmit={handleSubmit} noValidate className="space-y-4">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{/* IMEI */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								IMEI (15 digits)
-							</label>
-							<input
-								type="text"
-								maxLength={15}
-								disabled={isSubmitting}
-								value={formImei}
-								onChange={(e) => {
-									setFormImei(e.target.value.replace(/\D/g, ""));
-									clearFieldError("imei");
-								}}
-								placeholder="e.g. 359283748291827"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none font-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-									fieldErrors.imei
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.imei && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.imei}
-								</p>
-							)}
-						</div>
+						<ImeiInput
+							value={formImei}
+							onChange={(val) => {
+								setFormImei(val);
+								clearFieldError("imei");
+							}}
+							error={fieldErrors.imei}
+							disabled={isSubmitting}
+						/>
 
 						{/* Color */}
 						<div className="space-y-1">
@@ -1134,149 +1077,27 @@ export default function MobilesPage() {
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* STORAGE */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Storage Capacity *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingStorage}
-									onClick={() => setIsAddingStorage(!isAddingStorage)}
-									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-								>
-									{isAddingStorage ? "Cancel" : "Request Storage"}
-								</button>
-							</div>
-
-							{isAddingStorage ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingStorage || isSubmitting}
-											value={newStorageVal}
-											onChange={(e) => {
-												setNewStorageVal(e.target.value);
-												setStorageInlineError("");
-											}}
-											placeholder="e.g. 512GB"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${storageInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingStorage || isSubmitting}
-											onClick={handleCreateStorage}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-										>
-											{isSubmittingStorage ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{storageInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{storageInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formStorage}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormStorage(e.target.value);
-										clearFieldError("storage");
-									}}
-									required
-									placeholder="-- Choose Storage --"
-									options={specs.allStorages.map((s) => ({ value: s.id.toString(), label: s.value }))}
-									error={fieldErrors.storage}
-								/>
-							)}
-						</div>
-
 						{/* RAM */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									RAM Size *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingRam}
-									onClick={() => setIsAddingRam(!isAddingRam)}
-									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-								>
-									{isAddingRam ? "Cancel" : "Request RAM"}
-								</button>
-							</div>
+						<RamSelector
+							value={formRam}
+							onChange={(val) => {
+								setFormRam(val);
+								clearFieldError("ram");
+							}}
+							error={fieldErrors.ram}
+							disabled={isSubmitting}
+						/>
 
-							{isAddingRam ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingRam || isSubmitting}
-											value={newRamVal}
-											onChange={(e) => {
-												setNewRamVal(e.target.value);
-												setRamInlineError("");
-											}}
-											placeholder="e.g. 16GB"
-											className={`w-full px-3 py-2.5 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${ramInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingRam || isSubmitting}
-											onClick={handleCreateRam}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-										>
-											{isSubmittingRam ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{ramInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{ramInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formRam}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormRam(e.target.value);
-										clearFieldError("ram");
-									}}
-									required
-									placeholder="-- Choose RAM --"
-									options={specs.allRams.map((r) => ({ value: r.id.toString(), label: r.value }))}
-									error={fieldErrors.ram}
-								/>
-							)}
-						</div>
+						{/* STORAGE */}
+						<StorageSelector
+							value={formStorage}
+							onChange={(val) => {
+								setFormStorage(val);
+								clearFieldError("storage");
+							}}
+							error={fieldErrors.storage}
+							disabled={isSubmitting}
+						/>
 					</div>
 
 					<div className={`grid grid-cols-1 gap-4 transition-all duration-300 ease-in-out ${isAppleSelected ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
@@ -1344,32 +1165,62 @@ export default function MobilesPage() {
 						valueType="id"
 					/>
 
-					{/* Cost Price */}
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Purchase / Cost Price * (₹)
-						</label>
-						<input
-							type="number"
-							required
-							disabled={isSubmitting}
-							value={formPurchasePrice}
-							onChange={(e) => {
-								setFormPurchasePrice(e.target.value);
-								clearFieldError("purchasePrice");
-							}}
-							placeholder="e.g. 30000"
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-								fieldErrors.purchasePrice
-									? "border-red-400 focus:ring-red-400"
-									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-							}`}
-						/>
-						{fieldErrors.purchasePrice && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.purchasePrice}
-							</p>
-						)}
+					{/* Cost & Repair Price Grid */}
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						{/* Cost Price */}
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Purchase / Cost Price * (₹)
+							</label>
+							<input
+								type="number"
+								required
+								disabled={isSubmitting}
+								value={formPurchasePrice}
+								onChange={(e) => {
+									setFormPurchasePrice(e.target.value);
+									clearFieldError("purchasePrice");
+								}}
+								placeholder="e.g. 30000"
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+									fieldErrors.purchasePrice
+										? "border-red-400 focus:ring-red-400"
+										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
+								}`}
+							/>
+							{fieldErrors.purchasePrice && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.purchasePrice}
+								</p>
+							)}
+						</div>
+
+						{/* Repairing Cost */}
+						<div className="space-y-1">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Repairing Cost (₹)
+							</label>
+							<input
+								type="number"
+								disabled={isSubmitting}
+								value={formRepairingCost}
+								onChange={(e) => {
+									setFormRepairingCost(e.target.value);
+									clearFieldError("repairingCost");
+								}}
+								placeholder="e.g. 1500"
+								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+									fieldErrors.repairingCost
+										? "border-red-400 focus:ring-red-400"
+										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
+								}`}
+							/>
+							{fieldErrors.repairingCost && (
+								<p className="text-xs text-red-500 font-medium mt-1">
+									{fieldErrors.repairingCost}
+								</p>
+							)}
+						</div>
 					</div>
 
 					{/* Description */}

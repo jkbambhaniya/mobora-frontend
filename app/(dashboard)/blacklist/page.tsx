@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { getBlacklistedDevicesAction, blacklistDeviceAction } from "@/actions/blacklist";
+import { ImeiInput } from "@/components/ui/imei-input";
 
 interface BlacklistedDevice {
 	id: number;
@@ -137,19 +138,13 @@ export default function BlacklistPage() {
 				<div className="bg-white dark:bg-zinc-950 rounded-3xl p-6 border border-zinc-200/60 dark:border-zinc-800/80 shadow-sm h-fit">
 					<h2 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400 mb-4">Blacklist A Device</h2>
 					<form onSubmit={handleBlacklistSubmit} className="space-y-4">
-						<div>
-							<label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
-								IMEI Number (15 Digits)
-							</label>
-							<input
-								type="text"
-								value={imei}
-								onChange={(e) => setImei(e.target.value.replace(/\D/g, "").slice(0, 15))}
-								className="w-full h-11 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-red-500 font-mono"
-								placeholder="e.g. 358901234567890"
-								required
-							/>
-						</div>
+						<ImeiInput
+							value={imei}
+							onChange={setImei}
+							label="IMEI Number (15 Digits)"
+							placeholder="e.g. 358901234567890"
+							required
+						/>
 
 						<div>
 							<label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">

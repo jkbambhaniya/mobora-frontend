@@ -16,6 +16,11 @@ import { useInventory } from "@/context/vendor/inventory-context";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { MobileFilters } from "@/actions/mobiles";
 import { checkBlacklistAction } from "@/actions/blacklist";
+import { ImeiInput } from "@/components/ui/imei-input";
+import { RamSelector } from "@/components/ui/ram-selector";
+import { StorageSelector } from "@/components/ui/storage-selector";
+import { createCourierOrderAction } from "@/actions/courier";
+
 
 export default function InventoryPage() {
 	const {
@@ -31,7 +36,9 @@ export default function InventoryPage() {
 		handleUpdateTradeTransaction,
 		trades,
 		triggerToast,
+		fetchVendors,
 	} = useDashboard();
+
 
 	const specs = useSpecifications();
 	const { metrics, refreshMetrics } = useInventory();
@@ -76,6 +83,8 @@ export default function InventoryPage() {
 		new Date().toISOString().split("T")[0],
 	);
 	const [sellNotes, setSellNotes] = useState("");
+	const [isCourierSale, setIsCourierSale] = useState(false);
+
 
 	// Buyback Modal State
 	const [isBuybackFormOpen, setIsBuybackFormOpen] = useState(false);
@@ -100,7 +109,7 @@ export default function InventoryPage() {
 	} | null>(null);
 
 	// Dynamic financial calculations for modals
-	const saleProfit = sellingDevice ? (parseFloat(sellPrice) || 0) - (sellingDevice.purchasePrice || 0) : 0;
+	const saleProfit = sellingDevice ? (parseFloat(sellPrice) || 0) - ((sellingDevice.purchasePrice || 0) + (sellingDevice.repairingCost || 0)) : 0;
 	const buybackProfit = buybackDevice ? (buybackDevice.price || 0) - (parseFloat(buybackPrice) || 0) : 0;
 
 	// Modal Form validation errors
@@ -197,17 +206,13 @@ export default function InventoryPage() {
 	const [newBrandVal, setNewBrandVal] = useState("");
 	const [isAddingModel, setIsAddingModel] = useState(false);
 	const [newModelVal, setNewModelVal] = useState("");
-	const [isAddingStorage, setIsAddingStorage] = useState(false);
-	const [newStorageVal, setNewStorageVal] = useState("");
-	const [isAddingRam, setIsAddingRam] = useState(false);
-	const [newRamVal, setNewRamVal] = useState("");
+
 
 	// Submission States
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
 	const [isSubmittingModel, setIsSubmittingModel] = useState(false);
-	const [isSubmittingStorage, setIsSubmittingStorage] = useState(false);
-	const [isSubmittingRam, setIsSubmittingRam] = useState(false);
+
 
 	// Field Validation Errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -361,11 +366,42 @@ export default function InventoryPage() {
 		try {
 			const priceNum = parseFloat(sellPrice);
 
+			if (isCourierSale && sellCustomer.startsWith("Vendor:")) {
+				const [_, vendorName] = sellCustomer.split(":");
+				const vendorsList = await fetchVendors();
+				const targetVendor = vendorsList.find((v: any) => v.name === vendorName);
+
+				if (!targetVendor) {
+					setSellFormError("Selected vendor not found in the system.");
+					setIsSubmitting(false);
+					return;
+				}
+
+				const res = await createCourierOrderAction({
+					buyer_id: targetVendor.id,
+					mobile_id: Number(sellingDevice.id),
+					amount: priceNum,
+					notes: sellNotes || `Courier sale initiated to ${vendorName}.`
+				});
+
+				if (res.success) {
+					setIsSellFormOpen(false);
+					setIsCourierSale(false);
+					await refreshDevices(undefined, true);
+					triggerToast(`Courier sale initiated to ${vendorName}. Tracking status pending.`);
+				} else {
+					setSellFormError(res.message || "Failed to create courier order.");
+				}
+				setIsSubmitting(false);
+				return;
+			}
+
 			const result = await editDevice(sellingDevice.id, {
 				status: "Sold",
 				price: priceNum,
 				description: sellNotes || `Sold to ${sellCustomer}.`
 			});
+
 
 			if (result.success) {
 				const [partnerType, partnerNameOrId] = sellCustomer.includes(":")
@@ -751,51 +787,7 @@ export default function InventoryPage() {
 		}
 	};
 
-	const handleCreateStorage = async () => {
-		if (newStorageVal.trim()) {
-			setIsSubmittingStorage(true);
-			setStorageInlineError("");
-			try {
-				const res = await specs.addStorage(newStorageVal.trim());
-				if (res.success) {
-					triggerToast("Storage capacity request submitted.");
-					await specs.refreshAllSpecs();
-					setNewStorageVal("");
-					setIsAddingStorage(false);
-					clearFieldError("storage");
-				} else {
-					setStorageInlineError(res.message || "Failed to add storage.");
-				}
-			} catch (err) {
-				setStorageInlineError("Failed to add storage.");
-			} finally {
-				setIsSubmittingStorage(false);
-			}
-		}
-	};
 
-	const handleCreateRam = async () => {
-		if (newRamVal.trim()) {
-			setIsSubmittingRam(true);
-			setRamInlineError("");
-			try {
-				const res = await specs.addRam(newRamVal.trim());
-				if (res.success) {
-					triggerToast("RAM capacity request submitted.");
-					await specs.refreshAllSpecs();
-					setNewRamVal("");
-					setIsAddingRam(false);
-					clearFieldError("ram");
-				} else {
-					setRamInlineError(res.message || "Failed to add RAM.");
-				}
-			} catch (err) {
-				setRamInlineError("Failed to add RAM.");
-			} finally {
-				setIsSubmittingRam(false);
-			}
-		}
-	};
 
 	const handleSortClick = (field: string) => {
 		if (sortBy === field) {
@@ -1355,29 +1347,15 @@ export default function InventoryPage() {
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
 						{/* IMEI */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-								IMEI (15 digits)
-							</label>
-							<input
-								type="text"
-								maxLength={15}
-								disabled={isSubmitting}
-								value={formImei}
-								onChange={(e) => {
-									setFormImei(e.target.value.replace(/\D/g, ""));
-									clearFieldError("imei");
-								}}
-								placeholder="e.g. 359283748291827"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono disabled:opacity-50 disabled:cursor-not-allowed
-									${fieldErrors.imei ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-							/>
-							{fieldErrors.imei && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.imei}
-								</p>
-							)}
-						</div>
+						<ImeiInput
+							value={formImei}
+							onChange={(val) => {
+								setFormImei(val);
+								clearFieldError("imei");
+							}}
+							error={fieldErrors.imei}
+							disabled={isSubmitting}
+						/>
 
 						{/* Color */}
 						<div className="space-y-1">
@@ -1554,151 +1532,27 @@ export default function InventoryPage() {
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-						{/* STORAGE */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-									Storage Capacity *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingStorage}
-									onClick={() => setIsAddingStorage(!isAddingStorage)}
-									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
-								>
-									{isAddingStorage
-										? "Cancel"
-										: "Request Storage"}
-								</button>
-							</div>
-
-							{isAddingStorage ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingStorage || isSubmitting}
-											value={newStorageVal}
-											onChange={(e) => {
-												setNewStorageVal(e.target.value);
-												setStorageInlineError("");
-											}}
-											placeholder="e.g. 512GB"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${storageInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingStorage || isSubmitting}
-											onClick={handleCreateStorage}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-										>
-											{isSubmittingStorage ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{storageInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{storageInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formStorage}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormStorage(e.target.value);
-										clearFieldError("storage");
-									}}
-									required
-									placeholder="-- Choose Storage --"
-									options={specs.allStorages.map((s: { id: number; value: string }) => ({ value: s.id.toString(), label: s.value }))}
-									error={fieldErrors.storage}
-								/>
-							)}
-						</div>
-
 						{/* RAM */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-									RAM Size *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingRam}
-									onClick={() => setIsAddingRam(!isAddingRam)}
-									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
-								>
-									{isAddingRam ? "Cancel" : "Request RAM"}
-								</button>
-							</div>
+						<RamSelector
+							value={formRam}
+							onChange={(val) => {
+								setFormRam(val);
+								clearFieldError("ram");
+							}}
+							error={fieldErrors.ram}
+							disabled={isSubmitting}
+						/>
 
-							{isAddingRam ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingRam || isSubmitting}
-											value={newRamVal}
-											onChange={(e) => {
-												setNewRamVal(e.target.value);
-												setRamInlineError("");
-											}}
-											placeholder="e.g. 16GB"
-											className={`w-full px-3 py-2.5 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${ramInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingRam || isSubmitting}
-											onClick={handleCreateRam}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-										>
-											{isSubmittingRam ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{ramInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{ramInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formRam}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormRam(e.target.value);
-										clearFieldError("ram");
-									}}
-									required
-									placeholder="-- Choose RAM --"
-									options={specs.allRams.map((r: { id: number; value: string }) => ({ value: r.id.toString(), label: r.value }))}
-									error={fieldErrors.ram}
-								/>
-							)}
-						</div>
+						{/* STORAGE */}
+						<StorageSelector
+							value={formStorage}
+							onChange={(val) => {
+								setFormStorage(val);
+								clearFieldError("storage");
+							}}
+							error={fieldErrors.storage}
+							disabled={isSubmitting}
+						/>
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
@@ -1918,6 +1772,16 @@ export default function InventoryPage() {
 										{sellingDevice.purchasePrice ? `₹${sellingDevice.purchasePrice.toLocaleString()}` : "-"}
 									</span>
 								</div>
+								{sellingDevice.repairingCost ? (
+									<div>
+										<span className="text-zinc-400 block">
+											Repairing Cost:
+										</span>
+										<span className="font-semibold text-amber-600 dark:text-amber-400">
+											₹{sellingDevice.repairingCost.toLocaleString()}
+										</span>
+									</div>
+								) : null}
 								<div>
 									<span className="text-zinc-400 block">
 										Profit:
@@ -2002,7 +1866,23 @@ export default function InventoryPage() {
 									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
 								/>
 							</div>
+
+							{sellCustomer.startsWith("Vendor:") && (
+								<div className="flex items-center gap-2 mt-2">
+									<input
+										type="checkbox"
+										id="isCourierSale"
+										checked={isCourierSale}
+										onChange={(e) => setIsCourierSale(e.target.checked)}
+										className="rounded border-zinc-200 dark:border-zinc-800 text-primary focus:ring-primary h-4 w-4"
+									/>
+									<label htmlFor="isCourierSale" className="text-xs text-zinc-600 dark:text-zinc-400 font-bold select-none cursor-pointer">
+										Ship via Courier (2-3 days delivery)
+									</label>
+								</div>
+							)}
 						</div>
+
 
 						{sellFormError && (
 							<p className="text-xs text-red-500 font-semibold text-center mt-2">

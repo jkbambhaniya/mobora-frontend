@@ -14,6 +14,7 @@ interface BusinessDetailsProps {
     payment_methods: string;
     gst_enabled: boolean;
     gst_rate: number;
+    markup: number;
   };
   onSubmit: (data: {
     shop_name: string;
@@ -22,6 +23,7 @@ interface BusinessDetailsProps {
     payment_methods: string;
     gst_enabled: boolean;
     gst_rate: number;
+    markup: number;
   }) => Promise<void>;
   isLoading: boolean;
 }
@@ -55,7 +57,14 @@ const businessSchema = yup.object().shape({
     .typeError("GST Rate must be a number")
     .min(0, "GST Rate cannot be negative")
     .max(100, "GST Rate cannot exceed 100%")
-    .required("GST Rate is required.")
+    .required("GST Rate is required."),
+  markup: yup
+    .number()
+    .transform((value) => (isNaN(value) ? undefined : value))
+    .typeError("Markup must be a number")
+    .min(0, "Markup cannot be negative")
+    .max(1000, "Markup cannot exceed 1000%")
+    .required("Markup is required.")
 });
 
 export const BusinessDetails: React.FC<BusinessDetailsProps> = ({ initialData, onSubmit, isLoading }) => {
@@ -212,18 +221,18 @@ export const BusinessDetails: React.FC<BusinessDetailsProps> = ({ initialData, o
         )}
       </div>
 
-      {/* GST Settings Section */}
+      {/* GST & Pricing Settings Section */}
       <div className="p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/10 space-y-4">
         <div>
           <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
-            GST Billing Configuration
+            Billing & Pricing Configuration
           </h4>
           <p className="text-[10px] text-zinc-405 mt-0.5">
-            Enable GST Margin Scheme and customize your standard tax rate.
+            Configure GST Margin Scheme and customize your default device markup rate.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800">
             <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
               Enable GST calculations
@@ -265,6 +274,30 @@ export const BusinessDetails: React.FC<BusinessDetailsProps> = ({ initialData, o
             {errors.gst_rate && (
               <span className="text-[10px] font-bold text-red-500 dark:text-red-400">
                 {errors.gst_rate}
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">
+              Default Selling Markup (%)
+            </label>
+            <input
+              type="number"
+              name="markup"
+              value={formData.markup}
+              onChange={(e) => {
+                setFormData((prev) => ({ ...prev, markup: parseInt(e.target.value) || 0 }));
+              }}
+              disabled={isLoading}
+              min="0"
+              max="1000"
+              placeholder="20"
+              className="w-full px-4 py-2.5 rounded-xl border bg-zinc-50 dark:bg-zinc-900/40 text-sm focus:bg-white dark:focus:bg-zinc-950 focus:outline-none focus:ring-2 transition-all border-transparent focus:ring-primary/10 dark:focus:ring-primary/25 focus:border-primary/20 dark:focus:border-primary/40"
+            />
+            {errors.markup && (
+              <span className="text-[10px] font-bold text-red-500 dark:text-red-400">
+                {errors.markup}
               </span>
             )}
           </div>

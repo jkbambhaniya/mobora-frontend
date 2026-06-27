@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import * as XLSX from "xlsx";
+import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -19,6 +21,9 @@ import {
 } from "@/context/vendor/dashboard-context";
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
+import { MobileRegisterForm } from "@/components/vendor/MobileRegisterForm";
+import { useAuth } from "@/context/vendor/auth-context";
+
 export default function ModelDetailsPage() {
 	const router = useRouter();
 	const params = useParams();
@@ -42,6 +47,9 @@ export default function ModelDetailsPage() {
 	} = useDashboard();
 
 	const specs = useSpecifications();
+	const { vendor } = useAuth();
+	
+	const markupPercent = vendor?.markup !== undefined ? Number(vendor.markup) : 20;
 
 	// Find matched brand and model objects from specifications database
 	const matchedBrandObj = useMemo(() => {
@@ -93,22 +101,17 @@ export default function ModelDetailsPage() {
 	>("NEW");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
+	const [formRepairingCost, setFormRepairingCost] = useState("");
 	const [formDescription, setFormDescription] = useState("");
 	const [formCustomerId, setFormCustomerId] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const [formError, setFormError] = useState("");
-	const [storageInlineError, setStorageInlineError] = useState("");
-	const [ramInlineError, setRamInlineError] = useState("");
 
-	// Dynamic Add Dialog States
-	const [isAddingStorage, setIsAddingStorage] = useState(false);
-	const [newStorageVal, setNewStorageVal] = useState("");
-	const [isSubmittingStorage, setIsSubmittingStorage] = useState(false);
-
-	const [isAddingRam, setIsAddingRam] = useState(false);
-	const [newRamVal, setNewRamVal] = useState("");
-	const [isSubmittingRam, setIsSubmittingRam] = useState(false);
+	// Advanced Features States
+	const [isImportOpen, setIsImportOpen] = useState(false);
+	const [isImporting, setIsImporting] = useState(false);
+	const [isScannerOpen, setIsScannerOpen] = useState(false);
 
 	// Field-level validation errors
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -118,6 +121,37 @@ export default function ModelDetailsPage() {
 			delete n[field];
 			return n;
 		});
+
+	const registerFormValues = {
+		imei: formImei,
+		brand: formBrand,
+		model: formModel,
+		storage: formStorage,
+		ram: formRam,
+		color: formColor,
+		condition: formCondition,
+		batteryHealth: formBatteryHealth,
+		purchasePrice: formPurchasePrice,
+		repairingCost: formRepairingCost,
+		description: formDescription,
+		customerId: formCustomerId
+	};
+
+	const handleFormChange = (field: string, value: any) => {
+		clearFieldError(field);
+		if (field === "imei") setFormImei(value);
+		else if (field === "brand") setFormBrand(value);
+		else if (field === "model") setFormModel(value);
+		else if (field === "storage") setFormStorage(value);
+		else if (field === "ram") setFormRam(value);
+		else if (field === "color") setFormColor(value);
+		else if (field === "condition") setFormCondition(value);
+		else if (field === "batteryHealth") setFormBatteryHealth(value);
+		else if (field === "purchasePrice") setFormPurchasePrice(value);
+		else if (field === "repairingCost") setFormRepairingCost(value);
+		else if (field === "description") setFormDescription(value);
+		else if (field === "customerId") setFormCustomerId(value);
+	};
 
 	// Pagination States
 	const [page, setPage] = useState(1);
@@ -164,12 +198,11 @@ export default function ModelDetailsPage() {
 		setFormCondition("NEW");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
+		setFormRepairingCost("");
 		setFormDescription("");
 		setFormCustomerId("");
 		setFieldErrors({});
 		setFormError("");
-		setStorageInlineError("");
-		setRamInlineError("");
 		setIsFormOpen(true);
 	};
 
@@ -186,14 +219,160 @@ export default function ModelDetailsPage() {
 		setFormPurchasePrice(
 			device.purchasePrice ? device.purchasePrice.toString() : "",
 		);
+		setFormRepairingCost(
+			device.repairingCost ? device.repairingCost.toString() : "",
+		);
 		setFormDescription(device.description);
 		setFormCustomerId("");
 		setFieldErrors({});
 		setFormError("");
-		setStorageInlineError("");
-		setRamInlineError("");
 		setIsFormOpen(true);
 	};
+
+	// Export stock Excel handler
+	const handleExportExcel = () => {
+		try {
+			if (sortedAndFilteredModelDevices.length === 0) {
+				toast.error("No data to export");
+				return;
+			}
+			const headers = ["IMEI", "Color", "Storage", "RAM", "Condition", "Battery Health", "Cost Price", "Selling Price", "Status"];
+			const rows = sortedAndFilteredModelDevices.map(d => [
+				d.imei || "No IMEI",
+				d.color,
+				d.storage,
+				d.ram,
+				d.condition,
+				d.batteryHealth ? `${d.batteryHealth}%` : "-",
+				d.purchasePrice || 0,
+				d.price || 0,
+				d.status
+			]);
+			const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+			const wb = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(wb, ws, "Stock List");
+			XLSX.writeFile(wb, `${brandSlug}_${modelSlug}_stock.xlsx`);
+			toast.success("Excel stock list exported successfully!");
+		} catch (error) {
+			toast.error("Failed to export Excel file");
+		}
+	};
+
+	// Share stock list clipboard copy handler
+	const handleShareStock = () => {
+		try {
+			const availableDevices = sortedAndFilteredModelDevices.filter(d => d.status === "Available");
+			if (availableDevices.length === 0) {
+				toast.error("No available devices to share");
+				return;
+			}
+			let text = `📱 ${brand} ${model} - Available Stock List\n`;
+			text += `-----------------------------------------\n`;
+			availableDevices.forEach((d, idx) => {
+				text += `${idx + 1}. ${d.storage}/${d.ram} RAM | ${d.color} | Condition: ${d.condition} | Battery: ${d.batteryHealth}% | Price: ₹${d.price.toLocaleString()}\n`;
+			});
+			text += `\nGenerated on: ${new Date().toLocaleDateString()}\n`;
+			navigator.clipboard.writeText(text);
+			toast.success("Stock list copied to clipboard!");
+		} catch (error) {
+			toast.error("Failed to copy stock list");
+		}
+	};
+
+	// Download demo/sample Excel template handler
+	const handleDownloadDemoSheet = () => {
+		try {
+			const headers = ["IMEI", "Color", "Storage", "RAM", "Condition", "BatteryHealth", "CostPrice"];
+			
+			// Get default/example values from specs or fallbacks
+			const defaultStorage = specs.allStorages[0]?.value || "128GB";
+			const defaultRam = specs.allRams[0]?.value || "8GB";
+			const defaultColor = "Space Gray";
+
+			const rows = [
+				["358201234567890", defaultColor, defaultStorage, defaultRam, "NEW", "100", "500"],
+				["358201234567891", defaultColor, defaultStorage, defaultRam, "OLD", "85", "420"]
+			];
+
+			const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+			const wb = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(wb, ws, "Template");
+			XLSX.writeFile(wb, "mobora_inventory_import_template.xlsx");
+			toast.success("Demo sheet template downloaded!");
+		} catch (error) {
+			toast.error("Failed to generate demo sheet");
+		}
+	};
+
+	// Import Excel handler
+	const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		setIsImporting(true);
+		try {
+			const data = await file.arrayBuffer();
+			const workbook = XLSX.read(data, { type: "array" });
+			const sheetName = workbook.SheetNames[0];
+			const worksheet = workbook.Sheets[sheetName];
+			const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+			if (rows.length === 0) {
+				toast.error("Excel sheet is empty");
+				setIsImporting(false);
+				return;
+			}
+
+			let successCount = 0;
+			let failCount = 0;
+			const firstRow = rows[0].map(c => String(c).toLowerCase());
+			const startIndex = firstRow.includes("imei") || firstRow.includes("color") ? 1 : 0;
+
+			for (let i = startIndex; i < rows.length; i++) {
+				const row = rows[i];
+				if (!row || row.length < 5) continue;
+
+				const csvImei = row[0] ? String(row[0]).trim() : null;
+				const csvColor = row[1] ? String(row[1]).trim() : "Space Gray";
+				const csvStorageVal = row[2] ? String(row[2]).trim() : "";
+				const csvRamVal = row[3] ? String(row[3]).trim() : "";
+				const csvCondition = String(row[4] || "NEW").trim().toUpperCase();
+				const csvBattery = parseInt(String(row[5])) || 90;
+				const csvCost = parseFloat(String(row[6])) || 0;
+
+				const matchedStorage = specs.allStorages.find(s => s.value.toLowerCase() === csvStorageVal.toLowerCase());
+				const matchedRam = specs.allRams.find(r => r.value.toLowerCase() === csvRamVal.toLowerCase());
+				if (!matchedStorage || !matchedRam) {
+					failCount++;
+					continue;
+				}
+
+				const payload = {
+					brand_id: matchedBrandObj?.id,
+					model_id: matchedModelObj?.id,
+					storage_id: matchedStorage.id,
+					ram_id: matchedRam.id,
+					color: csvColor,
+					imei: csvImei,
+					condition: csvCondition === "NEW" ? "NEW" : "OLD",
+					battery_health: csvBattery,
+					status: "Available",
+					purchase_price: csvCost,
+					price: Math.round(csvCost * (1 + markupPercent / 100)),
+					description: `Imported from Excel ${brand} ${model}.`
+				};
+				const res = await addDevice(payload);
+				if (res.success) successCount++;
+				else failCount++;
+			}
+			toast.success(`Excel Import Done: ${successCount} added, ${failCount} failed.`);
+			setIsImportOpen(false);
+		} catch (err) {
+			toast.error("Error parsing Excel data");
+		} finally {
+			setIsImporting(false);
+		}
+	};
+
 	// Submit Handler
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -218,6 +397,7 @@ export default function ModelDetailsPage() {
 					batteryHealth: formBatteryHealth,
 					purchasePrice: editingDevice ? undefined : (formPurchasePrice ? parseFloat(formPurchasePrice) : undefined),
 					description: formDescription || null,
+					repairingCost: formRepairingCost ? parseFloat(formRepairingCost) : undefined,
 				},
 				{
 					abortEarly: false,
@@ -250,12 +430,13 @@ export default function ModelDetailsPage() {
 			battery_health: formBatteryHealth,
 			status: editingDevice ? editingDevice.status : "Available",
 			description: formDescription || `Registered ${selectedBrandName} ${selectedModelName}.`,
+			repairing_cost: formRepairingCost ? parseFloat(formRepairingCost) : 0,
 		};
 
 		if (!editingDevice) {
 			const purchasePriceNum = parseFloat(formPurchasePrice);
 			payload.purchase_price = purchasePriceNum;
-			payload.price = Math.round(purchasePriceNum * 1.2); // Markup selling price by 20%
+			payload.price = Math.round(purchasePriceNum * (1 + markupPercent / 100));
 			payload.customer_id = formCustomerId || null;
 		}
 
@@ -286,52 +467,7 @@ export default function ModelDetailsPage() {
 		}
 	};
 
-	// Dynamic spec creators
-	const handleCreateStorage = async () => {
-		if (newStorageVal.trim()) {
-			setIsSubmittingStorage(true);
-			setStorageInlineError("");
-			try {
-				const res = await specs.addStorage(newStorageVal.trim());
-				if (res.success) {
-					toast.success("Storage capacity request submitted.");
-					await specs.refreshAllSpecs();
-					setNewStorageVal("");
-					setIsAddingStorage(false);
-					clearFieldError("storage");
-				} else {
-					setStorageInlineError(res.message || "Failed to add storage.");
-				}
-			} catch (err) {
-				setStorageInlineError("Failed to add storage.");
-			} finally {
-				setIsSubmittingStorage(false);
-			}
-		}
-	};
 
-	const handleCreateRam = async () => {
-		if (newRamVal.trim()) {
-			setIsSubmittingRam(true);
-			setRamInlineError("");
-			try {
-				const res = await specs.addRam(newRamVal.trim());
-				if (res.success) {
-					toast.success("RAM capacity request submitted.");
-					await specs.refreshAllSpecs();
-					setNewRamVal("");
-					setIsAddingRam(false);
-					clearFieldError("ram");
-				} else {
-					setRamInlineError(res.message || "Failed to add RAM.");
-				}
-			} catch (err) {
-				setRamInlineError("Failed to add RAM.");
-			} finally {
-				setIsSubmittingRam(false);
-			}
-		}
-	};
 	// Delete confirmation handlers
 	const handleDelete = (id: string, name: string, e?: React.MouseEvent) => {
 		e?.stopPropagation();
@@ -562,7 +698,7 @@ export default function ModelDetailsPage() {
 							size="sm"
 							variant={expandedIds.has(d.id) ? "gradient" : "outline"}
 							onClick={() => toggleExpand(d.id)}
-							className="px-2.5 py-1 text-[11px] font-semibold hover:bg-primary hover:text-white transition-colors cursor-pointer"
+							className="px-2.5 py-1 text-[11px] font-semibold hover:!bg-primary hover:!text-white transition-colors cursor-pointer"
 						>
 							{expandedIds.has(d.id) ? "Hide History" : "Show History"}
 						</Button>
@@ -667,6 +803,32 @@ export default function ModelDetailsPage() {
 		);
 	};
 
+	const stockMetrics = useMemo(() => {
+		const totalCount = modelDevices.length;
+		const availableCount = modelDevices.filter(d => d.status === "Available").length;
+		const soldCount = totalCount - availableCount;
+		
+		let totalInvestment = 0;
+		let totalEstimatedSelling = 0;
+		modelDevices.forEach(d => {
+			if (d.status === "Available") {
+				totalInvestment += (d.purchasePrice || 0) + (d.repairingCost || 0);
+				totalEstimatedSelling += d.price;
+			}
+		});
+		
+		const estProfitMargin = totalEstimatedSelling - totalInvestment;
+		
+		return {
+			totalCount,
+			availableCount,
+			soldCount,
+			totalInvestment,
+			estProfitMargin,
+			avgSellingPrice: availableCount > 0 ? Math.round(totalEstimatedSelling / availableCount) : 0
+		};
+	}, [modelDevices]);
+
 	return (
 		<div className="space-y-8 animate-fadeIn">
 			{/* Header with Title and Back Button */}
@@ -703,6 +865,45 @@ export default function ModelDetailsPage() {
 				</div>
 			</div>
 
+			{/* STOCK METRICS CARDS */}
+			<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+				<div className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col justify-between">
+					<span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Stock</span>
+					<div className="flex items-baseline justify-between mt-2">
+						<span className="text-2xl font-black text-zinc-900 dark:text-white">{stockMetrics.totalCount}</span>
+						<span className="text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+							{stockMetrics.availableCount} Active
+						</span>
+					</div>
+				</div>
+
+				<div className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col justify-between">
+					<span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Investment Value</span>
+					<div className="flex items-baseline justify-between mt-2">
+						<span className="text-2xl font-black text-zinc-900 dark:text-white">₹{stockMetrics.totalInvestment.toLocaleString()}</span>
+						<span className="text-[10px] font-medium text-zinc-400">Available Stock</span>
+					</div>
+				</div>
+
+				<div className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col justify-between">
+					<span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Est. Profit Margin</span>
+					<div className="flex items-baseline justify-between mt-2">
+						<span className="text-2xl font-black text-zinc-900 dark:text-white">₹{stockMetrics.estProfitMargin.toLocaleString()}</span>
+						<span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+							Markups
+						</span>
+					</div>
+				</div>
+
+				<div className="bg-white dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm flex flex-col justify-between">
+					<span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Avg. Selling Price</span>
+					<div className="flex items-baseline justify-between mt-2">
+						<span className="text-2xl font-black text-zinc-900 dark:text-white">₹{stockMetrics.avgSellingPrice.toLocaleString()}</span>
+						<span className="text-[10px] font-medium text-zinc-400">Per Active Device</span>
+					</div>
+				</div>
+			</div>
+
 			{/* SEARCH & FILTERS */}
 			<div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-zinc-900/50 p-4 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60">
 				<div className="relative w-full md:w-80">
@@ -730,7 +931,7 @@ export default function ModelDetailsPage() {
 					/>
 				</div>
 
-				<div className="flex items-center gap-3 w-full md:w-auto">
+				<div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
 					<Select
 						value={level2Condition}
 						onChange={(e) => setLevel2Condition(e.target.value)}
@@ -739,31 +940,68 @@ export default function ModelDetailsPage() {
 							{ value: "NEW", label: "New" },
 							{ value: "OLD", label: "Old" },
 						]}
-						className="w-40"
+						className="w-36"
 					/>
+
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleShareStock}
+						className="px-3 py-2 rounded-xl font-bold cursor-pointer flex items-center gap-1.5"
+						title="Share Stock List"
+					>
+						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+							<path strokeLinecap="round" strokeLinejoin="round" d="M8.684 10.742l4.632-2.316m0 0a3 3 0 10-2.222-2.476L6.47 8.274m12.18 1.902a3 3 0 11-1.042 5.563l-5.632-2.816m0 0a3 3 0 102.222-2.476l5.632 2.816M19 16a3 3 0 100 6 3 3 0 000-6z" />
+						</svg>
+						<span>Share</span>
+					</Button>
+
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleExportExcel}
+						className="px-3 py-2 rounded-xl font-bold cursor-pointer flex items-center gap-1.5"
+						title="Export to Excel/CSV"
+					>
+						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+							<path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+						</svg>
+						<span>Export Excel</span>
+					</Button>
+
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setIsImportOpen(true)}
+						className="px-3 py-2 rounded-xl font-bold cursor-pointer flex items-center gap-1.5"
+						title="Import from Excel/CSV"
+					>
+						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+							<path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+						</svg>
+						<span>Import Excel</span>
+					</Button>
 
 					<Button
 						variant="gradient"
 						size="sm"
 						onClick={handleOpenAdd}
-						className="px-3.5 py-2.5 rounded-xl font-bold cursor-pointer"
+						className="px-3.5 py-2.5 rounded-xl font-bold cursor-pointer flex items-center gap-1.5"
 					>
-						<span className="flex items-center gap-2">
-							<svg
-								className="w-4 h-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								strokeWidth="2.5"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									d="M12 4v16m8-8H4"
-								/>
-							</svg>
-							Add Device
-						</span>
+						<svg
+							className="w-4 h-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							strokeWidth="2.5"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M12 4v16m8-8H4"
+							/>
+						</svg>
+						<span>Add Device</span>
 					</Button>
 				</div>
 			</div>
@@ -816,326 +1054,24 @@ export default function ModelDetailsPage() {
 				size="lg"
 			>
 				<form onSubmit={handleSubmit} noValidate className="space-y-4">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* IMEI */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								IMEI (15 digits)
-							</label>
-							<input
-								type="text"
-								maxLength={15}
-								value={formImei}
-								onChange={(e) => {
-									setFormImei(e.target.value.replace(/\D/g, ""));
-									clearFieldError("imei");
-								}}
-								placeholder="e.g. 359283748291827"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none font-mono transition-colors ${
-									fieldErrors.imei
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.imei && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.imei}
-								</p>
-							)}
-						</div>
-
-						{/* Color */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Color *
-							</label>
-							<input
-								type="text"
-								value={formColor}
-								onChange={(e) => {
-									setFormColor(e.target.value);
-									clearFieldError("color");
-								}}
-								placeholder="e.g. Phantom Black"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
-									fieldErrors.color
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.color && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.color}
-								</p>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* STORAGE */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Storage Capacity *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingStorage}
-									onClick={() => setIsAddingStorage(!isAddingStorage)}
-									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-								>
-									{isAddingStorage ? "Cancel" : "Request Storage"}
-								</button>
-							</div>
-
-							{isAddingStorage ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingStorage || isSubmitting}
-											value={newStorageVal}
-											onChange={(e) => {
-												setNewStorageVal(e.target.value);
-												setStorageInlineError("");
-											}}
-											placeholder="e.g. 512GB"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${storageInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingStorage || isSubmitting}
-											onClick={handleCreateStorage}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-										>
-											{isSubmittingStorage ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{storageInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{storageInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formStorage}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormStorage(e.target.value);
-										clearFieldError("storage");
-									}}
-									required
-									placeholder="-- Choose Storage --"
-									options={specs.allStorages.map((s) => ({ value: s.id.toString(), label: s.value }))}
-									error={fieldErrors.storage}
-								/>
-							)}
-						</div>
-
-						{/* RAM */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									RAM Size *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingRam}
-									onClick={() => setIsAddingRam(!isAddingRam)}
-									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-								>
-									{isAddingRam ? "Cancel" : "Request RAM"}
-								</button>
-							</div>
-
-							{isAddingRam ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingRam || isSubmitting}
-											value={newRamVal}
-											onChange={(e) => {
-												setNewRamVal(e.target.value);
-												setRamInlineError("");
-											}}
-											placeholder="e.g. 16GB"
-											className={`w-full px-3 py-2.5 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${ramInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingRam || isSubmitting}
-											onClick={handleCreateRam}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-										>
-											{isSubmittingRam ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{ramInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{ramInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formRam}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormRam(e.target.value);
-										clearFieldError("ram");
-									}}
-									required
-									placeholder="-- Choose RAM --"
-									options={specs.allRams.map((r) => ({ value: r.id.toString(), label: r.value }))}
-									error={fieldErrors.ram}
-								/>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* Condition */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Condition *
-							</label>
-							<Select
-								value={formCondition}
-								onChange={(e) => {
-									setFormCondition(e.target.value as any);
-									clearFieldError("condition");
-								}}
-								options={[
-									{ value: "NEW", label: "New" },
-									{ value: "OLD", label: "Old" },
-								]}
-								className={fieldErrors.condition ? "border-red-400 focus:ring-red-400" : ""}
-							/>
-							{fieldErrors.condition && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.condition}
-								</p>
-							)}
-						</div>
-
-						{/* Battery Health */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Battery Health (%) *
-							</label>
-							<input
-								type="number"
-								min={50}
-								max={100}
-								value={formBatteryHealth}
-								onChange={(e) => {
-									setFormBatteryHealth(parseInt(e.target.value) || 0);
-									clearFieldError("batteryHealth");
-								}}
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
-									fieldErrors.batteryHealth
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.batteryHealth && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.batteryHealth}
-								</p>
-							)}
-						</div>
-					</div>
-
-					{/* Customer Selection */}
-					{!editingDevice && (
-						<PartnerSelector
-							value={formCustomerId}
-							onChange={setFormCustomerId}
-							label="Select Customer / Vendor (for Purchase Transaction)"
-							placeholder="-- Choose Partner --"
-							required={false}
-							valueType="id"
-						/>
-					)}
-
-					{/* Cost Price */}
-					{!editingDevice && (
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Purchase / Cost Price * (₹)
-							</label>
-							<input
-								type="number"
-								required
-								value={formPurchasePrice}
-								onChange={(e) => {
-									setFormPurchasePrice(e.target.value);
-									clearFieldError("purchasePrice");
-								}}
-								placeholder="e.g. 30000"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
-									fieldErrors.purchasePrice
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.purchasePrice && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.purchasePrice}
-								</p>
-							)}
-						</div>
-					)}
-
-					{/* Description */}
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Listing Description
-						</label>
-						<textarea
-							value={formDescription}
-							onChange={(e) => {
-								setFormDescription(e.target.value);
-								clearFieldError("description");
-							}}
-							placeholder="e.g. Mint condition. Minor scratch on screen, box and original cable available..."
-							rows={3}
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
-								fieldErrors.description
-									? "border-red-400 focus:ring-red-400"
-									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-							}`}
-						/>
-						{fieldErrors.description && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.description}
-							</p>
-						)}
-					</div>
+					<MobileRegisterForm
+						values={registerFormValues}
+						onChange={handleFormChange}
+						errors={fieldErrors}
+						isEdit={!!editingDevice}
+						hideBrandModel={true}
+						specs={{
+							allBrands: specs.allBrands,
+							allModels: specs.allModels,
+							allStorages: specs.allStorages,
+							allRams: specs.allRams,
+							addBrand: specs.addBrand,
+							addModel: specs.addModel,
+							addStorage: specs.addStorage,
+							addRam: specs.addRam,
+							refreshAllSpecs: specs.refreshAllSpecs
+						}}
+					/>
 
 					{formError && (
 						<p className="text-xs text-red-500 font-semibold text-center mt-2">
@@ -1167,6 +1103,72 @@ export default function ModelDetailsPage() {
 				itemName={deletingDevice?.name || ""}
 				warningText="Removing this device will delete it permanently from the inventory database."
 			/>
+
+			{/* EXCEL IMPORT MODAL */}
+			<Modal
+				isOpen={isImportOpen}
+				onClose={() => setIsImportOpen(false)}
+				title="Import Stock from Excel File"
+				size="md"
+			>
+				<div className="space-y-4">
+					<div className="bg-zinc-50 dark:bg-zinc-900/40 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 space-y-1">
+						<p className="font-bold text-zinc-700 dark:text-zinc-300">Expected Sheet Column Headers (in order):</p>
+						<p className="font-mono bg-zinc-100 dark:bg-zinc-800/80 p-1.5 rounded select-all text-[11px]">
+							IMEI | Color | Storage | RAM | Condition | BatteryHealth | CostPrice
+						</p>
+						<p className="mt-2 text-[10px]">Note: Storage and RAM values must match existing options in the system.</p>
+						<div className="mt-3 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between">
+							<span className="text-[10px] text-zinc-400">Need a sample file to get started?</span>
+							<button
+								type="button"
+								onClick={handleDownloadDemoSheet}
+								className="text-[10px] text-primary hover:underline font-semibold cursor-pointer"
+							>
+								Download Demo Sheet
+							</button>
+						</div>
+					</div>
+
+					<div className="space-y-2">
+						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+							Select Excel File (.xlsx, .xls)
+						</label>
+						<div className="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 text-center hover:border-primary hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-all relative cursor-pointer">
+							<input
+								type="file"
+								accept=".xlsx, .xls"
+								onChange={handleImportExcel}
+								disabled={isImporting}
+								className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+							/>
+							<div className="space-y-2 pointer-events-none">
+								<svg className="w-8 h-8 text-zinc-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+									<path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+								</svg>
+								<p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+									{isImporting ? "Processing Excel File..." : "Click or drag your Excel file here to upload"}
+								</p>
+								<p className="text-[10px] text-zinc-400">Supports Excel workbook formats (.xlsx, .xls)</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => setIsImportOpen(false)}
+							disabled={isImporting}
+						>
+							Cancel
+						</Button>
+					</div>
+				</div>
+			</Modal>
+
+
 		</div>
 	);
 }

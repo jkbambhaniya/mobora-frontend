@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "axios": "^1.18.0",
+    "html5-qrcode": "^2.3.8",
     "libphonenumber-js": "^1.13.6",
     "next": "16.2.9",
     "notiflix": "^3.2.8",
@@ -20,6 +21,7 @@
     "react-international-phone": "^4.8.0",
     "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",
+    "xlsx": "^0.18.5",
     "yup": "^1.7.1"
   },
   "devDependencies": {
