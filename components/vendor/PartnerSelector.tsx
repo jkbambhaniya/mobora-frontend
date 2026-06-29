@@ -8,6 +8,8 @@ import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { toast } from "react-hot-toast";
 
+import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload";
+
 const quickCustomerSchema = yup.object().shape({
 	name: yup.string().trim().required("Full Name is required."),
 	phone: yup
@@ -20,6 +22,9 @@ const quickCustomerSchema = yup.object().shape({
 			(value) => !!value && isValidPhoneNumber(value),
 		),
 	address: yup.string().trim().nullable().notRequired(),
+	idType: yup.string().trim().nullable().notRequired(),
+	idNumber: yup.string().trim().nullable().notRequired(),
+	kycDocumentImg: yup.string().trim().nullable().notRequired(),
 });
 
 interface PartnerSelectorProps {
@@ -50,6 +55,9 @@ export function PartnerSelector({
 	const [newCustName, setNewCustName] = useState("");
 	const [newCustPhone, setNewCustPhone] = useState("");
 	const [newCustAddress, setNewCustAddress] = useState("");
+	const [newCustIdType, setNewCustIdType] = useState("");
+	const [newCustIdNumber, setNewCustIdNumber] = useState("");
+	const [newCustKycDocImg, setNewCustKycDocImg] = useState<string | null>(null);
 	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
 	const [custFormError, setCustFormError] = useState("");
 
@@ -154,6 +162,9 @@ export function PartnerSelector({
 					name: newCustName,
 					phone: newCustPhone,
 					address: newCustAddress || null,
+					idType: newCustIdType || null,
+					idNumber: newCustIdNumber || null,
+					kycDocumentImg: newCustKycDocImg || null,
 				},
 				{ abortEarly: false },
 			);
@@ -181,6 +192,9 @@ export function PartnerSelector({
 				status: "Active",
 				address: newCustAddress || "Quick Registration",
 				notes: "Quick registered during transaction workflow.",
+				idType: newCustIdType || null,
+				idNumber: newCustIdNumber || null,
+				kycDocumentImg: newCustKycDocImg || null,
 			});
 
 			if (res.success && res.customer) {
@@ -188,6 +202,9 @@ export function PartnerSelector({
 				setNewCustName("");
 				setNewCustPhone("");
 				setNewCustAddress("");
+				setNewCustIdType("");
+				setNewCustIdNumber("");
+				setNewCustKycDocImg(null);
 				setCustErrors({});
 				toast.success(`Customer ${newCustName} registered.`);
 				if (valueType === "id") {
@@ -245,7 +262,7 @@ export function PartnerSelector({
 									setCustErrors((prev) => ({ ...prev, name: "" }));
 								}}
 								placeholder="e.g. John Doe"
-								className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+								className={`w-full px-3 py-[7px] border rounded-lg text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
 									${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
 							/>
 							{custErrors.name && (
@@ -291,6 +308,55 @@ export function PartnerSelector({
 								{custErrors.address}
 							</p>
 						)}
+					</div>
+
+					{/* GOVERNMENT ID KYC DETAILS (OPTIONAL) */}
+					<div className="border-t border-zinc-200 dark:border-zinc-800 pt-3 mt-1 space-y-3">
+						<h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+							Government ID KYC Details (Optional)
+						</h4>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<div className="space-y-1">
+								<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+									ID Proof Type
+								</label>
+								<Select
+									value={newCustIdType}
+									onChange={(e) => setNewCustIdType(e.target.value)}
+									placeholder="Select ID Type"
+									size="sm"
+									options={[
+										{ value: "Aadhaar Card", label: "Aadhaar Card" },
+										{ value: "PAN Card", label: "PAN Card" },
+										{ value: "Voter ID", label: "Voter ID" },
+										{ value: "Driving License", label: "Driving License" },
+									]}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+									ID Document Number
+								</label>
+								<input
+									type="text"
+									disabled={isSubmitting}
+									value={newCustIdNumber}
+									onChange={(e) => setNewCustIdNumber(e.target.value)}
+									placeholder="e.g. 12-digit Aadhaar / 10-digit PAN"
+									className="w-full px-3 py-[7px] border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+								/>
+							</div>
+						</div>
+						<div className="space-y-1">
+							<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+								Upload ID Document Copy (Front/Back Image)
+							</label>
+							<KycDocumentUpload
+								name="quick-add-kyc"
+								value={newCustKycDocImg || undefined}
+								onChange={(val) => setNewCustKycDocImg(val)}
+							/>
+						</div>
 					</div>
 					<button
 						type="button"

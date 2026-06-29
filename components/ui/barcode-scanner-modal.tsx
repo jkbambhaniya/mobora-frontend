@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,7 @@ export function BarcodeScannerModal({
 	onClose,
 	onScanSuccess,
 	title = "Scan Barcode / IMEI",
-}: BarcodeScannerModalProps) {
+ }: BarcodeScannerModalProps) {
 	const scannerRef = useRef<Html5Qrcode | null>(null);
 	const [permissionError, setPermissionError] = useState<string | null>(null);
 
@@ -48,12 +48,31 @@ export function BarcodeScannerModal({
 			const timer = setTimeout(() => {
 				if (!isMounted) return;
 				try {
-					const html5QrCode = new Html5Qrcode("scanner-reader");
+					const html5QrCode = new Html5Qrcode("scanner-reader", {
+						formatsToSupport: [
+							Html5QrcodeSupportedFormats.CODE_128,
+							Html5QrcodeSupportedFormats.EAN_13,
+							Html5QrcodeSupportedFormats.EAN_8,
+							Html5QrcodeSupportedFormats.CODE_39,
+							Html5QrcodeSupportedFormats.UPC_A,
+							Html5QrcodeSupportedFormats.UPC_E,
+							Html5QrcodeSupportedFormats.QR_CODE
+						],
+						verbose: false
+					});
 					scannerRef.current = html5QrCode;
 					const config = {
-						fps: 10,
-						qrbox: { width: 250, height: 120 },
+						fps: 30,
+						qrbox: { width: 280, height: 140 },
 						aspectRatio: 1.777778,
+						experimentalFeatures: {
+							useBarCodeDetectorIfSupported: true,
+						},
+						videoConstraints: {
+							facingMode: "environment",
+							width: { min: 640, ideal: 1280 },
+							height: { min: 480, ideal: 720 },
+						}
 					};
 					html5QrCode
 						.start(

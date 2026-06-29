@@ -9,6 +9,7 @@ import {
 	Attachment,
 } from "@/context/vendor/dashboard-context";
 import { toast } from "react-hot-toast";
+import TemplateManagerModal from "@/components/vendor/chat/TemplateManagerModal";
 
 const quickReplies = [
 	"Hello! Yes, this device is still available in our stock.",
@@ -38,12 +39,15 @@ function ChatPageInner() {
 		activeChatId,
 		setActiveChatId,
 		vendor,
+		templates,
+		fetchTemplates,
 	} = useDashboard();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [newMessage, setNewMessage] = useState("");
 	const [showDetails, setShowDetails] = useState(true);
 	const [showMobileChat, setShowMobileChat] = useState(false);
 	const [isUploading, setIsUploading] = useState(false);
+	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
 	// New Chat Dialog States
 	const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -74,11 +78,13 @@ function ChatPageInner() {
 	useEffect(() => {
 		if (vendor) {
 			fetchVendors().then((list) => setVendors(list));
+			fetchTemplates();
 		}
 	}, [vendor]);
 
 	const searchParams = useSearchParams();
 	const partnerId = searchParams.get("partnerId");
+	const initialMsgParam = searchParams.get("message");
 
 	useEffect(() => {
 		if (partnerId && vendor && chats && chats.length > 0) {
@@ -86,10 +92,13 @@ function ChatPageInner() {
 			const existingChat = chats.find((c) => c.id === expectedChatId);
 			if (existingChat) {
 				setActiveChatId(existingChat.id);
+				if (initialMsgParam) {
+					setNewMessage(initialMsgParam);
+				}
 			} else {
 				createChatSession({
 					recipientVendorId: Number(partnerId),
-					initialMessage: "Hi, I saw your listed matching device. Is it still available?",
+					initialMessage: initialMsgParam || "Hi, I saw your listed matching device. Is it still available?",
 				}).then((newChatId) => {
 					if (newChatId) {
 						setActiveChatId(newChatId);
@@ -97,7 +106,7 @@ function ChatPageInner() {
 				});
 			}
 		}
-	}, [partnerId, vendor, chats]);
+	}, [partnerId, vendor, chats, initialMsgParam]);
 
 	const getMemberDetails = (memberId: string | number) => {
 		if (vendor && memberId.toString() === vendor.id.toString()) {
@@ -499,16 +508,19 @@ function ChatPageInner() {
 												? "Typing..."
 												: chat.lastMessage}
 										</p>
-										{chat.deviceInterest && (
-											<span className="inline-block mt-1 text-[8px] bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded text-zinc-400 font-semibold uppercase tracking-wider">
-												{
-													chat.deviceInterest.split(
-														" ",
-													)[0]
-												}{" "}
-												Upgrade
+										{chat.isGroup ? (
+											<span className="inline-block mt-1 text-[8px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100/50 dark:border-indigo-900/30 px-1.5 py-0.5 rounded text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">
+												Dealer Group
 											</span>
-										)}
+										) : chat.recipientVendorId ? (
+											<span className="inline-block mt-1 text-[8px] bg-primary/5 dark:bg-primary/20 border border-primary/10 px-1.5 py-0.5 rounded text-primary dark:text-secondary font-bold uppercase tracking-wider">
+												Dealer
+											</span>
+										) : chat.deviceInterest ? (
+											<span className="inline-block mt-1 text-[8px] bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded text-zinc-400 font-semibold uppercase tracking-wider">
+												{chat.deviceInterest.split(" ")[0]} Upgrade
+											</span>
+										) : null}
 									</div>
 									{chat.unreadCount > 0 && (
 										<span className="shrink-0 bg-primary text-white text-[9px] font-bold h-4 w-4 rounded-full flex items-center justify-center self-center shadow">
@@ -623,7 +635,7 @@ function ChatPageInner() {
 									<div
 										className={`max-w-[75%] rounded-2xl p-3.5 shadow-sm ${
 											isVendor
-												? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-tr-none"
+												? "bg-primary/10 text-zinc-900 border border-primary/20 dark:bg-primary/20 dark:text-zinc-100 dark:border-primary/30 rounded-tr-none"
 												: "bg-white border border-zinc-200/60 text-zinc-800 dark:bg-zinc-850 dark:border-zinc-800 dark:text-zinc-100 rounded-tl-none"
 										}`}
 									>
@@ -789,7 +801,7 @@ function ChatPageInner() {
 													{m.status ===
 													"delivered" ? (
 														/* Double tick (grey) */
-														<svg
+ 														<svg
 															className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500"
 															fill="none"
 															viewBox="0 0 24 24"
@@ -809,7 +821,7 @@ function ChatPageInner() {
 														</svg>
 													) : m.status === "read" ? (
 														/* Double tick (colored blue) */
-														<svg
+ 														<svg
 															className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400"
 															fill="none"
 															viewBox="0 0 24 24"
@@ -829,7 +841,7 @@ function ChatPageInner() {
 														</svg>
 													) : (
 														/* Single tick (grey) - fallback / sent */
-														<svg
+ 														<svg
 															className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500"
 															fill="none"
 															viewBox="0 0 24 24"
@@ -878,17 +890,43 @@ function ChatPageInner() {
 						<span className="text-[9px] uppercase font-bold text-zinc-400 mr-2 shrink-0">
 							Templates:
 						</span>
-						{quickReplies.map((reply, index) => (
-							<button
-								key={index}
-								onClick={() => handleQuickReply(reply)}
-								className="text-[10px] bg-white border border-zinc-200 hover:border-primary dark:bg-zinc-850 dark:border-zinc-800 hover:text-primary dark:hover:text-secondary px-3 py-1.5 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
-							>
-								{reply.length > 25
-									? `${reply.substring(0, 25)}...`
-									: reply}
-							</button>
-						))}
+						
+						{/* Manage templates button */}
+						<button
+							onClick={() => setIsTemplateModalOpen(true)}
+							className="text-[10px] bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 hover:text-primary px-3 py-1.5 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer flex items-center gap-1 font-bold"
+						>
+							<svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+							</svg>
+							Manage
+						</button>
+
+						{templates.length > 0 ? (
+							templates.map((tmpl) => (
+								<button
+									key={tmpl.id}
+									onClick={() => handleQuickReply(tmpl.template_text)}
+									className="text-[10px] bg-white border border-zinc-200 hover:border-primary dark:bg-zinc-850 dark:border-zinc-800 hover:text-primary dark:hover:text-secondary px-3 py-1.5 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+								>
+									{tmpl.template_text.length > 25
+										? `${tmpl.template_text.substring(0, 25)}...`
+										: tmpl.template_text}
+								</button>
+							))
+						) : (
+							quickReplies.map((reply, index) => (
+								<button
+									key={index}
+									onClick={() => handleQuickReply(reply)}
+									className="text-[10px] bg-white border border-zinc-200 hover:border-primary dark:bg-zinc-850 dark:border-zinc-800 hover:text-primary dark:hover:text-secondary px-3 py-1.5 rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
+								>
+									{reply.length > 25
+										? `${reply.substring(0, 25)}...`
+										: reply}
+								</button>
+							))
+						)}
 					</div>
 
 					{/* Input box with attachment button */}
@@ -996,9 +1034,16 @@ function ChatPageInner() {
 								</h4>
 								<p className="text-[10px] text-zinc-400 mt-0.5">
 									{activeChat.isGroup
-										? "B2B Group Chat"
+										? "Dealer Group Chat"
+										: activeChat.recipientVendorId
+										? "Dealer Partner"
 										: activeChat.customerPhone}
 								</p>
+								{activeChat.recipientVendorId && (
+									<p className="text-[9px] text-zinc-450 dark:text-zinc-500 mt-0.5 truncate max-w-[180px] mx-auto text-center">
+										{vendors.find((v) => v.id.toString() === activeChat.recipientVendorId?.toString())?.email}
+									</p>
+								)}
 							</div>
 						</div>
 
@@ -1007,17 +1052,23 @@ function ChatPageInner() {
 							<span className="text-[9px] uppercase font-bold text-zinc-400 tracking-wider">
 								{activeChat.isGroup
 									? "Channel Type"
+									: activeChat.recipientVendorId
+									? "Partner Shop"
 									: "Device Interest"}
 							</span>
 							<div className="bg-primary/5 dark:bg-primary/10 border border-primary/10 rounded-xl p-2.5">
 								<p className="text-[11px] font-bold text-primary dark:text-secondary truncate">
 									{activeChat.isGroup
-										? "B2B Dealer Trade Group"
+										? "Dealer Trade Group"
+										: activeChat.recipientVendorId
+										? (vendors.find((v) => v.id.toString() === activeChat.recipientVendorId?.toString())?.shop_name || activeChat.deviceInterest || "Verified Dealer Store")
 										: activeChat.deviceInterest}
 								</p>
 								<span className="text-[8px] font-medium text-zinc-400">
 									{activeChat.isGroup
 										? "Broadcasting Enabled"
+										: activeChat.recipientVendorId
+										? "Verified Dealer Network"
 										: "Target Upgrade Spec"}
 								</span>
 							</div>
@@ -1044,6 +1095,12 @@ function ChatPageInner() {
 											inventory offers and trade listings.
 										</p>
 									</div>
+								) : activeChat.recipientVendorId ? (
+									<p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal italic">
+										{activeChat.notes && activeChat.notes !== "B2B Trade Partner"
+											? `"${activeChat.notes}"`
+											: "No custom notes added for this dealer."}
+									</p>
 								) : (
 									<p className="text-[10px] text-zinc-600 dark:text-zinc-300 leading-normal italic">
 										&quot;{activeChat.notes}&quot;
@@ -1097,54 +1154,6 @@ function ChatPageInner() {
 							</div>
 						)}
 					</div>
-
-					<div className="pt-4 border-t border-zinc-150 dark:border-zinc-800 space-y-2">
-						<span className="text-[9px] uppercase font-bold text-zinc-400 tracking-wider">
-							Quick Actions
-						</span>
-						<div className="grid grid-cols-2 gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								className="text-[10px] py-1.5 w-full rounded-lg"
-								onClick={() => {
-									if (activeChat.isGroup) {
-										handleSendMessage(
-											"Hi everyone, please check my latest inventory list in the portal.",
-										);
-									} else {
-										handleSendMessage(
-											"Could you send a screenshot of the settings showing battery percentage?",
-										);
-									}
-								}}
-							>
-								{activeChat.isGroup
-									? "Share Stock"
-									: "Request BH"}
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								className="text-[10px] py-1.5 w-full rounded-lg"
-								onClick={() => {
-									if (activeChat.isGroup) {
-										handleSendMessage(
-											"Are there any dealers interested in bulk iPhone trade-ins today?",
-										);
-									} else {
-										handleSendMessage(
-											"Our store location is: Shop 12, Metro Plaza, MG Road. Let me know when you plan to arrive.",
-										);
-									}
-								}}
-							>
-								{activeChat.isGroup
-									? "Bulk Inquiry"
-									: "Send Location"}
-							</Button>
-						</div>
-					</div>
 				</div>
 			)}
 
@@ -1155,7 +1164,7 @@ function ChatPageInner() {
 						<div className="flex justify-between items-start mb-4">
 							<div>
 								<h3 className="font-extrabold text-sm text-zinc-900 dark:text-white leading-tight">
-									Start B2B Trade Chat
+									Start Dealer Chat
 								</h3>
 								<p className="text-[10px] text-zinc-400 mt-1">
 									Initiate a direct, real-time message stream
@@ -1507,6 +1516,12 @@ function ChatPageInner() {
 					</div>
 				</div>
 			)}
+
+			{/* Template Manager Modal */}
+			<TemplateManagerModal
+				isOpen={isTemplateModalOpen}
+				onClose={() => setIsTemplateModalOpen(false)}
+			/>
 		</div>
 	);
 }

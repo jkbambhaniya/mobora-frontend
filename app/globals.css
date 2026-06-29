@@ -17,6 +17,7 @@
   --color-primary: #2563EB;
   --color-secondary: #06B6D4;
   --color-success: #10B981;
+  --color-zinc-850: #202023;
   
   --animate-fadeIn: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-scaleUp: scaleUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;

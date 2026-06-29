@@ -9,12 +9,18 @@ import { logoutAction } from "@/actions/auth";
 import { confirmLogout } from "@/utils/confirm";
 import { useOutsideClick } from "@/hooks/use-outside-click";
 import { NotificationBell } from "@/components/ui/notification-bell";
+import { ImeiSearchModal } from "@/components/vendor/imei-search-modal";
+
 
 export default function Header() {
 	const { setActiveTab, models, vendor, setVendor } = useDashboard();
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
+	const [headerImei, setHeaderImei] = useState("");
+	const [searchImei, setSearchImei] = useState("");
+	const [isImeiModalOpen, setIsImeiModalOpen] = useState(false);
 	const pathname = usePathname();
 	const dropdownRef = useRef<HTMLDivElement>(null);
+
 
 	useOutsideClick(
 		dropdownRef,
@@ -171,8 +177,8 @@ export default function Header() {
 						</svg>
 					</div>
 
-					<div className="hidden md:block relative">
-						<span className="absolute inset-y-0 left-2.5 flex items-center text-zinc-400 group-hover:text-primary transition-colors">
+					<div className="hidden md:flex items-center h-9 bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all px-2.5 gap-2">
+						<span className="text-zinc-400 group-hover:text-primary transition-colors flex items-center shrink-0">
 							<svg
 								className="w-3.5 h-3.5"
 								fill="none"
@@ -191,13 +197,29 @@ export default function Header() {
 							type="text"
 							readOnly
 							placeholder="Search devices, customer, actions..."
-							className="w-48 lg:w-56 pl-8 pr-10 py-1.5 text-[11px] font-semibold rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 focus:outline-none cursor-pointer group-hover:border-zinc-300 dark:group-hover:border-zinc-700 transition-all duration-300"
+							className="lg:w-56 bg-transparent text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 focus:outline-none cursor-pointer"
 						/>
-						<kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-mono text-zinc-400 bg-white dark:bg-zinc-850 px-1 py-0.2 rounded border border-zinc-200 dark:border-zinc-800 shadow-sm pointer-events-none">
+						<kbd className="text-[8px] font-mono text-zinc-400 bg-white dark:bg-zinc-850 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800 shadow-sm pointer-events-none shrink-0">
 							⌘K
 						</kbd>
 					</div>
 				</div>
+
+				{/* IMEI Scanner Button */}
+				<button
+					onClick={() => {
+						setSearchImei("");
+						setIsImeiModalOpen(true);
+					}}
+					className="flex items-center gap-1.5 h-9 bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100/50 dark:hover:bg-zinc-900/80 transition-all px-3 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 cursor-pointer"
+					title="Verify IMEI / Scan"
+				>
+					<svg className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+						<rect x="5" y="2" width="14" height="20" rx="2" />
+						<path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01" />
+					</svg>
+					<span>Scan IMEI</span>
+				</button>
 
 				{/* Notifications - Dynamic Bell */}
 				<NotificationBell />
@@ -316,6 +338,13 @@ export default function Header() {
 					)}
 				</div>
 			</div>
+			
+			<ImeiSearchModal
+				isOpen={isImeiModalOpen}
+				onClose={() => setIsImeiModalOpen(false)}
+				initialImei={searchImei}
+			/>
 		</header>
 	);
 }
+

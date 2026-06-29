@@ -72,22 +72,21 @@ export default function AdminDashboardPage() {
 					</div>
 				</div>
 
-				{/* Card 3: Total Repairs */}
+				{/* Card 3: Total Customers */}
 				<div className="p-6 rounded-2xl bg-white dark:bg-[#13151a]/50 backdrop-blur-md border border-zinc-200/80 dark:border-white/5 shadow-sm dark:shadow-lg relative overflow-hidden">
 					<div className="absolute top-0 right-0 p-4 opacity-5">
 						<svg className="w-24 h-24 text-zinc-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
 						</svg>
 					</div>
-					<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Total Repairs</p>
+					<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Total Customers</p>
 					{isLoadingStats ? (
 						<div className="h-9 w-24 bg-zinc-200/50 dark:bg-white/5 animate-pulse rounded-lg mt-3" />
 					) : (
-						<p className="text-3xl font-bold text-zinc-900 dark:text-white mt-2">{stats?.totalRepairs ?? 0}</p>
+						<p className="text-3xl font-bold text-zinc-900 dark:text-white mt-2">{stats?.totalCustomers ?? 0}</p>
 					)}
 					<div className="flex items-center gap-2 mt-4 text-xs text-zinc-500 dark:text-gray-400">
-						<span>Completed & pending repairs</span>
+						<span>Registered buyers & sellers</span>
 					</div>
 				</div>
 

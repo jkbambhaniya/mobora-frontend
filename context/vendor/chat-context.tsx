@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { ChatSession, ChatMessage, Attachment } from "./types";
+import { ChatSession, ChatMessage, Attachment, ChatTemplate } from "./types";
 import { useAuth } from "./auth-context";
 import { useNotifications } from "./notification-context";
 import { apiClient } from "@/actions/apiClient";
@@ -34,6 +34,11 @@ interface ChatContextType {
   isConnected: boolean;
   activeChatId: string | null;
   setActiveChatId: React.Dispatch<React.SetStateAction<string | null>>;
+  templates: ChatTemplate[];
+  fetchTemplates: () => Promise<ChatTemplate[]>;
+  createTemplate: (text: string) => Promise<boolean>;
+  updateTemplate: (id: number, text: string) => Promise<boolean>;
+  deleteTemplate: (id: number) => Promise<boolean>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -43,6 +48,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const { addNotification } = useNotifications();
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChatMessages, setActiveChatMessages] = useState<ChatMessage[]>([]);
+  const [templates, setTemplates] = useState<ChatTemplate[]>([]);
   const [typingStatus, setTypingStatus] = useState<{ [chatId: string]: boolean }>({});
   const [isConnected, setIsConnected] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -81,6 +87,70 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err: any) {
       console.error("[ChatContext] Error fetching sessions:", err.message);
+    }
+  };
+
+  const fetchTemplates = async (): Promise<ChatTemplate[]> => {
+    if (!vendor) return [];
+    try {
+      const res = await apiClient.get("/vendor/chat/templates");
+      if (res?.data?.success) {
+        const list = res.data.templates || [];
+        setTemplates(list);
+        return list;
+      }
+      return [];
+    } catch (err: any) {
+      console.error("[ChatContext] Error fetching templates:", err.message);
+      return [];
+    }
+  };
+
+  const createTemplate = async (text: string): Promise<boolean> => {
+    try {
+      const res = await apiClient.post("/vendor/chat/templates", { template_text: text });
+      if (res?.data?.success) {
+        toast.success("Template created successfully");
+        await fetchTemplates();
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error("[ChatContext] Error creating template:", err.message);
+      toast.error(err.response?.data?.message || "Failed to create template");
+      return false;
+    }
+  };
+
+  const updateTemplate = async (id: number, text: string): Promise<boolean> => {
+    try {
+      const res = await apiClient.put(`/vendor/chat/templates/${id}`, { template_text: text });
+      if (res?.data?.success) {
+        toast.success("Template updated successfully");
+        await fetchTemplates();
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error("[ChatContext] Error updating template:", err.message);
+      toast.error(err.response?.data?.message || "Failed to update template");
+      return false;
+    }
+  };
+
+  const deleteTemplate = async (id: number): Promise<boolean> => {
+    try {
+      const res = await apiClient.delete(`/vendor/chat/templates/${id}`);
+      if (res?.data?.success) {
+        toast.success("Template deleted successfully");
+        await fetchTemplates();
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error("[ChatContext] Error deleting template:", err.message);
+      toast.error(err.response?.data?.message || "Failed to delete template");
+      return false;
     }
   };
 
@@ -412,7 +482,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         typingStatus,
         isConnected,
         activeChatId,
-        setActiveChatId
+        setActiveChatId,
+        templates,
+        fetchTemplates,
+        createTemplate,
+        updateTemplate,
+        deleteTemplate
       }}
     >
       {children}

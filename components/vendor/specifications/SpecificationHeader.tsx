@@ -44,7 +44,7 @@ export default function SpecificationHeader({
 	return (
 		<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/40">
 			{/* Tabs */}
-			<div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-955 p-1 rounded-xl overflow-x-auto w-full lg:w-auto">
+			<div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-950 p-1 rounded-xl overflow-x-auto w-full lg:w-auto">
 				{tabConfig.map(({ key, label }) => (
 					<button
 						key={key}

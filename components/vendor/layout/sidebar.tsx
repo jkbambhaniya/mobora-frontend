@@ -510,7 +510,7 @@ export default function Sidebar() {
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
 									isTabActive("/inventory")
 										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
 								}`}
 							>
 								<svg
@@ -586,7 +586,7 @@ export default function Sidebar() {
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
 									isTabActive("/blacklist")
 										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
 								}`}
 							>
 								<svg
@@ -611,7 +611,7 @@ export default function Sidebar() {
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
 									isTabActive("/requirements")
 										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
+										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-850"
 								}`}
 							>
 								<svg
@@ -638,7 +638,7 @@ export default function Sidebar() {
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
 									isTabActive("/specifications")
 										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
 								}`}
 							>
 								<svg
@@ -663,7 +663,7 @@ export default function Sidebar() {
 								className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer text-left ${
 									isTabActive("/customer")
 										? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-secondary"
-										: "text-zinc-700 hover:text-zinc-955 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+										: "text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
 								}`}
 							>
 								<svg

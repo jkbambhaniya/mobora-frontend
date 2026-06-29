@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDashboard } from "@/context/vendor/dashboard-context";
+import { Modal } from "@/components/ui/modal";
 import * as XLSX from "xlsx";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
@@ -30,6 +31,43 @@ export default function Dashboard() {
 		refreshTrades,
 		vendor,
 	} = useDashboard();
+
+	// Group matching devices by specification
+	const groupedMatchingDevices = useMemo(() => {
+		const groups: {
+			[key: string]: {
+				key: string;
+				brand: string;
+				model: string;
+				condition: string;
+				color: string;
+				ram: string;
+				storage: string;
+				items: typeof matchingDevices;
+			};
+		} = {};
+
+		(matchingDevices || []).forEach((item) => {
+			const specKey = `${item.brand}-${item.model}-${item.condition}-${item.color}-${item.ram}-${item.storage}`.toLowerCase();
+			if (!groups[specKey]) {
+				groups[specKey] = {
+					key: specKey,
+					brand: item.brand,
+					model: item.model,
+					condition: item.condition,
+					color: item.color,
+					ram: item.ram,
+					storage: item.storage,
+					items: [],
+				};
+			}
+			groups[specKey].items.push(item);
+		});
+
+		return Object.values(groups);
+	}, [matchingDevices]);
+
+	const [selectedGroup, setSelectedGroup] = useState<typeof groupedMatchingDevices[number] | null>(null);
 
 	// Default ranges helper
 	const getDaysAgoStr = (days: number) => {
@@ -307,7 +345,7 @@ export default function Dashboard() {
 			</div>
 
 			{/* MATCHING REQUIREMENTS INFOBOX */}
-			{matchingDevices && matchingDevices.length > 0 && (
+			{groupedMatchingDevices && groupedMatchingDevices.length > 0 && (
 				<div className="p-6 rounded-3xl border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/10 dark:bg-indigo-950/5 backdrop-blur-md shadow-sm space-y-4">
 					<div className="flex items-center justify-between">
 						<div>
@@ -318,40 +356,37 @@ export default function Dashboard() {
 								Requirement Matches Available ({matchingDevices.length})
 							</h3>
 							<p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mt-0.5">
-								Other vendors are looking for items matching your device specifications.
+								Other vendors are looking for items matching your device specifications. Click to see details.
 							</p>
 						</div>
 					</div>
 
 					<div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth [scrollbar-width:thin] [scrollbar-color:#c7d2fe_transparent]">
-						{matchingDevices.map((item) => (
-							<div key={item.id} className="p-4 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200 shrink-0 w-72 snap-start">
+						{groupedMatchingDevices.map((group) => (
+							<div key={group.key} className="p-4 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200 shrink-0 w-72 snap-start">
 								<div>
 									<div className="flex items-center justify-between">
-										<span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-100">
-											{item.brand} {item.model}
+										<span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-100 flex items-center gap-1.5 truncate">
+											<span className="truncate">{group.brand} {group.model}</span>
+											<span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+												{group.items.length}
+											</span>
 										</span>
 										<span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-650 dark:text-indigo-400 capitalize">
-											{item.condition}
+											{group.condition}
 										</span>
 									</div>
 									<p className="text-[10px] text-zinc-550 dark:text-zinc-400 mt-1">
-										{item.color} · {item.ram} RAM · {item.storage} Storage
+										{group.color} · {group.ram} RAM · {group.storage} Storage
 									</p>
-									<div className="mt-4 space-y-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800/45 pt-2">
-										<div className="flex items-center justify-between gap-4">
-											<span className="font-bold text-zinc-700 dark:text-zinc-300 truncate">{item.shopName}</span>
-											<span className="font-medium text-zinc-655 dark:text-zinc-400">{item.vendorPhone}</span>
-										</div>
-									</div>
 								</div>
 								<div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-									<Link
-										href={`/chat?partnerId=${item.vendorId}`}
+									<button
+										onClick={() => setSelectedGroup(group)}
 										className="w-full h-8 flex items-center justify-center text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors cursor-pointer"
 									>
-										Chat to Purchase
-									</Link>
+										View Matches ({group.items.length})
+									</button>
 								</div>
 							</div>
 						))}
@@ -647,6 +682,97 @@ export default function Dashboard() {
 					</div>
 				</div>
 			</div>
+
+			<Modal
+				isOpen={!!selectedGroup}
+				onClose={() => setSelectedGroup(null)}
+				title={
+					selectedGroup ? (
+						<div className="flex items-center gap-3">
+							<div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/30">
+								<svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+								</svg>
+							</div>
+							<div className="flex flex-col">
+								<span className="text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+									{selectedGroup.brand} {selectedGroup.model}
+									<span className="inline-flex items-center justify-center px-2.5 py-0.5 text-xs font-black rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+										{selectedGroup.items.length} {selectedGroup.items.length === 1 ? 'Match' : 'Matches'}
+									</span>
+								</span>
+								<span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
+									{selectedGroup.color} · {selectedGroup.ram} RAM · {selectedGroup.storage} Storage · <span className="capitalize">{selectedGroup.condition}</span>
+								</span>
+							</div>
+						</div>
+					) : undefined
+				}
+				size="lg"
+			>
+				{selectedGroup && (
+					<div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
+						<div className="grid grid-cols-1 gap-3.5">
+							{selectedGroup.items.map((item) => (
+								<div
+									key={item.id}
+									className="p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/40 dark:bg-zinc-900/20 hover:border-indigo-500/25 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4"
+								>
+									<div className="flex items-start gap-3.5">
+										<div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200/40 dark:border-zinc-700/40 font-bold text-xs text-zinc-650 dark:text-zinc-350">
+											{item.shopName ? item.shopName.charAt(0).toUpperCase() : 'V'}
+										</div>
+										<div className="space-y-1">
+											<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+												<span className="text-sm font-extrabold text-zinc-850 dark:text-zinc-100">
+													{item.shopName}
+												</span>
+											</div>
+											
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+												<span className="flex items-center gap-1">
+													<svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+													</svg>
+													{item.vendorName}
+												</span>
+												<span className="flex items-center gap-1">
+													<svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+													</svg>
+													{item.vendorPhone || "N/A"}
+												</span>
+												{item.vendorEmail && (
+													<span className="flex items-center gap-1 sm:col-span-2 mt-0.5">
+														<svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+														</svg>
+														{item.vendorEmail}
+													</span>
+												)}
+											</div>
+										</div>
+									</div>
+									<div className="shrink-0 flex items-center md:justify-end self-stretch md:self-auto border-t md:border-t-0 border-zinc-100 dark:border-zinc-800/60 pt-3 md:pt-0">
+										<Link
+											href={`/chat?partnerId=${item.vendorId}&message=${encodeURIComponent(
+												`Hi, I am interested in purchasing your ${selectedGroup.brand} ${selectedGroup.model} (${selectedGroup.color}, ${selectedGroup.ram} RAM, ${selectedGroup.storage} Storage, ${selectedGroup.condition.toUpperCase()}).`
+											)}`}
+											onClick={() => setSelectedGroup(null)}
+											className="w-full md:w-auto px-4 h-9 flex items-center justify-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all shadow-sm hover:shadow active:scale-95 cursor-pointer"
+										>
+											<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+											</svg>
+											Chat to Purchase
+										</Link>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
+			</Modal>
 		</div>
 	);
 }

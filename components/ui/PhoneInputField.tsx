@@ -48,7 +48,7 @@ export function PhoneInputField({
           display: flex;
           align-items: stretch;
           width: 100%;
-          border-radius: ${size === "sm" ? "0.75rem" : "0.75rem"};
+          border-radius: ${size === "sm" ? "0.5rem" : "0.75rem"};
           border: 1.5px solid ${error ? "#ef4444" : "#e4e4e7"};
           box-shadow: ${error ? "0 0 0 2px rgb(239 68 68 / 0.2)" : "none"};
           background: transparent;
@@ -67,12 +67,12 @@ export function PhoneInputField({
         #${id} .react-international-phone-country-selector-button {
           display: flex;
           align-items: center;
-          padding: ${size === "sm" ? "0 0.4rem 0 0.5rem" : "0 0.6rem 0 0.75rem"};
+          padding: ${size === "sm" ? "0 0.5rem" : "0 0.6rem 0 0.75rem"};
           background: transparent;
           border: none;
           border-right: 1.5px solid ${error ? "#ef4444" : "#e4e4e7"};
-          border-radius: 0.7rem 0 0 0.7rem;
-          min-height: ${size === "sm" ? "1.75rem" : "2.52rem"};
+          border-radius: ${size === "sm" ? "0.45rem 0 0 0.45rem" : "0.7rem 0 0 0.7rem"};
+          min-height: ${size === "sm" ? "2.125rem" : "2.52rem"};
           flex-shrink: 0;
           /* Make non-interactive — static flag only */
           pointer-events: none;
@@ -107,10 +107,10 @@ export function PhoneInputField({
         /* ── Text input ─────────────────────────────────── */
         #${id} .react-international-phone-input {
           flex: 1;
-          padding: ${size === "sm" ? "0.36rem 0.75rem" : "0.625rem 1rem"};
+          padding: ${size === "sm" ? "7px 12px" : "0.625rem 1rem"};
           background: transparent;
           border: none;
-          border-radius: 0 0.7rem 0.7rem 0;
+          border-radius: ${size === "sm" ? "0 0.45rem 0.45rem 0" : "0 0.7rem 0.7rem 0"};
           outline: none;
           font-size: ${size === "sm" ? "0.75rem" : "0.875rem"};
           color: inherit;

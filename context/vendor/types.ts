@@ -174,4 +174,14 @@ export interface ChatSession {
 	groupMembers?: number[];
 	messages: ChatMessage[];
 	profileImg?: string;
+	recipientVendorId?: number;
 }
+
+export interface ChatTemplate {
+	id: number;
+	vendor_id: number;
+	template_text: string;
+	created_at?: string;
+	updated_at?: string;
+}
+

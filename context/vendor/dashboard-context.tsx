@@ -25,6 +25,7 @@ export type {
 	Attachment,
 	ChatMessage,
 	ChatSession,
+	ChatTemplate,
 } from "./types";
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {

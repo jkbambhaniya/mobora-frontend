@@ -851,8 +851,8 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 										</svg>
 									</div>
 									<div className="text-left">
-										<span className="text-[10px] text-zinc-455 dark:text-gray-500 uppercase font-bold tracking-wider block">Sales</span>
-										<p className="text-lg font-extrabold text-zinc-955 dark:text-white leading-tight mt-0.5">{metrics.totalSales}</p>
+										<span className="text-[10px] text-zinc-400 dark:text-gray-500 uppercase font-bold tracking-wider block">Sales</span>
+										<p className="text-lg font-extrabold text-zinc-950 dark:text-white leading-tight mt-0.5">{metrics.totalSales}</p>
 									</div>
 								</div>
 
@@ -863,8 +863,8 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 										</svg>
 									</div>
 									<div className="text-left">
-										<span className="text-[10px] text-zinc-455 dark:text-gray-500 uppercase font-bold tracking-wider block">Purchases</span>
-										<p className="text-lg font-extrabold text-zinc-955 dark:text-white leading-tight mt-0.5">{metrics.totalPurchases}</p>
+										<span className="text-[10px] text-zinc-400 dark:text-gray-500 uppercase font-bold tracking-wider block">Purchases</span>
+										<p className="text-lg font-extrabold text-zinc-950 dark:text-white leading-tight mt-0.5">{metrics.totalPurchases}</p>
 									</div>
 								</div>
 
@@ -875,8 +875,8 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 										</svg>
 									</div>
 									<div className="text-left">
-										<span className="text-[10px] text-zinc-455 dark:text-gray-500 uppercase font-bold tracking-wider block">Repairs</span>
-										<p className="text-lg font-extrabold text-zinc-955 dark:text-white leading-tight mt-0.5">{metrics.ongoingRepairs}</p>
+										<span className="text-[10px] text-zinc-400 dark:text-gray-500 uppercase font-bold tracking-wider block">Repairs</span>
+										<p className="text-lg font-extrabold text-zinc-950 dark:text-white leading-tight mt-0.5">{metrics.ongoingRepairs}</p>
 									</div>
 								</div>
 							</div>
