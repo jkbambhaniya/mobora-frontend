@@ -29,8 +29,8 @@ interface InventoryContextType {
 	metrics: InventoryMetrics;
 	refreshDevices: (filters?: MobileFilters, force?: boolean) => Promise<void>;
 	refreshMetrics: () => Promise<void>;
-	addDevice: (data: any) => Promise<{ success: boolean; message?: string; errors?: any }>;
-	editDevice: (id: string | number, data: any) => Promise<{ success: boolean; message?: string; errors?: any }>;
+	addDevice: (data: any) => Promise<{ success: boolean; message?: string; errors?: any; conflict?: any }>;
+	editDevice: (id: string | number, data: any) => Promise<{ success: boolean; message?: string; errors?: any; conflict?: any }>;
 	removeDevice: (id: string | number) => Promise<boolean>;
 
 	// Backward-compatible specification states mapped to database specifications
@@ -149,7 +149,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 				await refreshMetrics();
 				return { success: true };
 			} else {
-				return { success: false, message: res.message || "Failed to create device listing.", errors: res.errors };
+				return { success: false, message: res.message || "Failed to create device listing.", errors: res.errors, conflict: res.conflict };
 			}
 		} catch (err: any) {
 			return { success: false, message: err.message || "Failed to create device listing." };
@@ -168,7 +168,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 				await refreshMetrics();
 				return { success: true };
 			} else {
-				return { success: false, message: res.message || "Failed to update device listing.", errors: res.errors };
+				return { success: false, message: res.message || "Failed to update device listing.", errors: res.errors, conflict: res.conflict };
 			}
 		} catch (err: any) {
 			return { success: false, message: err.message || "Failed to update device listing." };

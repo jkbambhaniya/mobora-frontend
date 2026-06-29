@@ -135,7 +135,7 @@ export function MobileRegisterForm({
 						value={values.color}
 						onChange={(e) => onChange("color", e.target.value)}
 						placeholder="e.g. Phantom Black"
-						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 							errors.color
 								? "border-red-400 focus:ring-red-400"
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
@@ -175,7 +175,7 @@ export function MobileRegisterForm({
 											setBrandInlineError("");
 										}}
 										placeholder="e.g. OnePlus"
-										className="flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none border-primary"
+										className="flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none border-primary"
 									/>
 									<button
 										type="button"
@@ -231,7 +231,7 @@ export function MobileRegisterForm({
 											setModelInlineError("");
 										}}
 										placeholder="e.g. Nord CE 3"
-										className="flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none border-primary"
+										className="flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none border-primary"
 									/>
 									<button
 										type="button"
@@ -314,7 +314,7 @@ export function MobileRegisterForm({
 						max={100}
 						value={values.batteryHealth}
 						onChange={(e) => onChange("batteryHealth", parseInt(e.target.value) || 0)}
-						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 							errors.batteryHealth
 								? "border-red-400 focus:ring-red-400"
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
@@ -354,7 +354,7 @@ export function MobileRegisterForm({
 							value={values.purchasePrice}
 							onChange={(e) => onChange("purchasePrice", e.target.value)}
 							placeholder="e.g. 30000"
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 								errors.purchasePrice
 									? "border-red-400 focus:ring-red-400"
 									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
@@ -377,7 +377,7 @@ export function MobileRegisterForm({
 							value={values.repairingCost}
 							onChange={(e) => onChange("repairingCost", e.target.value)}
 							placeholder="e.g. 1500"
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 								errors.repairingCost
 									? "border-red-400 focus:ring-red-400"
 									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
@@ -401,7 +401,7 @@ export function MobileRegisterForm({
 						value={values.repairingCost}
 						onChange={(e) => onChange("repairingCost", e.target.value)}
 						placeholder="e.g. 1500"
-						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 							errors.repairingCost
 								? "border-red-400 focus:ring-red-400"
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
@@ -425,7 +425,7 @@ export function MobileRegisterForm({
 					onChange={(e) => onChange("description", e.target.value)}
 					placeholder="e.g. Mint condition. Minor scratch on screen, box and original cable available..."
 					rows={3}
-					className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors ${
+					className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 						errors.description
 							? "border-red-400 focus:ring-red-400"
 							: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"

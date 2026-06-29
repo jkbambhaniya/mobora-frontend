@@ -108,7 +108,7 @@ export const SelectWithCreate: React.FC<SelectWithCreateProps> = ({
 								setInlineError("");
 							}}
 							placeholder={`${label} Name`}
-							className={`flex-1 px-3 h-11 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
+							className={`flex-1 px-3 h-11 rounded-xl border text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
 								${inlineError ? "border-red-500" : "border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary"}`}
 						/>
 						<button

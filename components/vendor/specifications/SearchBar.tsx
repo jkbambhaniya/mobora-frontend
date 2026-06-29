@@ -35,7 +35,7 @@ export default function SearchBar({
 				key={activeTab}
 				onChange={(e) => onSearchChange(e.target.value)}
 				placeholder={`Search ${activeTab}...`}
-				className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-xs focus:outline-none focus:ring-2 focus:ring-primary placeholder-zinc-400"
+				className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary placeholder-zinc-400"
 			/>
 		</div>
 	);

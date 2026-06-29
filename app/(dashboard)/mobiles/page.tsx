@@ -19,6 +19,7 @@ import { useSpecifications } from "@/context/vendor/specifications-context";
 import { useInventory } from "@/context/vendor/inventory-context";
 import Link from "next/link";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
+import { ImeiConflictWarning } from "@/components/vendor/imei-conflict-warning";
 import { checkBlacklistAction } from "@/actions/blacklist";
 import { ImeiInput } from "@/components/ui/imei-input";
 import { RamSelector } from "@/components/ui/ram-selector";
@@ -53,6 +54,7 @@ export default function MobilesPage() {
 
 	// Modal State
 	const [isFormOpen, setIsFormOpen] = useState(false);
+	const [conflictInfo, setConflictInfo] = useState<any | null>(null);
 
 	// Form Fields
 	const [formImei, setFormImei] = useState("");
@@ -135,6 +137,7 @@ export default function MobilesPage() {
 		setModelInlineError("");
 		setStorageInlineError("");
 		setRamInlineError("");
+		setConflictInfo(null);
 		setIsFormOpen(true);
 	};
 
@@ -228,7 +231,9 @@ export default function MobilesPage() {
 				toast.success("Mobile device added to stock successfully.");
 				setIsFormOpen(false);
 			} else {
-				if (result.errors) {
+				if (result.conflict) {
+					setConflictInfo(result.conflict);
+				} else if (result.errors) {
 					setFieldErrors(result.errors);
 				} else {
 					setFormError(result.message || "Failed to add mobile device.");
@@ -851,7 +856,14 @@ export default function MobilesPage() {
 				title="Register Mobile Device"
 				size="lg"
 			>
-				<form onSubmit={handleSubmit} noValidate className="space-y-4">
+				{conflictInfo ? (
+					<ImeiConflictWarning
+						conflictInfo={conflictInfo}
+						onBack={() => setConflictInfo(null)}
+						onClose={() => setIsFormOpen(false)}
+					/>
+				) : (
+					<form onSubmit={handleSubmit} noValidate className="space-y-4">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						{/* IMEI */}
 						<ImeiInput
@@ -1278,6 +1290,7 @@ export default function MobilesPage() {
 						</Button>
 					</div>
 				</form>
+				)}
 			</Modal>
 
 			{/* Blacklist Warning Modal */}

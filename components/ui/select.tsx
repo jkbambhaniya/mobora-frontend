@@ -192,7 +192,7 @@ export const Select: React.FC<SelectProps> = ({
 					if (!isOpen) setSearchTerm("");
 				}}
 				onKeyDown={handleKeyDown}
-				className={`w-full flex items-center justify-between border transition-all duration-300 bg-white/40 dark:bg-zinc-900/30 text-left text-zinc-900 dark:text-zinc-550 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
+				className={`w-full flex items-center justify-between border transition-all duration-300 bg-white/40 dark:bg-zinc-900/30 text-left text-zinc-900 dark:text-zinc-100 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
 		  ${sizeClasses[size]}
 		  ${
 			  error
@@ -206,7 +206,7 @@ export const Select: React.FC<SelectProps> = ({
 					{selectedOption ? selectedOption.label : placeholder}
 				</span>
 				<svg
-					className={`w-4 h-4 ml-2 text-zinc-400 dark:text-zinc-550 transition-transform duration-300 ${
+					className={`w-4 h-4 ml-2 text-zinc-400 dark:text-zinc-400 transition-transform duration-300 ${
 						isOpen ? "rotate-180" : ""
 					}`}
 					fill="none"

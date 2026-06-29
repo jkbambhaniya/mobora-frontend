@@ -22,6 +22,7 @@ import {
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { MobileRegisterForm } from "@/components/vendor/MobileRegisterForm";
+import { ImeiConflictWarning } from "@/components/vendor/imei-conflict-warning";
 import { useAuth } from "@/context/vendor/auth-context";
 
 export default function ModelDetailsPage() {
@@ -70,6 +71,7 @@ export default function ModelDetailsPage() {
 
 	// Modal State
 	const [isFormOpen, setIsFormOpen] = useState(false);
+	const [conflictInfo, setConflictInfo] = useState<any | null>(null);
 	const [editingDevice, setEditingDevice] = useState<Mobile | null>(
 		null,
 	);
@@ -203,6 +205,7 @@ export default function ModelDetailsPage() {
 		setFormCustomerId("");
 		setFieldErrors({});
 		setFormError("");
+		setConflictInfo(null);
 		setIsFormOpen(true);
 	};
 
@@ -226,6 +229,7 @@ export default function ModelDetailsPage() {
 		setFormCustomerId("");
 		setFieldErrors({});
 		setFormError("");
+		setConflictInfo(null);
 		setIsFormOpen(true);
 	};
 
@@ -458,7 +462,9 @@ export default function ModelDetailsPage() {
 				toast.success(`Added device entry successfully.`);
 				setIsFormOpen(false);
 			} else {
-				if (res.errors) {
+				if (res.conflict) {
+					setConflictInfo(res.conflict);
+				} else if (res.errors) {
 					setFieldErrors(res.errors);
 				} else {
 					setFormError(res.message || "Failed to add device.");
@@ -1053,7 +1059,14 @@ export default function ModelDetailsPage() {
 				}
 				size="lg"
 			>
-				<form onSubmit={handleSubmit} noValidate className="space-y-4">
+				{conflictInfo ? (
+					<ImeiConflictWarning
+						conflictInfo={conflictInfo}
+						onBack={() => setConflictInfo(null)}
+						onClose={() => setIsFormOpen(false)}
+					/>
+				) : (
+					<form onSubmit={handleSubmit} noValidate className="space-y-4">
 					<MobileRegisterForm
 						values={registerFormValues}
 						onChange={handleFormChange}
@@ -1093,6 +1106,7 @@ export default function ModelDetailsPage() {
 						</Button>
 					</div>
 				</form>
+				)}
 			</Modal>
 
 			{/* DELETE CONFIRMATION MODAL */}

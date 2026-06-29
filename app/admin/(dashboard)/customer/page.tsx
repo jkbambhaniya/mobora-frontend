@@ -243,21 +243,33 @@ export default function AdminCustomersPage() {
 			<div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
 				<div className="relative overflow-hidden rounded-2xl bg-white dark:bg-[#13151a] p-6 border border-zinc-200/80 dark:border-white/5 shadow-sm">
 					<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Total Customers</p>
-					<h3 className="text-3xl font-extrabold text-zinc-950 dark:text-white mt-2">
-						{isLoading ? "..." : metrics.totalCustomers}
-					</h3>
+					{isLoading ? (
+						<div className="h-9 w-20 bg-zinc-200/60 dark:bg-white/5 animate-pulse rounded-lg mt-2" />
+					) : (
+						<h3 className="text-3xl font-extrabold text-zinc-950 dark:text-white mt-2">
+							{metrics.totalCustomers}
+						</h3>
+					)}
 				</div>
 				<div className="relative overflow-hidden rounded-2xl bg-white dark:bg-[#13151a] p-6 border border-zinc-200/80 dark:border-white/5 shadow-sm">
 					<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Active Customers</p>
-					<h3 className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-2">
-						{isLoading ? "..." : metrics.activeCustomers}
-					</h3>
+					{isLoading ? (
+						<div className="h-9 w-20 bg-zinc-200/60 dark:bg-white/5 animate-pulse rounded-lg mt-2" />
+					) : (
+						<h3 className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-2">
+							{metrics.activeCustomers}
+						</h3>
+					)}
 				</div>
 				<div className="relative overflow-hidden rounded-2xl bg-white dark:bg-[#13151a] p-6 border border-zinc-200/80 dark:border-white/5 shadow-sm">
 					<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Total Spent Globally</p>
-					<h3 className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-2">
-						{isLoading ? "..." : `₹${metrics.totalSpent.toLocaleString()}`}
-					</h3>
+					{isLoading ? (
+						<div className="h-9 w-32 bg-zinc-200/60 dark:bg-white/5 animate-pulse rounded-lg mt-2" />
+					) : (
+						<h3 className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-2">
+							₹{metrics.totalSpent.toLocaleString()}
+						</h3>
+					)}
 				</div>
 			</div>
 
@@ -334,8 +346,48 @@ export default function AdminCustomersPage() {
 							{isLoading ? (
 								Array.from({ length: limit }).map((_, idx) => (
 									<tr key={idx} className="animate-pulse">
-										<td className="px-6 py-4.5" colSpan={9}>
-											<div className="h-5 bg-zinc-200 dark:bg-white/5 rounded w-1/3"></div>
+										<td className="px-6 py-4">
+											<div className="flex items-center gap-3">
+												<div className="w-10 h-10 rounded-full bg-zinc-200/60 dark:bg-white/5 shrink-0" />
+												<div className="space-y-2">
+													<div className="h-4 bg-zinc-200/60 dark:bg-white/5 rounded w-28" />
+													<div className="h-3 bg-zinc-200/60 dark:bg-white/5 rounded w-36" />
+												</div>
+											</div>
+										</td>
+										<td className="px-6 py-4">
+											<div className="space-y-2">
+												<div className="h-4 bg-zinc-200/60 dark:bg-white/5 rounded w-28" />
+												<div className="h-3 bg-zinc-200/60 dark:bg-white/5 rounded w-36" />
+											</div>
+										</td>
+										<td className="px-6 py-4">
+											<div className="space-y-2">
+												<div className="h-4 bg-zinc-200/60 dark:bg-white/5 rounded w-24" />
+												<div className="h-3 bg-zinc-200/60 dark:bg-white/5 rounded w-16" />
+											</div>
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-4 bg-zinc-200/60 dark:bg-white/5 rounded w-16" />
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-6 bg-zinc-200/60 dark:bg-white/5 rounded-full w-20" />
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-6 bg-zinc-200/60 dark:bg-white/5 rounded-full w-16" />
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-6 bg-zinc-200/60 dark:bg-white/5 rounded-full w-24" />
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-3 bg-zinc-200/60 dark:bg-white/5 rounded w-20" />
+										</td>
+										<td className="px-6 py-4 text-right">
+											<div className="flex items-center justify-end gap-2.5">
+												<div className="w-8 h-8 rounded-lg bg-zinc-200/60 dark:bg-white/5" />
+												<div className="w-8 h-8 rounded-lg bg-zinc-200/60 dark:bg-white/5" />
+												<div className="w-8 h-8 rounded-lg bg-zinc-200/60 dark:bg-white/5" />
+											</div>
 										</td>
 									</tr>
 								))
@@ -420,7 +472,7 @@ export default function AdminCustomersPage() {
 														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
 													</svg>
 												</button>
-
+ 
 												<button
 													onClick={() => handleOpenEdit(c)}
 													className="p-2 rounded-lg bg-zinc-50 hover:bg-yellow-50 dark:bg-white/5 dark:hover:bg-yellow-600/15 text-zinc-600 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-all border border-zinc-200/50 dark:border-white/5 cursor-pointer"
@@ -430,7 +482,7 @@ export default function AdminCustomersPage() {
 														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
 													</svg>
 												</button>
-
+ 
 												<button
 													onClick={() => handleOpenDelete(c)}
 													className="p-2 rounded-lg bg-zinc-50 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-600/15 text-zinc-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-all border border-zinc-200/50 dark:border-white/5 cursor-pointer"

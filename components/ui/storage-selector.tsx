@@ -81,7 +81,7 @@ export function StorageSelector({
 								setInlineError("");
 							}}
 							placeholder="e.g. 512GB"
-							className="flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none border-primary"
+							className="flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none border-primary"
 						/>
 						<button
 							type="button"

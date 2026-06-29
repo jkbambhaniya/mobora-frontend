@@ -189,7 +189,7 @@ export default function AddModal({
 							});
 						}}
 						placeholder={placeholder}
-						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-all ${
+						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-all ${
 							errors.name || errors.value
 								? "border-red-500 focus:ring-red-500/20"
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary/20 focus:border-primary/40"

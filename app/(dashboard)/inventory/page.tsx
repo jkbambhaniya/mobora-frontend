@@ -14,6 +14,7 @@ import { useDashboard, Mobile, slugify } from "@/context/vendor/dashboard-contex
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { useInventory } from "@/context/vendor/inventory-context";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
+import { ImeiConflictWarning } from "@/components/vendor/imei-conflict-warning";
 import { MobileFilters } from "@/actions/mobiles";
 import { checkBlacklistAction } from "@/actions/blacklist";
 import { ImeiInput } from "@/components/ui/imei-input";
@@ -66,6 +67,7 @@ export default function InventoryPage() {
 	// Modal State
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [editingDevice, setEditingDevice] = useState<Mobile | null>(null);
+	const [conflictInfo, setConflictInfo] = useState<any | null>(null);
 
 	// Delete Modal State
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -292,6 +294,7 @@ export default function InventoryPage() {
 		setStorageInlineError("");
 		setRamInlineError("");
 		setCustFormError("");
+		setConflictInfo(null);
 		setIsFormOpen(true);
 	};
 
@@ -320,6 +323,7 @@ export default function InventoryPage() {
 		setStorageInlineError("");
 		setRamInlineError("");
 		setCustFormError("");
+		setConflictInfo(null);
 		setIsFormOpen(true);
 	};
 
@@ -725,7 +729,9 @@ export default function InventoryPage() {
 				setIsFormOpen(false);
 				await refreshMetrics();
 			} else {
-				if (res.errors) {
+				if (res.conflict) {
+					setConflictInfo(res.conflict);
+				} else if (res.errors) {
 					setFieldErrors(res.errors);
 				} else {
 					setFormError(res.message || "Failed to save device details.");
@@ -1344,7 +1350,14 @@ export default function InventoryPage() {
 				}
 				size="lg"
 			>
-				<form onSubmit={handleSubmit} className="space-y-4">
+				{conflictInfo ? (
+					<ImeiConflictWarning
+						conflictInfo={conflictInfo}
+						onBack={() => setConflictInfo(null)}
+						onClose={() => setIsFormOpen(false)}
+					/>
+				) : (
+					<form onSubmit={handleSubmit} className="space-y-4">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
 						{/* IMEI */}
 						<ImeiInput
@@ -1703,6 +1716,7 @@ export default function InventoryPage() {
 						</Button>
 					</div>
 				</form>
+				)}
 			</Modal>
 
 			{/* SELL MODAL */}

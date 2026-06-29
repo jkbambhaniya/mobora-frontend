@@ -262,7 +262,7 @@ export function PartnerSelector({
 									setCustErrors((prev) => ({ ...prev, name: "" }));
 								}}
 								placeholder="e.g. John Doe"
-								className={`w-full px-3 py-[7px] border rounded-lg text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+								className={`w-full px-3 py-[7px] border rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
 									${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
 							/>
 							{custErrors.name && (
@@ -300,7 +300,7 @@ export function PartnerSelector({
 							}}
 							placeholder="Enter customer address..."
 							rows={2}
-							className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+							className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
 								${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
 						/>
 						{custErrors.address && (
@@ -343,7 +343,7 @@ export function PartnerSelector({
 									value={newCustIdNumber}
 									onChange={(e) => setNewCustIdNumber(e.target.value)}
 									placeholder="e.g. 12-digit Aadhaar / 10-digit PAN"
-									className="w-full px-3 py-[7px] border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs bg-transparent focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+									className="w-full px-3 py-[7px] border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
 								/>
 							</div>
 						</div>

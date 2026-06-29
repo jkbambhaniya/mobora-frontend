@@ -162,6 +162,20 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 					</a>
 
 					<a
+						href="/admin/mobiles"
+						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+							pathname.includes("/admin/mobiles")
+								? "bg-indigo-50 dark:bg-indigo-600/10 border border-indigo-100 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+								: "text-zinc-600 dark:text-gray-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-950 dark:hover:text-white"
+						}`}
+					>
+						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+						</svg>
+						<span>Mobiles</span>
+					</a>
+
+					<a
 						href="/admin/specifications"
 						className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
 							pathname.includes("/admin/specifications")

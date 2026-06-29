@@ -8,6 +8,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useDashboard, Mobile, slugify } from "@/context/vendor/dashboard-context";
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { MobileRegisterForm } from "@/components/vendor/MobileRegisterForm";
+import { ImeiConflictWarning } from "@/components/vendor/imei-conflict-warning";
 import { getMobilesAction } from "@/actions/mobiles";
 import { mobileValidationSchema, sellValidationSchema, buybackValidationSchema } from "@/utils/validation";
 import * as yup from "yup";
@@ -91,6 +92,15 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 	const [formError, setFormError] = useState("");
+	const [conflictInfo, setConflictInfo] = useState<{
+		isOwnStock: boolean;
+		vendor: {
+			name: string;
+			shopName: string;
+			phone: string;
+			email: string;
+		};
+	} | null>(null);
 
 	useEffect(() => {
 		if (isOpen) {
@@ -99,6 +109,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 			setFoundDevice(null);
 			setIsScanning(false);
 			setPermissionError(null);
+			setConflictInfo(null);
 			resetForm();
 			if (initialImei) {
 				handleSearch(initialImei);
@@ -119,6 +130,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 		setFormDescription("");
 		setFormCustomerId("");
 		setFieldErrors({});
+		setConflictInfo(null);
 		setFormError("");
 	};
 
@@ -541,7 +553,9 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 				toast.success("Device purchased and registered successfully!");
 				onClose();
 			} else {
-				if (res.errors) {
+				if (res.conflict) {
+					setConflictInfo(res.conflict);
+				} else if (res.errors) {
 					setFieldErrors(res.errors);
 				} else {
 					setFormError(res.message || "Failed to register device.");
@@ -680,35 +694,35 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 								<div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl p-5 grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Brand</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">{foundDevice.brand}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{foundDevice.brand}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Model</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">{foundDevice.model}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{foundDevice.model}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">IMEI</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150 font-mono">{foundDevice.imei || "N/A"}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 font-mono">{foundDevice.imei || "N/A"}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Storage / RAM</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">{foundDevice.storage} / {foundDevice.ram}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{foundDevice.storage} / {foundDevice.ram}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Color</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">{foundDevice.color}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{foundDevice.color}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Condition</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">{foundDevice.condition}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{foundDevice.condition}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Battery Health</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">{foundDevice.batteryHealth ? `${foundDevice.batteryHealth}%` : "N/A"}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{foundDevice.batteryHealth ? `${foundDevice.batteryHealth}%` : "N/A"}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Cost Price</span>
-										<span className="text-sm font-semibold text-zinc-850 dark:text-zinc-150">₹{(foundDevice.purchasePrice || 0).toLocaleString()}</span>
+										<span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">₹{(foundDevice.purchasePrice || 0).toLocaleString()}</span>
 									</div>
 									<div>
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Sale Price</span>
@@ -733,7 +747,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 								{activeAction === "sell" && (
 									<form onSubmit={handleSellSubmitInline} className="space-y-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-900/30 text-left">
 										<div className="flex justify-between items-center mb-2">
-											<h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-150 uppercase tracking-wider">Record Sell Transaction</h4>
+											<h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Record Sell Transaction</h4>
 											<span className="text-[10px] text-zinc-400 font-semibold">Status: Selling</span>
 										</div>
 										{sellFormError && (
@@ -790,7 +804,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 								{activeAction === "buyback" && (
 									<form onSubmit={handleBuybackSubmitInline} className="space-y-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-900/30 text-left">
 										<div className="flex justify-between items-center mb-2">
-											<h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-150 uppercase tracking-wider">Record Buyback Transaction</h4>
+											<h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Record Buyback Transaction</h4>
 											<span className="text-[10px] text-zinc-400 font-semibold">Status: Buyback</span>
 										</div>
 										{buybackFormError && (
@@ -971,36 +985,46 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 							</div>
 						) : (
 							/* Case 2: Device NOT Exists (Show Purchase/Buy Form) */
-							<div className="space-y-4">
-								<div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-semibold">
-									<svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-										<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-									</svg>
-									IMEI Not Found! Fill out the form below to buy/register this device.
-								</div>
+							<div className="space-y-4 text-left">
+								{conflictInfo ? (
+									<ImeiConflictWarning
+										conflictInfo={conflictInfo}
+										onBack={() => setConflictInfo(null)}
+										onClose={onClose}
+									/>
+								) : (
+									<>
+										<div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-semibold">
+											<svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+												<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+											</svg>
+											IMEI Not Found! Fill out the form below to buy/register this device.
+										</div>
 
-								{formError && (
-									<div className="px-3.5 py-2.5 bg-red-500/10 border border-red-500/25 rounded-xl text-xs font-bold text-red-500">
-										{formError}
-									</div>
+										{formError && (
+											<div className="px-3.5 py-2.5 bg-red-500/10 border border-red-500/25 rounded-xl text-xs font-bold text-red-500">
+												{formError}
+											</div>
+										)}
+
+										<MobileRegisterForm
+											values={registerFormValues}
+											onChange={handleFormChange}
+											errors={fieldErrors}
+											isEdit={false}
+											specs={specs}
+										/>
+
+										<div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+											<Button type="button" variant="ghost" size="sm" onClick={onClose}>
+												Cancel
+											</Button>
+											<Button type="button" variant="primary" size="sm" onClick={handleBuySubmit} isLoading={isSubmitting}>
+												Buy & Register Device
+											</Button>
+										</div>
+									</>
 								)}
-
-								<MobileRegisterForm
-									values={registerFormValues}
-									onChange={handleFormChange}
-									errors={fieldErrors}
-									isEdit={false}
-									specs={specs}
-								/>
-
-								<div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-900">
-									<Button type="button" variant="ghost" size="sm" onClick={onClose}>
-										Cancel
-									</Button>
-									<Button type="button" variant="primary" size="sm" onClick={handleBuySubmit} isLoading={isSubmitting}>
-										Buy & Register Device
-									</Button>
-								</div>
 							</div>
 						)}
 					</div>

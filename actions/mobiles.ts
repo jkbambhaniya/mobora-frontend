@@ -19,6 +19,7 @@ export interface ActionResponse<T = any> {
 	data?: T;
 	message?: string;
 	errors?: any;
+	conflict?: any;
 }
 
 // Helper to format Axios error responses
@@ -28,6 +29,7 @@ function formatError(error: any, defaultMessage: string): ActionResponse {
 		success: false,
 		message: errorData?.message || error.message || defaultMessage,
 		errors: errorData?.errors || null,
+		conflict: errorData?.conflict || null,
 	};
 }
 
