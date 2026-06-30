@@ -7,6 +7,9 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { getBlacklistedDevicesAction, blacklistDeviceAction } from "@/actions/blacklist";
 import { ImeiInput } from "@/components/ui/imei-input";
 
+import * as yup from "yup";
+import { ErrorMessage } from "@/components/ui/error-message";
+
 interface BlacklistedDevice {
 	id: number;
 	imei: string;
@@ -14,6 +17,18 @@ interface BlacklistedDevice {
 	created_at: string;
 	createdAt?: string;
 }
+
+const blacklistSchema = yup.object().shape({
+	imei: yup
+		.string()
+		.trim()
+		.required("Please enter an IMEI number.")
+		.length(15, "IMEI must be exactly 15 digits."),
+	reason: yup
+		.string()
+		.trim()
+		.required("Please provide a reason for blacklisting."),
+});
 
 export default function BlacklistPage() {
 	const [devices, setDevices] = useState<BlacklistedDevice[]>([]);
@@ -24,6 +39,7 @@ export default function BlacklistPage() {
 	// Form fields
 	const [imei, setImei] = useState("");
 	const [reason, setReason] = useState("");
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
 	const fetchBlacklist = async () => {
 		setIsLoading(true);
@@ -48,21 +64,30 @@ export default function BlacklistPage() {
 
 	const handleBlacklistSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		setFieldErrors({});
 		const trimmedImei = imei.trim();
 		const trimmedReason = reason.trim();
 
-		if (!trimmedImei) {
-			toast.error("Please enter an IMEI number.");
-			return;
-		}
-
-		if (trimmedImei.length < 14 || trimmedImei.length > 16) {
-			toast.error("IMEI must be 15 digits.");
-			return;
-		}
-
-		if (!trimmedReason) {
-			toast.error("Please provide a reason for blacklisting.");
+		try {
+			await blacklistSchema.validate(
+				{
+					imei: trimmedImei,
+					reason: trimmedReason,
+				},
+				{ abortEarly: false }
+			);
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				const errors: Record<string, string> = {};
+				err.inner.forEach((validationError: any) => {
+					if (validationError.path && !errors[validationError.path]) {
+						errors[validationError.path] = validationError.message;
+					}
+				});
+				setFieldErrors(errors);
+			} else {
+				toast.error("Form validation failed.");
+			}
 			return;
 		}
 
@@ -140,23 +165,46 @@ export default function BlacklistPage() {
 					<form onSubmit={handleBlacklistSubmit} className="space-y-4">
 						<ImeiInput
 							value={imei}
-							onChange={setImei}
-							label="IMEI Number (15 Digits)"
+							onChange={(val) => {
+								setImei(val);
+								if (fieldErrors.imei) {
+									setFieldErrors((prev) => {
+										const copy = { ...prev };
+										delete copy.imei;
+										return copy;
+									});
+								}
+							}}
+							error={fieldErrors.imei}
+							label="IMEI Number"
 							placeholder="e.g. 358901234567890"
 							required
 						/>
 
-						<div>
+						<div className="space-y-1">
 							<label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
-								Reason / Description
+								Reason / Description *
 							</label>
 							<textarea
 								value={reason}
-								onChange={(e) => setReason(e.target.value)}
-								className="w-full p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-red-500 min-h-[100px]"
+								onChange={(e) => {
+									setReason(e.target.value);
+									if (fieldErrors.reason) {
+										setFieldErrors((prev) => {
+											const copy = { ...prev };
+											delete copy.reason;
+											return copy;
+										});
+									}
+								}}
+								className={`w-full p-4 rounded-xl border bg-transparent text-sm focus:outline-none focus:ring-2 min-h-[100px] transition-colors ${
+									fieldErrors.reason
+										? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
+										: "border-zinc-200 dark:border-zinc-800 focus:ring-red-500"
+								}`}
 								placeholder="e.g. Stolen from warehouse on 2026-06-25, case reference #..."
-								required
 							/>
+							<ErrorMessage message={fieldErrors.reason} />
 						</div>
 
 						<Button

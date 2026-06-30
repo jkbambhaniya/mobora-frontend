@@ -56,7 +56,7 @@ export function StorageSelector({
 
 	return (
 		<div className="space-y-1 w-full">
-			<div className="flex justify-between items-center">
+			<div className="flex justify-between items-center h-5">
 				<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 					Storage Capacity *
 				</label>

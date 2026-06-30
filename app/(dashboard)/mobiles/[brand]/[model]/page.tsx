@@ -98,9 +98,7 @@ export default function ModelDetailsPage() {
 	const [formStorage, setFormStorage] = useState("");
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
-	const [formCondition, setFormCondition] = useState<
-		"NEW" | "OLD"
-	>("NEW");
+	const [formCondition, setFormCondition] = useState<"OLD" | "NEW">("OLD");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formRepairingCost, setFormRepairingCost] = useState("");
@@ -197,7 +195,7 @@ export default function ModelDetailsPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("NEW");
+		setFormCondition("OLD");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormRepairingCost("");
@@ -402,6 +400,7 @@ export default function ModelDetailsPage() {
 					purchasePrice: editingDevice ? undefined : (formPurchasePrice ? parseFloat(formPurchasePrice) : undefined),
 					description: formDescription || null,
 					repairingCost: formRepairingCost ? parseFloat(formRepairingCost) : undefined,
+					customerId: formCustomerId || null,
 				},
 				{
 					abortEarly: false,
@@ -788,7 +787,7 @@ export default function ModelDetailsPage() {
 													: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
 											}`}
 										>
-											{isPurchase ? "Buyback" : "Sale"}
+											{isPurchase ? "Buy" : "Sale"}
 										</span>
 									</td>
 									<td className="py-2.5 px-4 font-semibold text-zinc-800 dark:text-zinc-200">

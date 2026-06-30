@@ -211,7 +211,7 @@ export default function CourierOrdersPage() {
 			<div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
 				<button
 					onClick={() => setActiveTab("sales")}
-					className={`pb-3 text-sm font-extrabold uppercase tracking-widest transition-all ${
+					className={`pb-3 text-sm font-extrabold uppercase tracking-widest transition-all cursor-pointer ${
 						activeTab === "sales"
 							? "border-b-2 border-primary text-primary"
 							: "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
@@ -221,7 +221,7 @@ export default function CourierOrdersPage() {
 				</button>
 				<button
 					onClick={() => setActiveTab("purchases")}
-					className={`pb-3 text-sm font-extrabold uppercase tracking-widest transition-all ${
+					className={`pb-3 text-sm font-extrabold uppercase tracking-widest transition-all cursor-pointer ${
 						activeTab === "purchases"
 							? "border-b-2 border-primary text-primary"
 							: "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"

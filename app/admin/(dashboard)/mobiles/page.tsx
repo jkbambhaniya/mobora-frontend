@@ -385,7 +385,7 @@ export default function AdminMobilesPage() {
 								<Button
 									variant="outline"
 									onClick={() => router.push(`/admin/mobiles/${item.brandSlug || 'unknown'}/${item.modelSlug || 'unknown'}`)}
-									className="w-full mt-6 py-2.5 rounded-xl text-xs font-bold border-zinc-200 dark:border-zinc-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 transition-all duration-300 cursor-pointer"
+									className="w-full mt-6 py-2.5 rounded-xl text-xs font-bold border-zinc-200 dark:border-zinc-800 hover:!bg-indigo-600 hover:!text-white dark:hover:!bg-indigo-600 transition-all duration-300 cursor-pointer"
 								>
 									View Devices
 								</Button>

@@ -10,11 +10,12 @@ import { useSpecifications } from "@/context/vendor/specifications-context";
 import { MobileRegisterForm } from "@/components/vendor/MobileRegisterForm";
 import { ImeiConflictWarning } from "@/components/vendor/imei-conflict-warning";
 import { getMobilesAction } from "@/actions/mobiles";
-import { mobileValidationSchema, sellValidationSchema, buybackValidationSchema } from "@/utils/validation";
+import { mobileValidationSchema, sellValidationSchema, buybackValidationSchema, imeiCheckSchema } from "@/utils/validation";
 import * as yup from "yup";
 import { toast } from "react-hot-toast";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { streamInvoice } from "@/utils/invoice";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 interface ImeiSearchModalProps {
 	isOpen: boolean;
@@ -82,7 +83,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 	const [formStorage, setFormStorage] = useState("");
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
-	const [formCondition, setFormCondition] = useState<"NEW" | "OLD">("NEW");
+	const [formCondition, setFormCondition] = useState<"OLD" | "NEW">("OLD");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formRepairingCost, setFormRepairingCost] = useState("");
@@ -92,6 +93,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 	const [formError, setFormError] = useState("");
+	const [searchError, setSearchError] = useState<string | null>(null);
 	const [conflictInfo, setConflictInfo] = useState<{
 		isOwnStock: boolean;
 		vendor: {
@@ -110,6 +112,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 			setIsScanning(false);
 			setPermissionError(null);
 			setConflictInfo(null);
+			setSearchError(null);
 			resetForm();
 			if (initialImei) {
 				handleSearch(initialImei);
@@ -123,7 +126,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("NEW");
+		setFormCondition("OLD");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormRepairingCost("");
@@ -249,10 +252,18 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 	}, [isScanning, isOpen]);
 
 	const handleSearch = async (imeiToSearch: string) => {
-		if (!imeiToSearch.trim()) {
-			toast.error("Please enter a valid IMEI number");
+		setSearchError(null);
+		try {
+			await imeiCheckSchema.validate({ imei: imeiToSearch }, { abortEarly: false });
+		} catch (err: any) {
+			if (err instanceof yup.ValidationError) {
+				setSearchError(err.errors[0] || "Invalid IMEI number");
+			} else {
+				setSearchError("Validation failed.");
+			}
 			return;
 		}
+
 		setIsSearching(true);
 		setSearchAttempted(false);
 		setFoundDevice(null);
@@ -510,6 +521,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 					purchasePrice: formPurchasePrice ? parseFloat(formPurchasePrice) : undefined,
 					description: formDescription || null,
 					repairingCost: formRepairingCost ? parseFloat(formRepairingCost) : undefined,
+					customerId: formCustomerId || null,
 				},
 				{ abortEarly: false }
 			);
@@ -590,7 +602,8 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 			title={
 				<div className="flex items-center gap-2">
 					<svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-						<path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h2M4 8h16" />
+						<rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+						<path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01" />
 					</svg>
 					<span className="font-extrabold tracking-tight">Check Device IMEI</span>
 				</div>
@@ -599,42 +612,54 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 		>
 			<div className="space-y-6">
 				{/* Top Search bar */}
-				<div className="flex gap-2">
-					<div className="relative flex-1">
-						<input
-							type="text"
-							value={imei}
-							onChange={(e) => setImei(e.target.value)}
-							placeholder="Enter IMEI number..."
-							className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all font-semibold text-zinc-900 dark:text-zinc-100"
-							onKeyDown={(e) => {
-								if (e.key === "Enter") handleSearch(imei);
-							}}
-						/>
+				<div className="space-y-1">
+					<div className="flex gap-2">
+						<div className="relative flex-1">
+							<input
+								type="text"
+								value={imei}
+								onChange={(e) => {
+									setImei(e.target.value);
+									if (searchError) setSearchError(null);
+								}}
+								placeholder="Enter IMEI number..."
+								className={`w-full px-4 py-2.5 rounded-xl border ${
+									searchError
+										? "border-red-500 focus:ring-red-500"
+										: "border-zinc-200 dark:border-zinc-800"
+								} bg-zinc-50/50 dark:bg-zinc-900/50 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all font-semibold text-zinc-900 dark:text-zinc-100`}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") handleSearch(imei);
+								}}
+							/>
+						</div>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => setIsScanning(!isScanning)}
+							className="flex items-center gap-1.5 shrink-0 px-3.5"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+								<path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+							</svg>
+							{isScanning ? "Stop Camera" : "Scan"}
+						</Button>
+						<Button
+							type="button"
+							variant="primary"
+							size="sm"
+							onClick={() => handleSearch(imei)}
+							isLoading={isSearching}
+							className="shrink-0 px-5"
+						>
+							Check
+						</Button>
 					</div>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={() => setIsScanning(!isScanning)}
-						className="flex items-center gap-1.5 shrink-0 px-3.5"
-					>
-						<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-							<path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-							<path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-						</svg>
-						{isScanning ? "Stop Camera" : "Scan"}
-					</Button>
-					<Button
-						type="button"
-						variant="primary"
-						size="sm"
-						onClick={() => handleSearch(imei)}
-						isLoading={isSearching}
-						className="shrink-0 px-5"
-					>
-						Check
-					</Button>
+					{searchError && (
+						<ErrorMessage message={searchError} className="px-1" />
+					)}
 				</div>
 
 				{/* Camera Scanning Frame */}
@@ -804,8 +829,8 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 								{activeAction === "buyback" && (
 									<form onSubmit={handleBuybackSubmitInline} className="space-y-4 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 bg-zinc-50/50 dark:bg-zinc-900/30 text-left">
 										<div className="flex justify-between items-center mb-2">
-											<h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Record Buyback Transaction</h4>
-											<span className="text-[10px] text-zinc-400 font-semibold">Status: Buyback</span>
+											<h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Buy Transaction</h4>
+											<span className="text-[10px] text-zinc-400 font-semibold">Status: Buy</span>
 										</div>
 										{buybackFormError && (
 											<div className="text-xs text-red-500 bg-red-500/10 border border-red-500/20 p-2 rounded-lg font-bold">{buybackFormError}</div>
@@ -820,18 +845,18 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 											</div>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<div>
-													<label className="text-xs font-semibold text-zinc-650 dark:text-zinc-350 block mb-1">Buyback Price *</label>
+													<label className="text-xs font-semibold text-zinc-650 dark:text-zinc-350 block mb-1">Buy Price *</label>
 													<input
 														type="number"
 														value={buybackPrice}
 														onChange={(e) => setBuybackPrice(e.target.value)}
 														className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-xs font-semibold text-zinc-900 dark:text-zinc-100"
-														placeholder="Enter Buyback Price"
+														placeholder="Enter Buy Price"
 													/>
 													{buybackErrors.buybackPrice && <p className="text-[10px] text-red-500 mt-1 font-bold">{buybackErrors.buybackPrice}</p>}
 												</div>
 												<div>
-													<label className="text-xs font-semibold text-zinc-650 dark:text-zinc-350 block mb-1">Buyback Date *</label>
+													<label className="text-xs font-semibold text-zinc-650 dark:text-zinc-350 block mb-1">Buy Date *</label>
 													<input
 														type="date"
 														value={buybackDate}
@@ -877,7 +902,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 										</div>
 										<div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
 											<Button type="button" variant="ghost" size="sm" onClick={() => setActiveAction("view")}>Cancel</Button>
-											<Button type="submit" variant="primary" size="sm" isLoading={isSubmittingAction}>Submit Buyback</Button>
+											<Button type="submit" variant="primary" size="sm" isLoading={isSubmittingAction}>Submit Buy</Button>
 										</div>
 									</form>
 								)}
@@ -916,7 +941,7 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 													<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
 														<path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6H16" />
 													</svg>
-													Buy Back Device
+													Buy Device
 												</Button>
 											)}
 										</div>

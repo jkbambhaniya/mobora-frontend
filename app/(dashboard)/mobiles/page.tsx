@@ -21,9 +21,7 @@ import Link from "next/link";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
 import { ImeiConflictWarning } from "@/components/vendor/imei-conflict-warning";
 import { checkBlacklistAction } from "@/actions/blacklist";
-import { ImeiInput } from "@/components/ui/imei-input";
-import { RamSelector } from "@/components/ui/ram-selector";
-import { StorageSelector } from "@/components/ui/storage-selector";
+import { MobileRegisterForm } from "@/components/vendor/MobileRegisterForm";
 interface ModelGroup {
 	brand: string;
 	model: string;
@@ -41,13 +39,27 @@ export default function MobilesPage() {
 		isLoading,
 		addDevice,
 		refreshDevices,
-		customers,
-		addCustomer,
 	} = useDashboard();
 	
 	const { metrics, refreshMetrics } = useInventory();
 
 	const specs = useSpecifications();
+
+	const handleFormChange = (field: string, value: any) => {
+		clearFieldError(field);
+		if (field === "imei") setFormImei(value);
+		else if (field === "brand") setFormBrand(value);
+		else if (field === "model") setFormModel(value);
+		else if (field === "storage") setFormStorage(value);
+		else if (field === "ram") setFormRam(value);
+		else if (field === "color") setFormColor(value);
+		else if (field === "condition") setFormCondition(value);
+		else if (field === "batteryHealth") setFormBatteryHealth(value);
+		else if (field === "purchasePrice") setFormPurchasePrice(value);
+		else if (field === "repairingCost") setFormRepairingCost(value);
+		else if (field === "description") setFormDescription(value);
+		else if (field === "customerId") setFormCustomerId(value);
+	};
 
 	// View Toggle State: grid (cards) vs table (list)
 	const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
@@ -63,14 +75,27 @@ export default function MobilesPage() {
 	const [formStorage, setFormStorage] = useState("");
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
-	const [formCondition, setFormCondition] = useState<
-		"NEW" | "OLD"
-	>("NEW");
+	const [formCondition, setFormCondition] = useState<"OLD" | "NEW">("OLD");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formRepairingCost, setFormRepairingCost] = useState("");
 	const [formDescription, setFormDescription] = useState("");
 	const [formCustomerId, setFormCustomerId] = useState("");
+
+	const registerFormValues = {
+		imei: formImei,
+		brand: formBrand,
+		model: formModel,
+		storage: formStorage,
+		ram: formRam,
+		color: formColor,
+		condition: formCondition,
+		batteryHealth: formBatteryHealth,
+		purchasePrice: formPurchasePrice,
+		repairingCost: formRepairingCost,
+		description: formDescription,
+		customerId: formCustomerId
+	};
 
 	const [formError, setFormError] = useState("");
 	const [brandInlineError, setBrandInlineError] = useState("");
@@ -125,7 +150,7 @@ export default function MobilesPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("NEW");
+		setFormCondition("OLD");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormRepairingCost("");
@@ -187,6 +212,7 @@ export default function MobilesPage() {
 					purchasePrice: formPurchasePrice ? parseFloat(formPurchasePrice) : undefined,
 					description: formDescription || null,
 					repairingCost: formRepairingCost ? parseFloat(formRepairingCost) : undefined,
+					customerId: formCustomerId || null,
 				},
 				{ abortEarly: false },
 			);
@@ -769,17 +795,6 @@ export default function MobilesPage() {
 											</div>
 										</div>
 
-										<div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-											<span>Pricing:</span>
-											<span
-												className="font-bold text-zinc-900 dark:text-zinc-100"
-												suppressHydrationWarning
-											>
-												{minPrice === maxPrice
-													? `₹${minPrice.toLocaleString()}`
-													: `₹${minPrice.toLocaleString()} - ₹${maxPrice.toLocaleString()}`}
-											</span>
-										</div>
 									</div>
 
 									<Button
@@ -864,432 +879,52 @@ export default function MobilesPage() {
 					/>
 				) : (
 					<form onSubmit={handleSubmit} noValidate className="space-y-4">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* IMEI */}
-						<ImeiInput
-							value={formImei}
-							onChange={(val) => {
-								setFormImei(val);
-								clearFieldError("imei");
+						<MobileRegisterForm
+							values={registerFormValues}
+							onChange={handleFormChange}
+							errors={fieldErrors}
+							isEdit={false}
+							specs={{
+								allBrands: specs.allBrands,
+								allModels: specs.allModels,
+								allStorages: specs.allStorages,
+								allRams: specs.allRams,
+								addBrand: specs.addBrand,
+								addModel: specs.addModel,
+								addStorage: specs.addStorage,
+								addRam: specs.addRam,
+								refreshAllSpecs: specs.refreshAllSpecs
 							}}
-							error={fieldErrors.imei}
-							disabled={isSubmitting}
 						/>
 
-						{/* Color */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Color *
-							</label>
-							<input
-								type="text"
-								disabled={isSubmitting}
-								value={formColor}
-								onChange={(e) => {
-									setFormColor(e.target.value);
-									clearFieldError("color");
-								}}
-								placeholder="e.g. Phantom Black"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-									fieldErrors.color
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.color && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.color}
-								</p>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* BRAND SELECTION & INLINE CREATOR */}
-						<div className="space-y-1 relative">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Brand *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingBrand}
-									onClick={() => setIsAddingBrand(!isAddingBrand)}
-									className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-								>
-									{isAddingBrand ? "Cancel" : "Request Brand"}
-								</button>
-							</div>
-
-							{isAddingBrand ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingBrand || isSubmitting}
-											value={newBrandVal}
-											onChange={(e) => {
-												setNewBrandVal(e.target.value);
-												setBrandInlineError("");
-											}}
-											placeholder="New Brand Name"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${brandInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingBrand || isSubmitting}
-											onClick={handleCreateBrand}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-										>
-											{isSubmittingBrand ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{brandInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{brandInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formBrand}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormBrand(e.target.value);
-										setFormModel("");
-										clearFieldError("brand");
-									}}
-									required
-									placeholder="-- Choose Brand --"
-									options={specs.allBrands.map((b) => ({ value: b.id.toString(), label: b.name }))}
-									error={fieldErrors.brand}
-								/>
-							)}
-						</div>
-
-						{/* MODEL SELECTION & INLINE CREATOR */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Model *
-								</label>
-								<div className="flex gap-2">
-									{formModel && !isAddingModel && (
-										<button
-											type="button"
-											disabled={isSubmitting || isSubmittingModel}
-											onClick={() => {
-												const modelObj = specs.allModels.find(m => m.id.toString() === formModel);
-												if (modelObj) {
-													setNewModelVal(modelObj.name);
-													setIsEditingModel(true);
-													setIsAddingModel(true);
-												}
-											}}
-											className="text-[10px] text-zinc-500 hover:text-primary font-bold cursor-pointer disabled:opacity-50 flex items-center gap-0.5"
-											title="Edit Selected Model"
-										>
-											<svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-												<path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
-											</svg>
-											<span>Edit</span>
-										</button>
-									)}
-									<button
-										type="button"
-										disabled={!formBrand || isSubmitting || isSubmittingModel}
-										onClick={() => {
-											if (isAddingModel) {
-												setNewModelVal("");
-												setIsEditingModel(false);
-											}
-											setIsAddingModel(!isAddingModel);
-										}}
-										className="text-[10px] text-primary hover:underline font-bold cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-									>
-										{isAddingModel ? "Cancel" : "+ Add Model"}
-									</button>
-								</div>
-							</div>
-
-							{isAddingModel ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingModel || isSubmitting}
-											value={newModelVal}
-											onChange={(e) => {
-												setNewModelVal(e.target.value);
-												setModelInlineError("");
-											}}
-											placeholder="Model Name"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${modelInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingModel || isSubmitting}
-											onClick={handleCreateModel}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9"
-										>
-											{isSubmittingModel ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{modelInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{modelInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formModel}
-									disabled={!formBrand || isSubmitting}
-									onChange={(e) => {
-										setFormModel(e.target.value);
-										clearFieldError("model");
-									}}
-									onOptionEdit={(val, label) => {
-										setFormModel(val.toString());
-										setNewModelVal(label);
-										setIsEditingModel(true);
-										setIsAddingModel(true);
-									}}
-									required
-									placeholder={formBrand ? "-- Choose Model --" : "-- Choose Brand First --"}
-									options={specs.allModels
-										.filter((m) => m.brand_id.toString() === formBrand)
-										.map((m) => ({ value: m.id.toString(), label: m.name }))}
-									error={fieldErrors.model}
-								/>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* RAM */}
-						<RamSelector
-							value={formRam}
-							onChange={(val) => {
-								setFormRam(val);
-								clearFieldError("ram");
-							}}
-							error={fieldErrors.ram}
-							disabled={isSubmitting}
-						/>
-
-						{/* STORAGE */}
-						<StorageSelector
-							value={formStorage}
-							onChange={(val) => {
-								setFormStorage(val);
-								clearFieldError("storage");
-							}}
-							error={fieldErrors.storage}
-							disabled={isSubmitting}
-						/>
-					</div>
-
-					<div className={`grid grid-cols-1 gap-4 transition-all duration-300 ease-in-out ${isAppleSelected ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
-						{/* Condition */}
-						<div className="space-y-1 p-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Condition *
-							</label>
-							<Select
-								value={formCondition}
-								disabled={isSubmitting}
-								onChange={(e) => {
-									setFormCondition(e.target.value as any);
-									clearFieldError("condition");
-								}}
-								options={[
-									{ value: "NEW", label: "New" },
-									{ value: "OLD", label: "Old" },
-								]}
-								className={fieldErrors.condition ? "border-red-400 focus:ring-red-400" : ""}
-							/>
-							{fieldErrors.condition && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.condition}
-								</p>
-							)}
-						</div>
-
-						{/* Battery Health */}
-						<div className={`space-y-1 transition-all duration-350 ease-in-out origin-top overflow-hidden p-1 ${isAppleSelected ? "opacity-100 max-h-[120px] scale-y-100 translate-y-0" : "opacity-0 max-h-0 scale-y-0 -translate-y-4 pointer-events-none"}`}>
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Battery Health (%) *
-							</label>
-							<input
-								type="number"
-								min={50}
-								max={100}
-								disabled={isSubmitting}
-								value={formBatteryHealth}
-								onChange={(e) => {
-									setFormBatteryHealth(parseInt(e.target.value) || 0);
-									clearFieldError("batteryHealth");
-								}}
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-									fieldErrors.batteryHealth
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.batteryHealth && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.batteryHealth}
-								</p>
-							)}
-						</div>
-					</div>
-
-					{/* Customer Selection */}
-					<PartnerSelector
-						value={formCustomerId}
-						onChange={setFormCustomerId}
-						label="Select Customer / Vendor (for Purchase Transaction)"
-						placeholder="-- Choose Partner --"
-						required={false}
-						valueType="id"
-					/>
-
-					{/* Cost & Repair Price Grid */}
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* Cost Price */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Purchase / Cost Price * (₹)
-							</label>
-							<input
-								type="number"
-								required
-								disabled={isSubmitting}
-								value={formPurchasePrice}
-								onChange={(e) => {
-									setFormPurchasePrice(e.target.value);
-									clearFieldError("purchasePrice");
-								}}
-								placeholder="e.g. 30000"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-									fieldErrors.purchasePrice
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.purchasePrice && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.purchasePrice}
-								</p>
-							)}
-						</div>
-
-						{/* Repairing Cost */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Repairing Cost (₹)
-							</label>
-							<input
-								type="number"
-								disabled={isSubmitting}
-								value={formRepairingCost}
-								onChange={(e) => {
-									setFormRepairingCost(e.target.value);
-									clearFieldError("repairingCost");
-								}}
-								placeholder="e.g. 1500"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-									fieldErrors.repairingCost
-										? "border-red-400 focus:ring-red-400"
-										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-								}`}
-							/>
-							{fieldErrors.repairingCost && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.repairingCost}
-								</p>
-							)}
-						</div>
-					</div>
-
-					{/* Description */}
-					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Listing Description
-						</label>
-						<textarea
-							value={formDescription}
-							disabled={isSubmitting}
-							onChange={(e) => {
-								setFormDescription(e.target.value);
-								clearFieldError("description");
-							}}
-							placeholder="e.g. Mint condition. Minor scratch on screen, box and original cable available..."
-							rows={3}
-							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-								fieldErrors.description
-									? "border-red-400 focus:ring-red-400"
-									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-							}`}
-						/>
-						{fieldErrors.description && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.description}
+						{formError && (
+							<p className="text-xs text-red-500 font-semibold text-center mt-2">
+								{formError}
 							</p>
 						)}
-					</div>
 
-					{formError && (
-						<p className="text-xs text-red-500 font-semibold text-center mt-2">
-							{formError}
-						</p>
-					)}
-
-					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							disabled={isSubmitting}
-							onClick={() => setIsFormOpen(false)}
-							className="cursor-pointer"
-						>
-							Cancel
-						</Button>
-						<Button
-							type="submit"
-							variant="gradient"
-							size="sm"
-							isLoading={isSubmitting}
-							className="cursor-pointer"
-						>
-							Register Stock Item
-						</Button>
-					</div>
-				</form>
+						<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								disabled={isSubmitting}
+								onClick={() => setIsFormOpen(false)}
+								className="cursor-pointer"
+							>
+								Cancel
+							</Button>
+							<Button
+								type="submit"
+								variant="gradient"
+								size="sm"
+								isLoading={isSubmitting}
+								className="cursor-pointer"
+							>
+								Register Stock Item
+							</Button>
+						</div>
+					</form>
 				)}
 			</Modal>
 

@@ -245,8 +245,32 @@ export default function AdminBlacklistPage() {
 							{isLoading ? (
 								Array.from({ length: limit }).map((_, idx) => (
 									<tr key={idx} className="animate-pulse">
-										<td className="px-6 py-4" colSpan={5}>
-											<div className="h-5 bg-zinc-200 dark:bg-white/5 rounded w-2/3" />
+										<td className="px-6 py-4">
+											<div className="flex items-center gap-2.5">
+												<div className="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-white/5 shrink-0" />
+												<div className="space-y-1.5">
+													<div className="h-4 bg-zinc-200 dark:bg-white/5 rounded w-24" />
+													<div className="h-3 bg-zinc-200 dark:bg-white/5 rounded w-16" />
+												</div>
+											</div>
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-4 bg-zinc-200 dark:bg-white/5 rounded w-48" />
+										</td>
+										<td className="px-6 py-4">
+											<div className="space-y-1.5">
+												<div className="h-4 bg-zinc-200 dark:bg-white/5 rounded w-28" />
+												<div className="h-3 bg-zinc-200 dark:bg-white/5 rounded w-20" />
+											</div>
+										</td>
+										<td className="px-6 py-4">
+											<div className="h-4 bg-zinc-200 dark:bg-white/5 rounded w-24" />
+										</td>
+										<td className="px-6 py-4 text-right">
+											<div className="flex items-center justify-end gap-2.5">
+												<div className="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-white/5" />
+												<div className="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-white/5" />
+											</div>
 										</td>
 									</tr>
 								))

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { BarcodeScannerModal } from "./barcode-scanner-modal";
+import { ErrorMessage } from "./error-message";
 
 interface ImeiInputProps {
 	value: string;
@@ -18,7 +19,7 @@ export function ImeiInput({
 	onChange,
 	error,
 	disabled = false,
-	label = "IMEI (15 digits)",
+	label = "IMEI Number",
 	placeholder = "e.g. 359283748291827",
 	required = false,
 }: ImeiInputProps) {
@@ -36,7 +37,7 @@ export function ImeiInput({
 
 	return (
 		<div className="space-y-1">
-			<div className="flex justify-between items-center">
+			<div className="flex justify-between items-center h-5">
 				<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 					{label} {required && "*"}
 				</label>
@@ -72,13 +73,11 @@ export function ImeiInput({
 				placeholder={placeholder}
 				className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none font-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
 					error
-						? "border-red-400 focus:ring-red-400"
+						? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
 						: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 				}`}
 			/>
-			{error && (
-				<p className="text-xs text-red-500 font-medium mt-1">{error}</p>
-			)}
+			<ErrorMessage message={error} />
 
 			<BarcodeScannerModal
 				isOpen={isScannerOpen}

@@ -3,6 +3,7 @@
 import React from "react";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
+import { ErrorMessage } from "./error-message";
 
 interface PhoneInputFieldProps {
   value: string;
@@ -36,11 +37,7 @@ export function PhoneInputField({
         disabled={disabled}
       />
 
-      {error && (
-        <p style={{ marginTop: "0.25rem", fontSize: "0.75rem", color: "#ef4444", fontWeight: 500 }}>
-          {error}
-        </p>
-      )}
+      <ErrorMessage message={error} />
 
       <style>{`
         /* ── Row container ───────────────────────────────── */

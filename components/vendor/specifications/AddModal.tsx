@@ -10,6 +10,7 @@ import {
 } from "@/utils/validation";
 import * as yup from "yup";
 import { Select } from "@/components/ui/select";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 interface AddModalProps {
 	isOpen: boolean;
@@ -195,16 +196,9 @@ export default function AddModal({
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary/20 focus:border-primary/40"
 						}`}
 						required
-					/>
-					{errors.name && (
-						<p className="text-xs text-red-500 mt-1">{errors.name}</p>
-					)}
-					{errors.value && (
-						<p className="text-xs text-red-500 mt-1">{errors.value}</p>
-					)}
-					{errors.general && (
-						<p className="text-xs text-red-500 mt-1">{errors.general}</p>
-					)}
+					/>					<ErrorMessage message={errors.name} />
+					<ErrorMessage message={errors.value} />
+					<ErrorMessage message={errors.general} />
 				</div>
 
 				<div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-850">

@@ -21,6 +21,9 @@ import { ImeiInput } from "@/components/ui/imei-input";
 import { RamSelector } from "@/components/ui/ram-selector";
 import { StorageSelector } from "@/components/ui/storage-selector";
 import { createCourierOrderAction } from "@/actions/courier";
+import { DeviceSaleModal } from "@/components/vendor/DeviceSaleModal";
+import { DeviceBuyModal } from "@/components/vendor/DeviceBuyModal";
+import { MobileRegisterForm } from "@/components/vendor/MobileRegisterForm";
 
 
 export default function InventoryPage() {
@@ -76,75 +79,20 @@ export default function InventoryPage() {
 		name: string;
 	} | null>(null);
 
-	// Sell Modal State
+		// Sell Modal State
 	const [isSellFormOpen, setIsSellFormOpen] = useState(false);
 	const [sellingDevice, setSellingDevice] = useState<Mobile | null>(null);
-	const [sellPrice, setSellPrice] = useState("");
-	const [sellCustomer, setSellCustomer] = useState("");
-	const [sellDate, setSellDate] = useState(
-		new Date().toISOString().split("T")[0],
-	);
-	const [sellNotes, setSellNotes] = useState("");
-	const [isCourierSale, setIsCourierSale] = useState(false);
-
 
 	// Buyback Modal State
 	const [isBuybackFormOpen, setIsBuybackFormOpen] = useState(false);
 	const [buybackDevice, setBuybackDevice] = useState<Mobile | null>(null);
-	const [buybackPrice, setBuybackPrice] = useState("");
-	const [buybackCustomer, setBuybackCustomer] = useState("");
-	const [buybackCondition, setBuybackCondition] = useState<
-		"NEW" | "OLD"
-	>("NEW");
-	const [buybackBatteryHealth, setBuybackBatteryHealth] = useState(90);
-	const [buybackDate, setBuybackDate] = useState(
-		new Date().toISOString().split("T")[0],
-	);
-	const [buybackNotes, setBuybackNotes] = useState("");
-	const [blacklistWarning, setBlacklistWarning] = useState<{
-		isBlacklisted: boolean;
-		imei: string;
-		reason?: string;
-		blacklistedBy?: string;
-		createdAt?: string;
-		isBuyback?: boolean;
-	} | null>(null);
-
-	// Dynamic financial calculations for modals
-	const saleProfit = sellingDevice ? (parseFloat(sellPrice) || 0) - ((sellingDevice.purchasePrice || 0) + (sellingDevice.repairingCost || 0)) : 0;
-	const buybackProfit = buybackDevice ? (buybackDevice.price || 0) - (parseFloat(buybackPrice) || 0) : 0;
-
-	// Modal Form validation errors
-	const [sellErrors, setSellErrors] = useState<Record<string, string>>({});
-	const [buybackErrors, setBuybackErrors] = useState<Record<string, string>>({});
-
-	const [formError, setFormError] = useState("");
-	const [sellFormError, setSellFormError] = useState("");
-	const [buybackFormError, setBuybackFormError] = useState("");
 
 	const [brandInlineError, setBrandInlineError] = useState("");
 	const [modelInlineError, setModelInlineError] = useState("");
 	const [storageInlineError, setStorageInlineError] = useState("");
 	const [ramInlineError, setRamInlineError] = useState("");
 	const [custFormError, setCustFormError] = useState("");
-
-	const clearSellError = (field: string) => {
-		setSellErrors((prev) => {
-			const n = { ...prev };
-			delete n[field];
-			return n;
-		});
-		setSellFormError("");
-	};
-
-	const clearBuybackError = (field: string) => {
-		setBuybackErrors((prev) => {
-			const n = { ...prev };
-			delete n[field];
-			return n;
-		});
-		setBuybackFormError("");
-	};
+	const [formError, setFormError] = useState("");
 
 	// Edit Transaction Modal State
 	const [isEditTxOpen, setIsEditTxOpen] = useState(false);
@@ -195,9 +143,7 @@ export default function InventoryPage() {
 	const [formStorage, setFormStorage] = useState("");
 	const [formRam, setFormRam] = useState("");
 	const [formColor, setFormColor] = useState("");
-	const [formCondition, setFormCondition] = useState<
-		"NEW" | "OLD"
-	>("NEW");
+	const [formCondition, setFormCondition] = useState<"OLD" | "NEW">("OLD");
 	const [formBatteryHealth, setFormBatteryHealth] = useState(90);
 	const [formPurchasePrice, setFormPurchasePrice] = useState("");
 	const [formDescription, setFormDescription] = useState("");
@@ -214,6 +160,15 @@ export default function InventoryPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
 	const [isSubmittingModel, setIsSubmittingModel] = useState(false);
+
+	const [blacklistWarning, setBlacklistWarning] = useState<{
+		isBlacklisted: boolean;
+		imei: string;
+		reason?: string;
+		blacklistedBy?: string;
+		createdAt?: string;
+		isBuyback?: boolean;
+	} | null>(null);
 
 
 	// Field Validation Errors
@@ -273,6 +228,37 @@ export default function InventoryPage() {
 		return specs.allRams.find((r) => r.value.toLowerCase() === val.toLowerCase())?.id.toString() || "";
 	};
 
+	// Form state helpers for MobileRegisterForm component compatibility
+	const registerFormValues = {
+		imei: formImei,
+		brand: formBrand,
+		model: formModel,
+		storage: formStorage,
+		ram: formRam,
+		color: formColor,
+		condition: formCondition,
+		batteryHealth: formBatteryHealth,
+		purchasePrice: formPurchasePrice,
+		repairingCost: "", // not needed in register modal but schema expects it
+		description: formDescription,
+		customerId: formCustomerId
+	};
+
+	const handleFormChange = (field: string, value: any) => {
+		clearFieldError(field);
+		if (field === "imei") setFormImei(value);
+		else if (field === "brand") setFormBrand(value);
+		else if (field === "model") setFormModel(value);
+		else if (field === "storage") setFormStorage(value);
+		else if (field === "ram") setFormRam(value);
+		else if (field === "color") setFormColor(value);
+		else if (field === "condition") setFormCondition(value);
+		else if (field === "batteryHealth") setFormBatteryHealth(value);
+		else if (field === "purchasePrice") setFormPurchasePrice(value);
+		else if (field === "description") setFormDescription(value);
+		else if (field === "customerId") setFormCustomerId(value);
+	};
+
 	// Open Handlers
 	const handleOpenAdd = () => {
 		setEditingDevice(null);
@@ -282,7 +268,7 @@ export default function InventoryPage() {
 		setFormStorage("");
 		setFormRam("");
 		setFormColor("");
-		setFormCondition("NEW");
+		setFormCondition("OLD");
 		setFormBatteryHealth(90);
 		setFormPurchasePrice("");
 		setFormDescription("");
@@ -329,277 +315,12 @@ export default function InventoryPage() {
 
 	const handleOpenSell = (device: Mobile) => {
 		setSellingDevice(device);
-		setSellPrice("");
-		setSellCustomer(customers[0]?.name || "");
-		setSellDate(new Date().toISOString().split("T")[0]);
-		setSellNotes(`Sold from inventory catalog.`);
-		setSellErrors({});
-		setSellFormError("");
 		setIsSellFormOpen(true);
-	};
-
-	const handleSellSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!sellingDevice) return;
-
-		setSellErrors({});
-		setSellFormError("");
-		try {
-			await sellValidationSchema.validate({
-				sellPrice: sellPrice === "" ? undefined : parseFloat(sellPrice),
-				sellCustomer,
-				sellDate,
-				sellNotes,
-			}, { abortEarly: false });
-		} catch (err: any) {
-			if (err instanceof yup.ValidationError) {
-				const errors: Record<string, string> = {};
-				err.inner.forEach((validationError: any) => {
-					if (validationError.path && !errors[validationError.path]) {
-						errors[validationError.path] = validationError.message;
-					}
-				});
-				setSellErrors(errors);
-			} else {
-				setSellFormError("Validation failed.");
-			}
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			const priceNum = parseFloat(sellPrice);
-
-			if (isCourierSale && sellCustomer.startsWith("Vendor:")) {
-				const [_, vendorName] = sellCustomer.split(":");
-				const vendorsList = await fetchVendors();
-				const targetVendor = vendorsList.find((v: any) => v.name === vendorName);
-
-				if (!targetVendor) {
-					setSellFormError("Selected vendor not found in the system.");
-					setIsSubmitting(false);
-					return;
-				}
-
-				const res = await createCourierOrderAction({
-					buyer_id: targetVendor.id,
-					mobile_id: Number(sellingDevice.id),
-					amount: priceNum,
-					notes: sellNotes || `Courier sale initiated to ${vendorName}.`
-				});
-
-				if (res.success) {
-					setIsSellFormOpen(false);
-					setIsCourierSale(false);
-					await refreshDevices(undefined, true);
-					triggerToast(`Courier sale initiated to ${vendorName}. Tracking status pending.`);
-				} else {
-					setSellFormError(res.message || "Failed to create courier order.");
-				}
-				setIsSubmitting(false);
-				return;
-			}
-
-			const result = await editDevice(sellingDevice.id, {
-				status: "Sold",
-				price: priceNum,
-				description: sellNotes || `Sold to ${sellCustomer}.`
-			});
-
-
-			if (result.success) {
-				const [partnerType, partnerNameOrId] = sellCustomer.includes(":")
-					? (sellCustomer.split(":") as ["Customer" | "Vendor", string])
-					: ["Customer" as const, sellCustomer];
-
-				handleAddTradeTransaction({
-					imei: sellingDevice.imei || "N/A",
-					deviceBrand: sellingDevice.brand,
-					deviceModel: sellingDevice.model,
-					type: "Sale",
-					customerName: partnerNameOrId,
-					partnerType: partnerType,
-					amount: priceNum,
-					date: sellDate,
-					notes: sellNotes || `Sold from inventory catalog.`,
-					storage: sellingDevice.storage,
-					ram: sellingDevice.ram,
-					color: sellingDevice.color,
-					condition: sellingDevice.condition,
-					batteryHealth: sellingDevice.batteryHealth,
-				});
-
-				setIsSellFormOpen(false);
-				triggerToast(
-					`Recorded sale of ${sellingDevice.brand} ${sellingDevice.model} to ${partnerNameOrId}.`,
-				);
-			} else {
-				if (result.errors) {
-					setSellErrors(result.errors);
-				} else {
-					setSellFormError(result.message || "Failed to record sale.");
-				}
-			}
-		} catch (err) {
-			setSellFormError("An unexpected error occurred while recording sale.");
-		} finally {
-			setIsSubmitting(false);
-		}
 	};
 
 	const handleOpenBuyback = (device: Mobile) => {
 		setBuybackDevice(device);
-		setBuybackPrice("");
-
-		let originalBuyer = "";
-		if (device.imei) {
-			const saleTrade = trades
-				.filter((t) => t.imei === device.imei && t.type === "Sale")
-				.sort(
-					(a, b) =>
-						new Date(b.date).getTime() - new Date(a.date).getTime(),
-				)[0];
-			if (saleTrade) originalBuyer = saleTrade.customerName;
-		}
-		if (!originalBuyer) {
-			const saleTrade = trades
-				.filter(
-					(t) =>
-						t.deviceBrand.toLowerCase() ===
-							device.brand.toLowerCase() &&
-						t.deviceModel.toLowerCase() ===
-							device.model.toLowerCase() &&
-						t.type === "Sale",
-				)
-				.sort(
-					(a, b) =>
-						new Date(b.date).getTime() - new Date(a.date).getTime(),
-				)[0];
-			if (saleTrade) originalBuyer = saleTrade.customerName;
-		}
-
-		if (originalBuyer) {
-			setBuybackCustomer(originalBuyer);
-		} else {
-			setBuybackCustomer(customers[0]?.name || "");
-		}
-
-		setBuybackCondition(device.condition);
-		setBuybackBatteryHealth(device.batteryHealth || 90);
-		setBuybackDate(new Date().toISOString().split("T")[0]);
-		setBuybackNotes(`Re-acquired device from customer.`);
-		setBuybackErrors({});
-		setBuybackFormError("");
 		setIsBuybackFormOpen(true);
-	};
-
-	const handleBuybackSubmit = async (e: React.FormEvent | null, forceBypass = false) => {
-		if (e) e.preventDefault();
-		if (!buybackDevice) return;
-
-		setBuybackErrors({});
-		setBuybackFormError("");
-
-		// Check blacklist
-		if (buybackDevice.imei && !forceBypass) {
-			setIsSubmitting(true);
-			try {
-				const blacklistRes = await checkBlacklistAction(buybackDevice.imei);
-				if (blacklistRes.success && blacklistRes.data?.isBlacklisted) {
-					setBlacklistWarning({
-						isBlacklisted: true,
-						imei: buybackDevice.imei,
-						reason: blacklistRes.data.reason,
-						blacklistedBy: blacklistRes.data.blacklistedBy,
-						createdAt: blacklistRes.data.createdAt,
-						isBuyback: true,
-					});
-					setIsSubmitting(false);
-					return;
-				}
-			} catch (err) {
-				console.error("Blacklist check failed:", err);
-			}
-			setIsSubmitting(false);
-		}
-
-		try {
-			await buybackValidationSchema.validate({
-				buybackPrice: buybackPrice === "" ? undefined : parseFloat(buybackPrice),
-				buybackCustomer,
-				buybackDate,
-				buybackCondition,
-				buybackBattery: buybackBatteryHealth,
-				buybackNotes,
-			}, { abortEarly: false });
-		} catch (err: any) {
-			if (err instanceof yup.ValidationError) {
-				const errors: Record<string, string> = {};
-				err.inner.forEach((validationError: any) => {
-					if (validationError.path && !errors[validationError.path]) {
-						errors[validationError.path] = validationError.message;
-					}
-				});
-				setBuybackErrors(errors);
-			} else {
-				setBuybackFormError("Validation failed.");
-			}
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			const priceNum = parseFloat(buybackPrice);
-
-			const result = await editDevice(buybackDevice.id, {
-				status: "Available",
-				purchase_price: priceNum,
-				price: Math.round(priceNum * 1.2), // Auto markup price by 20%
-				condition: buybackCondition,
-				battery_health: buybackBatteryHealth,
-				description: buybackNotes || `Re-acquired via buyback from ${buybackCustomer}.`,
-			});
-
-			if (result.success) {
-				const [partnerType, partnerNameOrId] = buybackCustomer.includes(":")
-					? (buybackCustomer.split(":") as ["Customer" | "Vendor", string])
-					: ["Customer" as const, buybackCustomer];
-
-				handleAddTradeTransaction({
-					imei: buybackDevice.imei || "N/A",
-					deviceBrand: buybackDevice.brand,
-					deviceModel: buybackDevice.model,
-					type: "Purchase",
-					customerName: partnerNameOrId,
-					partnerType: partnerType,
-					amount: priceNum,
-					date: buybackDate,
-					notes:
-						buybackNotes ||
-						`Re-acquired via buyback from ${partnerNameOrId}.`,
-					storage: buybackDevice.storage,
-					ram: buybackDevice.ram,
-					color: buybackDevice.color,
-					condition: buybackCondition,
-					batteryHealth: buybackBatteryHealth,
-				});
-
-				setIsBuybackFormOpen(false);
-				triggerToast(
-					`Recorded buyback of ${buybackDevice.brand} ${buybackDevice.model} from ${partnerNameOrId}.`,
-				);
-			} else {
-				if (result.errors) {
-					setBuybackErrors(result.errors);
-				} else {
-					setBuybackFormError(result.message || "Failed to record buyback.");
-				}
-			}
-		} catch (err) {
-			setBuybackFormError("An unexpected error occurred while recording buyback.");
-		} finally {
-			setIsSubmitting(false);
-		}
 	};
 
 
@@ -674,6 +395,7 @@ export default function InventoryPage() {
 					batteryHealth: selectedBrandName.toLowerCase() === "apple" ? formBatteryHealth : null,
 					purchasePrice: editingDevice ? undefined : (formPurchasePrice ? parseFloat(formPurchasePrice) : undefined),
 					description: formDescription || null,
+					customerId: formCustomerId || null,
 				},
 				{
 					abortEarly: false,
@@ -889,7 +611,7 @@ export default function InventoryPage() {
 													: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
 											}`}
 										>
-											{isPurchase ? "Buyback" : "Sale"}
+											{isPurchase ? "Buy" : "Sale"}
 										</span>
 									</td>
 									<td className="py-2.5 px-4 font-semibold text-zinc-800 dark:text-zinc-200">
@@ -1092,7 +814,7 @@ export default function InventoryPage() {
 				<div className="overflow-x-auto">
 					<table className="w-full text-left text-sm border-collapse">
 						<thead>
-							<tr className="bg-zinc-50/50 dark:bg-zinc-900/20 text-zinc-455 font-semibold border-b border-zinc-200/40 dark:border-zinc-800/40">
+							<tr className="bg-zinc-50/50 dark:bg-zinc-900/20 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200/40 dark:border-zinc-800/40">
 								{renderSortableHeader("id", "ID", "left")}
 								{renderSortableHeader("model", "Inventory Specifications", "left")}
 								{renderSortableHeader("imei", "IMEI", "left")}
@@ -1227,7 +949,7 @@ export default function InventoryPage() {
 														onClick={() =>
 															handleOpenBuyback(d)
 														}
-														title="Record Buyback (Re-acquire)"
+														title="Record Buy (Re-acquire)"
 														className="p-1.5 rounded-lg border border-indigo-250 dark:border-indigo-900/50 bg-indigo-500/5 hover:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-all cursor-pointer shadow-sm animate-fadeIn disabled:opacity-50"
 													>
 														<svg
@@ -1357,831 +1079,142 @@ export default function InventoryPage() {
 						onClose={() => setIsFormOpen(false)}
 					/>
 				) : (
-					<form onSubmit={handleSubmit} className="space-y-4">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-						{/* IMEI */}
-						<ImeiInput
-							value={formImei}
-							onChange={(val) => {
-								setFormImei(val);
-								clearFieldError("imei");
+					<form onSubmit={handleSubmit} noValidate className="space-y-4">
+						<MobileRegisterForm
+							values={registerFormValues}
+							onChange={handleFormChange}
+							errors={fieldErrors}
+							isEdit={!!editingDevice}
+							specs={{
+								allBrands: specs.allBrands,
+								allModels: specs.allModels,
+								allStorages: specs.allStorages,
+								allRams: specs.allRams,
+								addBrand: specs.addBrand,
+								addModel: specs.addModel,
+								addStorage: specs.addStorage,
+								addRam: specs.addRam,
+								refreshAllSpecs: specs.refreshAllSpecs
 							}}
-							error={fieldErrors.imei}
-							disabled={isSubmitting}
 						/>
-
-						{/* Color */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-								Color *
-							</label>
-							<input
-								type="text"
-								disabled={isSubmitting}
-								value={formColor}
-								onChange={(e) => {
-									setFormColor(e.target.value);
-									clearFieldError("color");
-								}}
-								placeholder="e.g. Phantom Black"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-									${fieldErrors.color ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-							/>
-							{fieldErrors.color && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.color}
-								</p>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-						{/* BRAND SELECTION & INLINE CREATOR */}
-						<div className="space-y-1 relative">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-									Brand *
-								</label>
-								<button
-									type="button"
-									disabled={isSubmitting || isSubmittingBrand}
-									onClick={() => setIsAddingBrand(!isAddingBrand)}
-									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
-								>
-									{isAddingBrand ? "Cancel" : "Request Brand"}
-								</button>
-							</div>
-
-							{isAddingBrand ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingBrand || isSubmitting}
-											value={newBrandVal}
-											onChange={(e) => {
-												setNewBrandVal(e.target.value);
-												setBrandInlineError("");
-											}}
-											placeholder="New Brand Name"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${brandInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingBrand || isSubmitting}
-											onClick={handleCreateBrand}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-										>
-											{isSubmittingBrand ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{brandInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{brandInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formBrand}
-									disabled={isSubmitting}
-									onChange={(e) => {
-										setFormBrand(e.target.value);
-										setFormModel("");
-										clearFieldError("brand");
-									}}
-									required
-									placeholder="-- Choose Brand --"
-									options={specs.allBrands.map((b: { id: number; name: string; slug: string }) => ({ value: b.id.toString(), label: b.name }))}
-									error={fieldErrors.brand}
-								/>
-							)}
-						</div>
-
-						{/* MODEL SELECTION & INLINE CREATOR */}
-						<div className="space-y-1">
-							<div className="flex justify-between items-center">
-								<label className="text-xs font-semibold text-zinc-455 uppercase tracking-wide">
-									Model *
-								</label>
-								<button
-									type="button"
-									disabled={!formBrand || isSubmitting || isSubmittingModel}
-									onClick={() => setIsAddingModel(!isAddingModel)}
-									className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
-								>
-									{isAddingModel ? "Cancel" : "+ Add Model"}
-								</button>
-							</div>
-
-							{isAddingModel ? (
-								<div className="flex flex-col gap-1.5 w-full">
-									<div className="flex gap-2 animate-scaleUp">
-										<input
-											type="text"
-											disabled={isSubmittingModel || isSubmitting}
-											value={newModelVal}
-											onChange={(e) => {
-												setNewModelVal(e.target.value);
-												setModelInlineError("");
-											}}
-											placeholder="Model Name"
-											className={`flex-1 px-3 py-2 rounded-xl border text-xs bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-												${modelInlineError ? "border-red-500" : "border-primary"}`}
-										/>
-										<button
-											type="button"
-											disabled={isSubmittingModel || isSubmitting}
-											onClick={handleCreateModel}
-											className="px-3 bg-primary text-white text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[70px] h-9 cursor-pointer"
-										>
-											{isSubmittingModel ? (
-												<>
-													<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-													</svg>
-													<span>Saving...</span>
-												</>
-											) : (
-												"Save"
-											)}
-										</button>
-									</div>
-									{modelInlineError && (
-										<p className="text-[10px] text-red-500 font-semibold pl-1">
-											{modelInlineError}
-										</p>
-									)}
-								</div>
-							) : (
-								<Select
-									value={formModel}
-									disabled={!formBrand || isSubmitting}
-									onChange={(e) => {
-										setFormModel(e.target.value);
-										clearFieldError("model");
-									}}
-									required
-									placeholder={formBrand ? "-- Choose Model --" : "-- Choose Brand First --"}
-									options={specs.allModels
-										.filter((m: { id: number; name: string; brand_id: number }) => m.brand_id.toString() === formBrand)
-										.map((m: { id: number; name: string; brand_id: number }) => ({ value: m.id.toString(), label: m.name }))}
-									error={fieldErrors.model}
-								/>
-							)}
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-						{/* RAM */}
-						<RamSelector
-							value={formRam}
-							onChange={(val) => {
-								setFormRam(val);
-								clearFieldError("ram");
-							}}
-							error={fieldErrors.ram}
-							disabled={isSubmitting}
-						/>
-
-						{/* STORAGE */}
-						<StorageSelector
-							value={formStorage}
-							onChange={(val) => {
-								setFormStorage(val);
-								clearFieldError("storage");
-							}}
-							error={fieldErrors.storage}
-							disabled={isSubmitting}
-						/>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-						{/* Condition */}
-						<div className="space-y-1">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Condition *
-							</label>
-							<Select
-								value={formCondition}
-								disabled={isSubmitting}
-								onChange={(e) => {
-									setFormCondition(e.target.value as any);
-									clearFieldError("condition");
-								}}
-								options={[
-									{ value: "NEW", label: "New" },
-									{ value: "OLD", label: "Old" },
-								]}
-								error={fieldErrors.condition}
-							/>
-						</div>
-
-						{/* Battery Health */}
-						{isAppleSelected && (
-							<div className="space-y-1">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Battery Health (%) *
-								</label>
-								<input
-									type="number"
-									min={50}
-									max={100}
-									disabled={isSubmitting}
-									value={formBatteryHealth}
-									onChange={(e) => {
-										setFormBatteryHealth(parseInt(e.target.value) || 0);
-										clearFieldError("batteryHealth");
-									}}
-									className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-										${fieldErrors.batteryHealth ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-								/>
-								{fieldErrors.batteryHealth && (
-									<p className="text-xs text-red-500 font-medium mt-1">
-										{fieldErrors.batteryHealth}
-									</p>
-								)}
-							</div>
+						{formError && (
+							<p className="text-xs text-red-500 font-semibold text-center mt-2">
+								{formError}
+							</p>
 						)}
-					</div>
-
-					{/* Customer Selection */}
-					{!editingDevice && (
-						<PartnerSelector
-							value={formCustomerId}
-							onChange={setFormCustomerId}
-							label="Select Customer / Vendor (for Purchase Transaction)"
-							placeholder="-- Choose Partner --"
-							required={false}
-							valueType="id"
-						/>
-					)}
-
-					{/* Cost Price */}
-					{!editingDevice && (
-						<div className="space-y-1 text-left">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Purchase / Cost Price * (₹)
-							</label>
-							<input
-								type="number"
-								required
+						<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
 								disabled={isSubmitting}
-								value={formPurchasePrice}
-								onChange={(e) => {
-									setFormPurchasePrice(e.target.value);
-									clearFieldError("purchasePrice");
-								}}
-								placeholder="e.g. 30000"
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-									${fieldErrors.purchasePrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-							/>
-							{fieldErrors.purchasePrice && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.purchasePrice}
-								</p>
-							)}
+								onClick={() => setIsFormOpen(false)}
+								className="cursor-pointer"
+							>
+								Cancel
+							</Button>
+							<Button type="submit" variant="gradient" size="sm" disabled={isSubmitting} className="cursor-pointer flex items-center gap-1.5 min-w-[120px] justify-center">
+								{isSubmitting ? (
+									<>
+										<svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+										</svg>
+										<span>Saving...</span>
+									</>
+								) : editingDevice ? (
+									"Save Changes"
+								) : (
+									"Register Stock Item"
+								)}
+							</Button>
 						</div>
-					)}
-
-					{/* Description */}
-					{!editingDevice && (
-						<div className="space-y-1 text-left">
-							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-								Listing Description
-							</label>
-							<textarea
-								disabled={isSubmitting}
-								value={formDescription}
-								onChange={(e) => {
-									setFormDescription(e.target.value);
-									clearFieldError("description");
-								}}
-								placeholder="e.g. Mint condition. Minor scratch on screen protector, box and original cable available..."
-								rows={3}
-								className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed
-									${fieldErrors.description ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"}`}
-							/>
-							{fieldErrors.description && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.description}
-								</p>
-							)}
-						</div>
-					)}
-
-					{formError && (
-						<p className="text-xs text-red-500 font-semibold text-center mt-2">
-							{formError}
-						</p>
-					)}
-
-					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							disabled={isSubmitting}
-							onClick={() => setIsFormOpen(false)}
-							className="cursor-pointer"
-						>
-							Cancel
-						</Button>
-						<Button type="submit" variant="gradient" size="sm" disabled={isSubmitting} className="cursor-pointer flex items-center gap-1.5 min-w-[120px] justify-center">
-							{isSubmitting ? (
-								<>
-									<svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-									</svg>
-									<span>Saving...</span>
-								</>
-							) : editingDevice ? (
-								"Save Changes"
-							) : (
-								"Register Stock Item"
-							)}
-						</Button>
-					</div>
-				</form>
+					</form>
 				)}
 			</Modal>
 
-			{/* SELL MODAL */}
+			{/* Blacklist Warning Modal */}
 			<Modal
+				isOpen={!!blacklistWarning}
+				onClose={() => setBlacklistWarning(null)}
+				title="⚠️ WARNING: Blacklisted Mobile Device"
+				size="md"
+			>
+				{blacklistWarning && (
+					<div className="space-y-6 text-left">
+						<div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3">
+							<svg className="w-6 h-6 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+							</svg>
+							<div>
+								<h4 className="font-extrabold text-red-700 dark:text-red-400 text-sm">Device has been Blacklisted!</h4>
+								<p className="text-zinc-600 dark:text-zinc-400 text-xs mt-1 leading-relaxed">
+									This device (IMEI: <span className="font-mono font-bold text-zinc-900 dark:text-white">{blacklistWarning.imei}</span>) is listed in the global blacklist.
+								</p>
+							</div>
+						</div>
+
+						<div className="space-y-3 bg-zinc-50 dark:bg-zinc-900/40 p-5 rounded-2xl border border-zinc-150 dark:border-zinc-800">
+							<div>
+								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Blacklisted By</span>
+								<strong className="text-zinc-800 dark:text-zinc-200 text-sm">{blacklistWarning.blacklistedBy}</strong>
+							</div>
+							<div>
+								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Date Flagged</span>
+								<span className="text-zinc-700 dark:text-zinc-300 text-xs">
+									{blacklistWarning.createdAt ? new Date(blacklistWarning.createdAt).toLocaleString() : "N/A"}
+								</span>
+							</div>
+							<div>
+								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Reason / Details</span>
+								<p className="text-zinc-700 dark:text-zinc-350 text-xs mt-1 italic">
+									"{blacklistWarning.reason || "No details provided."}"
+								</p>
+							</div>
+						</div>
+
+						<div className="p-3 bg-yellow-500/5 border border-yellow-500/10 rounded-xl text-[11px] text-yellow-600 dark:text-yellow-400 leading-normal">
+							Proceeding with this device may violate local security standards or business policies. Make sure you have checked appropriate documentation.
+						</div>
+
+						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => setBlacklistWarning(null)}
+								className="cursor-pointer"
+							>
+								Cancel / Reject
+							</Button>
+							<Button
+								type="button"
+								variant="gradient"
+								size="sm"
+								onClick={() => {
+									setBlacklistWarning(null);
+									handleSubmit(null, true);
+								}}
+								className="bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
+							>
+								Acknowledge & Proceed
+							</Button>
+						</div>
+					</div>
+				)}
+			</Modal>
+
+			<DeviceSaleModal
 				isOpen={isSellFormOpen}
-				onClose={() => !isSubmitting && setIsSellFormOpen(false)}
-				title={
-					<div className="flex items-center gap-3 text-left">
-						<span className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-							<svg
-								className="w-5 h-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								strokeWidth="2.5"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"
-								/>
-							</svg>
-						</span>
-						<div>
-							<h3 className="text-base font-extrabold text-zinc-900 dark:text-white leading-tight">
-								Record Device Sale
-							</h3>
-							<p className="text-[11px] text-zinc-400 font-normal mt-0.5">
-								Complete outgoing transaction details for this unit.
-							</p>
-						</div>
-					</div>
-				}
-				size="lg"
-			>
-				{sellingDevice && (
-					<form onSubmit={handleSellSubmit} className="space-y-5" noValidate>
-						{/* Device Info Panel */}
-						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
-							<div className="flex justify-between items-start">
-								<div>
-									<h4 className="text-sm font-extrabold text-zinc-900 dark:text-white">
-										{sellingDevice.brand} {sellingDevice.model}
-									</h4>
-									<p className="text-[11px] text-zinc-400 mt-0.5">
-										{sellingDevice.storage} / {sellingDevice.ram} RAM &bull; {sellingDevice.color} &bull; {sellingDevice.condition} Condition
-									</p>
-								</div>
-								<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-									Available
-								</span>
-							</div>
-							<div className="grid grid-cols-3 gap-4 border-t border-zinc-200/40 dark:border-zinc-800/40 pt-2.5 mt-1 text-[11px]">
-								<div>
-									<span className="text-zinc-400 block">
-										IMEI:
-									</span>
-									<span className="font-mono text-zinc-700 dark:text-zinc-300 font-bold">
-										{sellingDevice.imei || "N/A"}
-									</span>
-								</div>
-								<div>
-									<span className="text-zinc-400 block">
-										Purchase Price:
-									</span>
-									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
-										{sellingDevice.purchasePrice ? `₹${sellingDevice.purchasePrice.toLocaleString()}` : "-"}
-									</span>
-								</div>
-								{sellingDevice.repairingCost ? (
-									<div>
-										<span className="text-zinc-400 block">
-											Repairing Cost:
-										</span>
-										<span className="font-semibold text-amber-600 dark:text-amber-400">
-											₹{sellingDevice.repairingCost.toLocaleString()}
-										</span>
-									</div>
-								) : null}
-								<div>
-									<span className="text-zinc-400 block">
-										Profit:
-									</span>
-									<span className={`font-extrabold ${saleProfit >= 0 ? "text-emerald-500" : "text-red-500"}`} suppressHydrationWarning>
-										{saleProfit >= 0 ? "+" : "-"}₹{Math.abs(saleProfit).toLocaleString()}
-									</span>
-								</div>
-							</div>
-						</div>
+				onClose={() => setIsSellFormOpen(false)}
+				device={sellingDevice}
+			/>
 
-						{/* Form inputs */}
-						<div className="space-y-4 text-left">
-							{/* Customer selection */}
-							<PartnerSelector
-								value={sellCustomer}
-								onChange={(val) => {
-									setSellCustomer(val);
-									clearSellError("sellCustomer");
-								}}
-								label="Customer / Vendor *"
-								placeholder="-- Choose Partner --"
-								required={true}
-								valueType="name"
-								error={sellErrors.sellCustomer}
-							/>
-
-							{/* Price & Date */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Actual Selling Price (₹) *
-									</label>
-									<input
-										type="number"
-										required
-										disabled={isSubmitting}
-										value={sellPrice}
-										onChange={(e) => {
-											setSellPrice(e.target.value);
-											clearSellError("sellPrice");
-										}}
-										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50
-											${sellErrors.sellPrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
-									/>
-									{sellErrors.sellPrice && (
-										<p className="text-xs text-red-500 font-medium mt-1">
-											{sellErrors.sellPrice}
-										</p>
-									)}
-								</div>
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Sale Date *
-									</label>
-									<input
-										type="date"
-										required
-										disabled={isSubmitting}
-										value={sellDate}
-										onChange={(e) =>
-											setSellDate(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
-									/>
-								</div>
-							</div>
-
-							{/* Notes */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Transaction Notes
-								</label>
-								<textarea
-									disabled={isSubmitting}
-									value={sellNotes}
-									onChange={(e) =>
-										setSellNotes(e.target.value)
-									}
-									placeholder="e.g. Screen and device inspected by buyer. Paid full via UPI."
-									rows={2}
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
-								/>
-							</div>
-
-							{sellCustomer.startsWith("Vendor:") && (
-								<div className="flex items-center gap-2 mt-2">
-									<input
-										type="checkbox"
-										id="isCourierSale"
-										checked={isCourierSale}
-										onChange={(e) => setIsCourierSale(e.target.checked)}
-										className="rounded border-zinc-200 dark:border-zinc-800 text-primary focus:ring-primary h-4 w-4"
-									/>
-									<label htmlFor="isCourierSale" className="text-xs text-zinc-600 dark:text-zinc-400 font-bold select-none cursor-pointer">
-										Ship via Courier (2-3 days delivery)
-									</label>
-								</div>
-							)}
-						</div>
-
-
-						{sellFormError && (
-							<p className="text-xs text-red-500 font-semibold text-center mt-2">
-								{sellFormError}
-							</p>
-						)}
-
-						{/* Actions */}
-						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								disabled={isSubmitting}
-								onClick={() => setIsSellFormOpen(false)}
-								className="cursor-pointer"
-							>
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								variant="gradient"
-								size="sm"
-								disabled={isSubmitting}
-								className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5 min-w-[120px] h-9"
-							>
-								{isSubmitting ? (
-									<>
-										<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-										</svg>
-										<span>Recording...</span>
-									</>
-								) : (
-									"Confirm Sale"
-								)}
-							</Button>
-						</div>
-					</form>
-				)}
-			</Modal>
-
-			{/* BUYBACK MODAL */}
-			<Modal
+			<DeviceBuyModal
 				isOpen={isBuybackFormOpen}
-				onClose={() => !isSubmitting && setIsBuybackFormOpen(false)}
-				title={
-					<div className="flex items-center gap-3 text-left">
-						<span className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-							<svg
-								className="w-5 h-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								strokeWidth="2.5"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
-								/>
-							</svg>
-						</span>
-						<div>
-							<h3 className="text-base font-extrabold text-zinc-900 dark:text-white leading-tight">
-								Record Device Buyback
-							</h3>
-							<p className="text-[11px] text-zinc-400 font-normal mt-0.5">
-								Re-acquire a previously sold unit back into active inventory.
-							</p>
-						</div>
-					</div>
-				}
-				size="lg"
-			>
-				{buybackDevice && (
-					<form onSubmit={handleBuybackSubmit} className="space-y-5" noValidate>
-						{/* Device Info Panel */}
-						<div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-2 shadow-inner text-left">
-							<div className="flex justify-between items-start">
-								<div>
-									<h4 className="text-sm font-extrabold text-zinc-900 dark:text-white">
-										{buybackDevice.brand} {buybackDevice.model}
-									</h4>
-									<p className="text-[11px] text-zinc-400 mt-0.5">
-										{buybackDevice.storage} / {buybackDevice.ram} RAM &bull; {buybackDevice.color}
-									</p>
-								</div>
-								<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/10 text-zinc-650 dark:text-zinc-400 uppercase tracking-wide">
-									Currently Sold
-								</span>
-							</div>
-							<div className="grid grid-cols-3 gap-4 border-t border-zinc-200/40 dark:border-zinc-800/40 pt-2.5 mt-1 text-[11px]">
-								<div>
-									<span className="text-zinc-400 block">
-										IMEI:
-									</span>
-									<span className="font-mono text-zinc-700 dark:text-zinc-300 font-bold">
-										{buybackDevice.imei || "N/A"}
-									</span>
-								</div>
-								<div>
-									<span className="text-zinc-400 block">
-										Last Sell Price:
-									</span>
-									<span className="font-semibold text-zinc-700 dark:text-zinc-300">
-										₹{buybackDevice.price.toLocaleString()}
-									</span>
-								</div>
-								<div>
-									<span className="text-zinc-400 block">
-										Profit:
-									</span>
-									<span className={`font-extrabold ${buybackProfit >= 0 ? "text-emerald-500" : "text-red-500"}`} suppressHydrationWarning>
-										{buybackProfit >= 0 ? "+" : "-"}₹{Math.abs(buybackProfit).toLocaleString()}
-									</span>
-								</div>
-							</div>
-						</div>
-
-						{/* Form inputs */}
-						<div className="space-y-4 text-left">
-							{/* Customer selection */}
-							<PartnerSelector
-								value={buybackCustomer}
-								onChange={(val) => {
-									setBuybackCustomer(val);
-									clearBuybackError("buybackCustomer");
-								}}
-								label="Customer / Vendor (Selling back to store) *"
-								placeholder="-- Choose Partner --"
-								required={true}
-								valueType="name"
-								error={buybackErrors.buybackCustomer}
-							/>
-
-							{/* Price, Date, and specs updates */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Buyback Amount Paid (₹) *
-									</label>
-									<input
-										type="number"
-										required
-										disabled={isSubmitting}
-										value={buybackPrice}
-										onChange={(e) => {
-											setBuybackPrice(e.target.value);
-											clearBuybackError("buybackPrice");
-										}}
-										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none font-semibold text-zinc-900 dark:text-white disabled:opacity-50
-											${buybackErrors.buybackPrice ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
-									/>
-									{buybackErrors.buybackPrice && (
-										<p className="text-xs text-red-500 font-medium mt-1">
-											{buybackErrors.buybackPrice}
-										</p>
-									)}
-								</div>
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Buyback Date *
-									</label>
-									<input
-										type="date"
-										required
-										disabled={isSubmitting}
-										value={buybackDate}
-										onChange={(e) =>
-											setBuybackDate(e.target.value)
-										}
-										className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
-									/>
-								</div>
-							</div>
-
-							{/* Condition & Battery (Buyback inspection updates) */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Buyback Condition *
-									</label>
-									<Select
-										value={buybackCondition}
-										disabled={isSubmitting}
-										onChange={(e) =>
-											setBuybackCondition(
-												e.target.value as any,
-											)
-										}
-										options={[
-											{ value: "NEW", label: "New" },
-											{ value: "OLD", label: "Old" },
-										]}
-									/>
-								</div>
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-										Current Battery Health (%) *
-									</label>
-									<input
-										type="number"
-										min={50}
-										max={100}
-										required
-										disabled={isSubmitting}
-										value={buybackBatteryHealth}
-										onChange={(e) => {
-											setBuybackBatteryHealth(
-												parseInt(e.target.value) || 0,
-											);
-											clearBuybackError("buybackBattery");
-										}}
-										className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50
-											${buybackErrors.buybackBattery ? "border-red-500 focus:ring-red-500/10" : "border-zinc-200 dark:border-zinc-800"}`}
-									/>
-									{buybackErrors.buybackBattery && (
-										<p className="text-xs text-red-500 font-medium mt-1">
-											{buybackErrors.buybackBattery}
-										</p>
-									)}
-								</div>
-							</div>
-
-							{/* Notes */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-									Buyback Notes
-								</label>
-								<textarea
-									disabled={isSubmitting}
-									value={buybackNotes}
-									onChange={(e) =>
-										setBuybackNotes(e.target.value)
-									}
-									placeholder="e.g. Device remains in excellent condition. Battery health is at 90%. Paid via Bank Transfer."
-									rows={2}
-									className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50"
-								/>
-							</div>
-						</div>
-
-						{buybackFormError && (
-							<p className="text-xs text-red-500 font-semibold text-center mt-2">
-								{buybackFormError}
-							</p>
-						)}
-
-						{/* Actions */}
-						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								disabled={isSubmitting}
-								onClick={() => setIsBuybackFormOpen(false)}
-								className="cursor-pointer"
-							>
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								variant="gradient"
-								size="sm"
-								disabled={isSubmitting}
-								className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5 min-w-[120px] h-9"
-							>
-								{isSubmitting ? (
-									<>
-										<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-										</svg>
-										<span>Recording...</span>
-									</>
-								) : (
-									"Confirm Buyback"
-								)}
-							</Button>
-						</div>
-					</form>
-				)}
-			</Modal>
+				onClose={() => setIsBuybackFormOpen(false)}
+				device={buybackDevice}
+			/>
 
 			{/* Delete Confirmation Modal */}
 			<ConfirmDeleteModal
@@ -2296,81 +1329,6 @@ export default function InventoryPage() {
 				</form>
 			</Modal>
 
-			{/* Blacklist Warning Modal */}
-			<Modal
-				isOpen={!!blacklistWarning}
-				onClose={() => setBlacklistWarning(null)}
-				title="⚠️ WARNING: Blacklisted Mobile Device"
-				size="md"
-			>
-				{blacklistWarning && (
-					<div className="space-y-6 text-left">
-						<div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3">
-							<svg className="w-6 h-6 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-							</svg>
-							<div>
-								<h4 className="font-extrabold text-red-700 dark:text-red-400 text-sm">Device has been Blacklisted!</h4>
-								<p className="text-zinc-600 dark:text-zinc-400 text-xs mt-1 leading-relaxed">
-									This device (IMEI: <span className="font-mono font-bold text-zinc-900 dark:text-white">{blacklistWarning.imei}</span>) is listed in the global blacklist.
-								</p>
-							</div>
-						</div>
-
-						<div className="space-y-3 bg-zinc-50 dark:bg-zinc-900/40 p-5 rounded-2xl border border-zinc-150 dark:border-zinc-800">
-							<div>
-								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Blacklisted By</span>
-								<strong className="text-zinc-800 dark:text-zinc-200 text-sm">{blacklistWarning.blacklistedBy}</strong>
-							</div>
-							<div>
-								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Date Flagged</span>
-								<span className="text-zinc-700 dark:text-zinc-300 text-xs">
-									{blacklistWarning.createdAt ? new Date(blacklistWarning.createdAt).toLocaleString() : "N/A"}
-								</span>
-							</div>
-							<div>
-								<span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 block">Reason / Details</span>
-								<p className="text-zinc-700 dark:text-zinc-350 text-xs mt-1 italic">
-									"{blacklistWarning.reason || "No details provided."}"
-								</p>
-							</div>
-						</div>
-
-						<div className="p-3 bg-yellow-500/5 border border-yellow-500/10 rounded-xl text-[11px] text-yellow-600 dark:text-yellow-400 leading-normal">
-							Proceeding with this device may violate local security standards or business policies. Make sure you have checked appropriate documentation.
-						</div>
-
-						<div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-850">
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={() => setBlacklistWarning(null)}
-								className="cursor-pointer"
-							>
-								Cancel / Reject
-							</Button>
-							<Button
-								type="button"
-								variant="gradient"
-								size="sm"
-								onClick={() => {
-									const isBuy = blacklistWarning.isBuyback;
-									setBlacklistWarning(null);
-									if (isBuy) {
-										handleBuybackSubmit(null, true);
-									} else {
-										handleSubmit(null, true);
-									}
-								}}
-								className="bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
-							>
-								Acknowledge & Proceed
-							</Button>
-						</div>
-					</div>
-				)}
-			</Modal>
 		</div>
 	);
 }

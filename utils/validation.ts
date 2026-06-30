@@ -41,13 +41,11 @@ export const mobileValidationSchema = yup.object().shape({
 	imei: yup
 		.string()
 		.trim()
-		.transform((value) => (value === "" ? null : value))
-		.nullable()
-		.notRequired()
+		.required("IMEI is required.")
 		.test(
 			"is-15-digits",
 			"IMEI must be exactly 15 digits.",
-			(value) => !value || /^\d{15}$/.test(value),
+			(value) => !!value && /^\d{15}$/.test(value),
 		),
 	color: yup
 		.string()
@@ -115,6 +113,18 @@ export const mobileValidationSchema = yup.object().shape({
 		.min(0, "Repairing cost cannot be negative.")
 		.nullable()
 		.notRequired(),
+	customerId: yup
+		.string()
+		.nullable()
+		.test(
+			"is-required-for-purchase",
+			"Customer / Vendor is required.",
+			function (value) {
+				const isEdit = this.options.context?.isEdit;
+				if (isEdit) return true;
+				return value !== undefined && value !== null && value !== "";
+			}
+		),
 });
 
 export const sellValidationSchema = yup.object().shape({
@@ -165,4 +175,17 @@ export const buybackValidationSchema = yup.object().shape({
 		.nullable()
 		.notRequired(),
 });
+
+export const imeiCheckSchema = yup.object().shape({
+	imei: yup
+		.string()
+		.trim()
+		.required("IMEI number is required.")
+		.test(
+			"is-15-digits",
+			"IMEI must be exactly 15 digits.",
+			(value) => !!value && /^\d{15}$/.test(value)
+		),
+});
+
 

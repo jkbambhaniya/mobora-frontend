@@ -17,6 +17,7 @@ export interface AdminStats {
   totalRepairs: number;
   totalTransactions: number;
   totalCustomers: number;
+  growth?: { name: string; vendors: number; mobiles: number }[];
 }
 
 export interface VendorDetail {

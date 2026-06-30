@@ -7,15 +7,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tool
 export default function AdminDashboardPage() {
 	const { stats, isLoadingStats } = useAdminDashboard();
 
-	// Mock registration data for chart
-	const growthData = [
-		{ name: "Jan", vendors: 1, mobiles: 10 },
-		{ name: "Feb", vendors: 2, mobiles: 18 },
-		{ name: "Mar", vendors: 2, mobiles: 25 },
-		{ name: "Apr", vendors: 3, mobiles: 32 },
-		{ name: "May", vendors: 3, mobiles: 45 },
-		{ name: "Jun", vendors: stats?.totalVendors ?? 3, mobiles: stats?.totalMobiles ?? 50 },
-	];
+	const growthData = stats?.growth || [];
 
 	// Vendor status breakdown for chart
 	const statusData = [
@@ -125,6 +117,10 @@ export default function AdminDashboardPage() {
 										<stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
 										<stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
 									</linearGradient>
+									<linearGradient id="colorMobiles" x1="0" y1="0" x2="0" y2="1">
+										<stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+										<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+									</linearGradient>
 								</defs>
 								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:stroke-white/5" />
 								<XAxis dataKey="name" stroke="#a1a1aa" fontSize={11} tickLine={false} />
@@ -138,6 +134,7 @@ export default function AdminDashboardPage() {
 									}}
 								/>
 								<Area type="monotone" dataKey="vendors" stroke="#4f46e5" strokeWidth={2} fillOpacity={1} fill="url(#colorVendors)" name="Vendors" />
+								<Area type="monotone" dataKey="mobiles" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorMobiles)" name="Mobiles" />
 							</AreaChart>
 						</ResponsiveContainer>
 					</div>

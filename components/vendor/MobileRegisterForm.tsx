@@ -7,37 +7,38 @@ import { PartnerSelector } from "./PartnerSelector";
 import { ImeiInput } from "@/components/ui/imei-input";
 import { RamSelector } from "@/components/ui/ram-selector";
 import { StorageSelector } from "@/components/ui/storage-selector";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 interface MobileRegisterFormProps {
-	values: {
-		imei: string;
-		brand: string;
-		model: string;
-		storage: string;
-		ram: string;
-		color: string;
-		condition: "NEW" | "OLD";
-		batteryHealth: number;
-		purchasePrice: string;
-		repairingCost: string;
-		description: string;
-		customerId: string;
-	};
-	onChange: (field: string, value: any) => void;
-	errors: Record<string, string>;
-	isEdit: boolean;
-	hideBrandModel?: boolean;
-	specs: {
-		allBrands: any[];
-		allModels: any[];
-		allStorages: any[];
-		allRams: any[];
-		addBrand: (name: string) => Promise<any>;
-		addModel: (name: string, brandId: number) => Promise<any>;
-		addStorage: (value: string) => Promise<any>;
-		addRam: (value: string) => Promise<any>;
-		refreshAllSpecs: () => Promise<void>;
-	};
+    values: {
+        imei: string;
+        brand: string;
+        model: string;
+        storage: string;
+        ram: string;
+        color: string;
+        condition: "OLD" | "NEW";
+        batteryHealth: number;
+        purchasePrice: string;
+        repairingCost: string;
+        description: string;
+        customerId: string;
+    };
+    onChange: (field: string, value: any) => void;
+    errors: Record<string, string>;
+    isEdit: boolean;
+    hideBrandModel?: boolean;
+    specs: {
+        allBrands: any[];
+        allModels: any[];
+        allStorages: any[];
+        allRams: any[];
+        addBrand: (name: string) => Promise<any>;
+        addModel: (name: string, brandId: number) => Promise<any>;
+        addStorage: (value: string) => Promise<any>;
+        addRam: (value: string) => Promise<any>;
+        refreshAllSpecs: () => Promise<void>;
+    };
 }
 
 export function MobileRegisterForm({
@@ -122,14 +123,16 @@ export function MobileRegisterForm({
 					value={values.imei}
 					onChange={(val) => onChange("imei", val)}
 					error={errors.imei}
-					required={false}
+					required={true}
 				/>
 
 				{/* Color */}
 				<div className="space-y-1">
-					<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-						Color *
-					</label>
+					<div className="flex justify-between items-center h-5">
+						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+							Color *
+						</label>
+					</div>
 					<input
 						type="text"
 						value={values.color}
@@ -137,13 +140,11 @@ export function MobileRegisterForm({
 						placeholder="e.g. Phantom Black"
 						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 							errors.color
-								? "border-red-400 focus:ring-red-400"
+								? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 						}`}
 					/>
-					{errors.color && (
-						<p className="text-xs text-red-500 font-medium mt-1">{errors.color}</p>
-					)}
+					<ErrorMessage message={errors.color} />
 				</div>
 			</div>
 
@@ -152,7 +153,7 @@ export function MobileRegisterForm({
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					{/* Brand Select */}
 					<div className="space-y-1">
-						<div className="flex justify-between items-center">
+						<div className="flex justify-between items-center h-5">
 							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 								Brand *
 							</label>
@@ -208,7 +209,7 @@ export function MobileRegisterForm({
 
 					{/* Model Select */}
 					<div className="space-y-1">
-						<div className="flex justify-between items-center">
+						<div className="flex justify-between items-center h-5">
 							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
 								Model *
 							</label>
@@ -286,7 +287,8 @@ export function MobileRegisterForm({
 				/>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+			{/* Condition & Battery Health */}
+			<div className={`grid grid-cols-1 gap-4 ${values.brand && specs.allBrands.find((b: any) => b.id.toString() === values.brand)?.name.toLowerCase() === "apple" ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
 				{/* Condition */}
 				<div className="space-y-1">
 					<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -296,36 +298,34 @@ export function MobileRegisterForm({
 						value={values.condition}
 						onChange={(e) => onChange("condition", e.target.value)}
 						options={[
-							{ value: "NEW", label: "New" },
 							{ value: "OLD", label: "Old" },
+							{ value: "NEW", label: "New" },
 						]}
 						error={errors.condition}
 					/>
 				</div>
 
-				{/* Battery Health */}
-				<div className="space-y-1">
-					<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-						Battery Health (%) *
-					</label>
-					<input
-						type="number"
-						min={50}
-						max={100}
-						value={values.batteryHealth}
-						onChange={(e) => onChange("batteryHealth", parseInt(e.target.value) || 0)}
-						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
-							errors.batteryHealth
-								? "border-red-400 focus:ring-red-400"
-								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
-						}`}
-					/>
-					{errors.batteryHealth && (
-						<p className="text-xs text-red-500 font-medium mt-1">
-							{errors.batteryHealth}
-						</p>
-					)}
-				</div>
+				{/* Battery Health (Apple only) */}
+				{values.brand && specs.allBrands.find((b: any) => b.id.toString() === values.brand)?.name.toLowerCase() === "apple" && (
+					<div className="space-y-1">
+						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+							Battery Health (%) *
+						</label>
+						<input
+							type="number"
+							min={50}
+							max={100}
+							value={values.batteryHealth}
+							onChange={(e) => onChange("batteryHealth", parseInt(e.target.value) || 0)}
+							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
+								errors.batteryHealth
+									? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
+									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
+							}`}
+						/>
+						<ErrorMessage message={errors.batteryHealth} />
+					</div>
+				)}
 			</div>
 
 			{/* Customer Selection */}
@@ -333,10 +333,11 @@ export function MobileRegisterForm({
 				<PartnerSelector
 					value={values.customerId}
 					onChange={(val) => onChange("customerId", val)}
-					label="Select Customer / Vendor (for Purchase Transaction)"
+					label="Select Customer / Vendor (for Purchase Transaction) *"
 					placeholder="-- Choose Partner --"
-					required={false}
+					required={true}
 					valueType="id"
+					error={errors.customerId}
 				/>
 			)}
 
@@ -345,33 +346,32 @@ export function MobileRegisterForm({
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					{/* Cost Price */}
 					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Purchase / Cost Price * (₹)
-						</label>
+						<div className="flex justify-between items-center h-5">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Purchase / Cost Price * (₹)
+							</label>
+						</div>
 						<input
 							type="number"
-							required
 							value={values.purchasePrice}
 							onChange={(e) => onChange("purchasePrice", e.target.value)}
 							placeholder="e.g. 30000"
 							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 								errors.purchasePrice
-									? "border-red-400 focus:ring-red-400"
+									? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
 									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 							}`}
 						/>
-						{errors.purchasePrice && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{errors.purchasePrice}
-							</p>
-						)}
+						<ErrorMessage message={errors.purchasePrice} />
 					</div>
 
 					{/* Repairing Cost */}
 					<div className="space-y-1">
-						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-							Repairing Cost (₹)
-						</label>
+						<div className="flex justify-between items-center h-5">
+							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+								Repairing Cost (₹)
+							</label>
+						</div>
 						<input
 							type="number"
 							value={values.repairingCost}
@@ -379,23 +379,21 @@ export function MobileRegisterForm({
 							placeholder="e.g. 1500"
 							className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 								errors.repairingCost
-									? "border-red-400 focus:ring-red-400"
+									? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
 									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 							}`}
 						/>
-						{errors.repairingCost && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{errors.repairingCost}
-							</p>
-						)}
+						<ErrorMessage message={errors.repairingCost} />
 					</div>
 				</div>
 			) : (
 				/* Repairing Cost only for Edit mode */
 				<div className="space-y-1">
-					<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-						Repairing Cost (₹)
-					</label>
+					<div className="flex justify-between items-center h-5">
+						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+							Repairing Cost (₹)
+						</label>
+					</div>
 					<input
 						type="number"
 						value={values.repairingCost}
@@ -403,15 +401,11 @@ export function MobileRegisterForm({
 						placeholder="e.g. 1500"
 						className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 							errors.repairingCost
-								? "border-red-400 focus:ring-red-400"
+								? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
 								: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 						}`}
 					/>
-					{errors.repairingCost && (
-						<p className="text-xs text-red-500 font-medium mt-1">
-							{errors.repairingCost}
-						</p>
-					)}
+					<ErrorMessage message={errors.repairingCost} />
 				</div>
 			)}
 
@@ -427,13 +421,11 @@ export function MobileRegisterForm({
 					rows={3}
 					className={`w-full px-4 py-2.5 rounded-xl border bg-transparent text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:outline-none transition-colors ${
 						errors.description
-							? "border-red-400 focus:ring-red-400"
+							? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/10"
 							: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 					}`}
 				/>
-				{errors.description && (
-					<p className="text-xs text-red-500 font-medium mt-1">{errors.description}</p>
-				)}
+				<ErrorMessage message={errors.description} />
 			</div>
 		</div>
 	);

@@ -11,6 +11,7 @@ import { useDashboard } from "@/context/vendor/dashboard-context";
 import { useSpecifications } from "@/context/vendor/specifications-context";
 import { DeviceRequirement } from "@/context/vendor/requirements-context";
 import * as yup from "yup";
+import { ConfirmDeleteModal } from "@/components/ui/confirm-modal";
 
 const requirementSchema = yup.object().shape({
 	brandId: yup.string().trim().required("Brand is required."),
@@ -54,6 +55,14 @@ export default function RequirementsPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+	// Confirm delete modal states
+	const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+	const [deletingRequirement, setDeletingRequirement] = useState<{
+		id: number;
+		name: string;
+	} | null>(null);
+	const [isDeleting, setIsDeleting] = useState(false);
 
 	// Form fields
 	const [brandId, setBrandId] = useState("");
@@ -163,15 +172,26 @@ export default function RequirementsPage() {
 		}
 	};
 
-	const handleDelete = async (id: number) => {
-		if (confirm("Are you sure you want to delete this requirement?")) {
-			const success = await removeRequirement(id);
-			if (success) {
-				toast.success("Requirement deleted.");
-				fetchRequirements();
-			} else {
-				toast.error("Failed to delete requirement.");
-			}
+	const handleDeleteClick = (r: DeviceRequirement) => {
+		setDeletingRequirement({
+			id: r.id,
+			name: `${r.brand} ${r.model} (${r.storage}/${r.ram}${r.color ? `, ${r.color}` : ""})`,
+		});
+		setIsConfirmOpen(true);
+	};
+
+	const handleConfirmDelete = async () => {
+		if (!deletingRequirement) return;
+		setIsDeleting(true);
+		const success = await removeRequirement(deletingRequirement.id);
+		setIsDeleting(false);
+		setIsConfirmOpen(false);
+		if (success) {
+			toast.success("Requirement deleted.");
+			setDeletingRequirement(null);
+			fetchRequirements();
+		} else {
+			toast.error("Failed to delete requirement.");
 		}
 	};
 
@@ -238,7 +258,7 @@ export default function RequirementsPage() {
 			title: "Actions",
 			render: (r) => (
 				<button
-					onClick={() => handleDelete(r.id)}
+					onClick={() => handleDeleteClick(r)}
 					className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors cursor-pointer"
 					title="Delete Requirement"
 				>
@@ -411,6 +431,14 @@ export default function RequirementsPage() {
 					/>
 				</div>
 			</div>
+
+			<ConfirmDeleteModal
+				isOpen={isConfirmOpen}
+				onClose={() => setIsConfirmOpen(false)}
+				onConfirm={handleConfirmDelete}
+				itemName={deletingRequirement?.name || ""}
+				loading={isDeleting}
+			/>
 		</div>
 	);
 }

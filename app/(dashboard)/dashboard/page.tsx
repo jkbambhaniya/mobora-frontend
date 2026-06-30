@@ -167,18 +167,7 @@ export default function Dashboard() {
 		return Object.values(groups);
 	}, [filteredTrades]);
 
-	const isDemoTrades = transactionTimelineData.length === 0;
-	const timelineData = !isDemoTrades
-		? transactionTimelineData
-		: [
-				{ date: "Mon", Sales: 12000, Purchases: 8000 },
-				{ date: "Tue", Sales: 19000, Purchases: 12000 },
-				{ date: "Wed", Sales: 15000, Purchases: 22000 },
-				{ date: "Thu", Sales: 27000, Purchases: 15000 },
-				{ date: "Fri", Sales: 32000, Purchases: 19000 },
-				{ date: "Sat", Sales: 24000, Purchases: 11000 },
-				{ date: "Sun", Sales: 38000, Purchases: 14000 },
-		  ];
+	const timelineData = transactionTimelineData;
 
 	// Format currency helper
 	const formatCurrency = (val: number) => {
@@ -466,44 +455,43 @@ export default function Dashboard() {
 								Telemetry showing sales versus stock acquisition in selected range.
 							</p>
 						</div>
-						{isDemoTrades && (
-							<span className="px-2.5 py-0.5 text-[9px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
-								Demo Data
-							</span>
-						)}
 					</div>
 
-					<div className="flex-1 w-full min-h-0 mt-6">
-						<ResponsiveContainer width="100%" height="100%">
-							<AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-								<defs>
-									<linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-										<stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-										<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-									</linearGradient>
-									<linearGradient id="colorPurchases" x1="0" y1="0" x2="0" y2="1">
-										<stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
-										<stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-									</linearGradient>
-								</defs>
-								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:stroke-white/5" />
-								<XAxis dataKey="date" stroke="#a1a1aa" fontSize={10} tickLine={false} />
-								<YAxis stroke="#a1a1aa" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
-								<Tooltip
-									formatter={(v: any) => [formatCurrency(Number(v)), ""]}
-									contentStyle={{
-										background: "var(--tooltip-bg, #ffffff)",
-										borderColor: "var(--tooltip-border, #e4e4e7)",
-										borderRadius: "16px",
-										fontSize: "11px",
-										boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
-									}}
-								/>
-								<Legend wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
-								<Area type="monotone" dataKey="Sales" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Sales Revenue" />
-								<Area type="monotone" dataKey="Purchases" stroke="#4f46e5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorPurchases)" name="Stock Purchases" />
-							</AreaChart>
-						</ResponsiveContainer>
+					<div className="flex-1 w-full min-h-0 mt-6 flex items-center justify-center">
+						{timelineData.length > 0 ? (
+							<ResponsiveContainer width="100%" height="100%">
+								<AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+									<defs>
+										<linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+											<stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+											<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+										</linearGradient>
+										<linearGradient id="colorPurchases" x1="0" y1="0" x2="0" y2="1">
+											<stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
+											<stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+										</linearGradient>
+									</defs>
+									<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:stroke-white/5" />
+									<XAxis dataKey="date" stroke="#a1a1aa" fontSize={10} tickLine={false} />
+									<YAxis stroke="#a1a1aa" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+									<Tooltip
+										formatter={(v: any) => [formatCurrency(Number(v)), ""]}
+										contentStyle={{
+											background: "var(--tooltip-bg, #ffffff)",
+											borderColor: "var(--tooltip-border, #e4e4e7)",
+											borderRadius: "16px",
+											fontSize: "11px",
+											boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
+										}}
+									/>
+									<Legend wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
+									<Area type="monotone" dataKey="Sales" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Sales Revenue" />
+									<Area type="monotone" dataKey="Purchases" stroke="#4f46e5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorPurchases)" name="Stock Purchases" />
+								</AreaChart>
+							</ResponsiveContainer>
+						) : (
+							<p className="text-xs text-zinc-400">No transactions recorded in this date range.</p>
+						)}
 					</div>
 				</div>
 

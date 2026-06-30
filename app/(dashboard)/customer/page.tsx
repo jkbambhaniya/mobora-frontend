@@ -11,6 +11,7 @@ import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import { toast } from "react-hot-toast";
 import * as yup from "yup";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
@@ -820,11 +821,7 @@ export default function CustomerPage() {
 									: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 							}`}
 						/>
-						{fieldErrors.name && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{fieldErrors.name}
-							</p>
-						)}
+						<ErrorMessage message={fieldErrors.name} />
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -846,11 +843,7 @@ export default function CustomerPage() {
 										: "border-zinc-200 dark:border-zinc-800 focus:ring-primary"
 								}`}
 							/>
-							{fieldErrors.email && (
-								<p className="text-xs text-red-500 font-medium mt-1">
-									{fieldErrors.email}
-								</p>
-							)}
+							<ErrorMessage message={fieldErrors.email} />
 						</div>
 						<div className="space-y-1">
 							<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
@@ -945,11 +938,7 @@ export default function CustomerPage() {
 						/>
 					</div>
 
-					{formError && (
-						<p className="text-xs text-red-500 font-semibold text-center mt-2">
-							{formError}
-						</p>
-					)}
+					<ErrorMessage message={formError} />
 
 					<div className="flex justify-end gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-850">
 						<Button
