@@ -288,7 +288,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     fetchSessions();
 
-    const socketUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const socketUrl = isLocalhost
+      ? `${window.location.protocol}//${window.location.hostname}:5000`
+      : `${window.location.protocol}//${window.location.hostname}`;
     console.log(`[ChatContext] Connecting to Socket server at ${socketUrl}`);
 
     const socket = io(socketUrl, {
