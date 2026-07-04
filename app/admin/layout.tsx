@@ -27,7 +27,12 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 	const pathname = usePathname();
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		setSidebarOpen(false);
+	}, [pathname]);
 
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
@@ -105,17 +110,35 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 	}
 
 	return (
-		<div className="h-screen overflow-hidden bg-zinc-50 dark:bg-[#0d0e12] text-zinc-900 dark:text-gray-100 flex">
+		<div className="h-screen overflow-hidden bg-zinc-50 dark:bg-[#0d0e12] text-zinc-900 dark:text-gray-100 flex relative">
+			{/* Sidebar Backdrop Overlay on mobile */}
+			{sidebarOpen && (
+				<div 
+					className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden transition-opacity duration-300"
+					onClick={() => setSidebarOpen(false)}
+				/>
+			)}
+
 			{/* Sidebar */}
-			<aside className="w-64 h-full bg-white dark:bg-[#13151a]/50 backdrop-blur-xl flex flex-col shrink-0 shadow-xl shadow-zinc-200/30 dark:shadow-black/20 z-30">
-				<div className="h-16 px-6 flex items-center gap-3">
-					<div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-indigo-600/30">
-						M
+			<aside className={`w-64 h-full bg-white dark:bg-[#13151a]/50 backdrop-blur-xl flex flex-col shrink-0 shadow-xl shadow-zinc-200/30 dark:shadow-black/20 z-40 fixed inset-y-0 left-0 transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static transition-transform duration-300 ease-in-out`}>
+				<div className="h-16 px-6 flex items-center justify-between gap-3 border-b border-zinc-100 dark:border-white/5 lg:border-none">
+					<div className="flex items-center gap-3">
+						<div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-indigo-600/30">
+							M
+						</div>
+						<div>
+							<span className="font-bold text-zinc-900 dark:text-white tracking-wide">Mobora</span>
+							<span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium block uppercase tracking-wider leading-none mt-0.5">Admin Portal</span>
+						</div>
 					</div>
-					<div>
-						<span className="font-bold text-zinc-900 dark:text-white tracking-wide">Mobora</span>
-						<span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium block uppercase tracking-wider leading-none mt-0.5">Admin Portal</span>
-					</div>
+					<button
+						onClick={() => setSidebarOpen(false)}
+						className="p-1.5 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/5 lg:hidden transition-all focus:outline-none"
+					>
+						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
 				</div>
 
 					<nav className="flex-1 p-4 space-y-1.5">
@@ -279,9 +302,17 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 			{/* Main Content Area */}
 			<div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
 				{/* Top Bar */}
-				<header className="relative z-20 h-16 px-8 bg-white/80 dark:bg-[#13151a]/30 backdrop-blur-xl flex items-center justify-between shrink-0 shadow-sm shadow-zinc-200/30 dark:shadow-black/10">
+				<header className="relative z-20 h-16 px-4 sm:px-6 lg:px-8 bg-white/80 dark:bg-[#13151a]/30 backdrop-blur-xl flex items-center justify-between shrink-0 shadow-sm shadow-zinc-200/30 dark:shadow-black/10">
 					<div className="flex items-center gap-3">
-						<h2 className="text-lg font-bold text-zinc-800 dark:text-white tracking-wide">Administrator Panel</h2>
+						<button
+							onClick={() => setSidebarOpen(true)}
+							className="p-2 -ml-2 rounded-xl text-zinc-600 dark:text-gray-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition-all lg:hidden focus:outline-none"
+						>
+							<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+							</svg>
+						</button>
+						<h2 className="text-sm sm:text-lg font-bold text-zinc-800 dark:text-white tracking-wide truncate">Administrator Panel</h2>
 					</div>
 					<div className="flex items-center gap-4">
 						<ThemeToggle />
@@ -348,7 +379,7 @@ function AdminDashboardInnerLayout({ children }: { children: React.ReactNode }) 
 				</header>
 
 				{/* Children Panel Wrapper */}
-				<main className="flex-1 overflow-y-auto p-8">
+				<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 					{children}
 				</main>
 			</div>
