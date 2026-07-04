@@ -198,10 +198,13 @@ export default function RequirementsPage() {
 	// Filter requirements list based on search query
 	const filteredRequirements = requirements.filter((r: DeviceRequirement) => {
 		const term = searchQuery.toLowerCase();
+		const brandStr = r.brand || "";
+		const modelStr = r.model || "";
+		const colorStr = r.color || "";
 		return (
-			r.brand.toLowerCase().includes(term) ||
-			r.model.toLowerCase().includes(term) ||
-			r.color.toLowerCase().includes(term)
+			brandStr.toLowerCase().includes(term) ||
+			modelStr.toLowerCase().includes(term) ||
+			colorStr.toLowerCase().includes(term)
 		);
 	});
 
