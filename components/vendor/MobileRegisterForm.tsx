@@ -8,6 +8,7 @@ import { ImeiInput } from "@/components/ui/imei-input";
 import { RamSelector } from "@/components/ui/ram-selector";
 import { StorageSelector } from "@/components/ui/storage-selector";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { getModelsAction } from "@/actions/specifications";
 
 interface MobileRegisterFormProps {
     values: {
@@ -62,6 +63,60 @@ export function MobileRegisterForm({
 	const [isSubmittingModel, setIsSubmittingModel] = useState(false);
 	const [modelInlineError, setModelInlineError] = useState("");
 
+	// State for server-side loaded model options
+	const [modelOptions, setModelOptions] = useState<{ value: string; label: string }[]>([]);
+	const [modelLoading, setModelLoading] = useState(false);
+	const [modelSearchTerm, setModelSearchTerm] = useState("");
+
+	useEffect(() => {
+		if (!values.brand) {
+			setModelOptions([]);
+			return;
+		}
+
+		let active = true;
+		const loadModels = async () => {
+			setModelLoading(true);
+			try {
+				const res = await getModelsAction({
+					brandId: values.brand,
+					search: modelSearchTerm,
+					limit: 5,
+				});
+				if (active && res.success && res.data?.success) {
+					const opts = (res.data.data || []).map((m: any) => ({
+						value: m.id.toString(),
+						label: m.name,
+					}));
+					
+					// Make sure selected model is in the options list so it displays correctly
+					if (values.model) {
+						const selectedExists = opts.some((o: any) => o.value === values.model);
+						if (!selectedExists) {
+							const found = specs.allModels.find((m) => m.id.toString() === values.model);
+							if (found) {
+								opts.unshift({ value: found.id.toString(), label: found.name });
+							}
+						}
+					}
+
+					setModelOptions(opts);
+				}
+			} catch (err) {
+				console.error("Error loading models:", err);
+			} finally {
+				if (active) setModelLoading(false);
+			}
+		};
+
+		const timer = setTimeout(loadModels, modelSearchTerm ? 300 : 0);
+
+		return () => {
+			active = false;
+			clearTimeout(timer);
+		};
+	}, [values.brand, modelSearchTerm, values.model, specs.allModels]);
+
 
 
 
@@ -105,10 +160,10 @@ export function MobileRegisterForm({
 					setNewModelVal("");
 					setIsAddingModel(false);
 				} else {
-					setModelInlineError(res.message || "Failed to add Model.");
+					setModelInlineError(res.message || "Failed to request Model.");
 				}
 			} catch (err) {
-				setModelInlineError("Failed to add Model.");
+				setModelInlineError("Failed to request Model.");
 			} finally {
 				setIsSubmittingModel(false);
 			}
@@ -160,7 +215,7 @@ export function MobileRegisterForm({
 							<button
 								type="button"
 								onClick={() => setIsAddingBrand(!isAddingBrand)}
-								className="text-[10px] text-primary hover:underline font-bold cursor-pointer"
+								className={`text-[10px] hover:underline font-bold cursor-pointer ${isAddingBrand ? "text-red-500 hover:text-red-600" : "text-primary"}`}
 							>
 								{isAddingBrand ? "Cancel" : "Request Brand"}
 							</button>
@@ -203,6 +258,7 @@ export function MobileRegisterForm({
 									label: b.name,
 								}))}
 								error={errors.brand}
+								showSearch={true}
 							/>
 						)}
 					</div>
@@ -216,9 +272,9 @@ export function MobileRegisterForm({
 							<button
 								type="button"
 								onClick={() => setIsAddingModel(!isAddingModel)}
-								className="text-[10px] text-primary hover:underline font-bold cursor-pointer"
+								className={`text-[10px] hover:underline font-bold cursor-pointer ${isAddingModel ? "text-red-500 hover:text-red-600" : "text-primary"}`}
 							>
-								{isAddingModel ? "Cancel" : "+ Add Model"}
+								{isAddingModel ? "Cancel" : "Request Model"}
 							</button>
 						</div>
 						{isAddingModel ? (
@@ -252,15 +308,18 @@ export function MobileRegisterForm({
 						) : (
 							<Select
 								value={values.model}
-								onChange={(e) => onChange("model", e.target.value)}
+								onChange={(e) => {
+									onChange("model", e.target.value);
+									setModelSearchTerm(""); // Reset search term on selection
+								}}
 								placeholder={
-									values.brand ? "-- Choose Model --" : "-- Choose Brand First --"
+									values.brand ? (modelLoading ? "Searching..." : "-- Choose Model --") : "-- Choose Brand First --"
 								}
 								disabled={!values.brand}
-								options={specs.allModels
-									.filter((m) => m.brand_id.toString() === values.brand)
-									.map((m) => ({ value: m.id.toString(), label: m.name }))}
+								options={modelOptions}
 								error={errors.model}
+								showSearch={true}
+								onSearchChange={(term) => setModelSearchTerm(term)}
 							/>
 						)}
 					</div>
@@ -333,7 +392,7 @@ export function MobileRegisterForm({
 				<PartnerSelector
 					value={values.customerId}
 					onChange={(val) => onChange("customerId", val)}
-					label="Select Customer / Vendor (for Purchase Transaction) *"
+					label="Select Customer / Dealer (for Purchase Transaction) *"
 					placeholder="-- Choose Partner --"
 					required={true}
 					valueType="id"

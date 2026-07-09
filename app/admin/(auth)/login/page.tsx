@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
 			const res = await adminLoginAction(email, password);
 			if (res.success && res.data?.success) {
 				setAdmin(res.data.admin);
-				router.push("/admin/dashboard");
+				window.location.href = "/admin/dashboard";
 			} else {
 				setGeneralError(res.errorData?.message || res.message || "Invalid credentials. Please try again.");
 			}

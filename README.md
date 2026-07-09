@@ -51,7 +51,7 @@ npm run dev
 
 The app will be available at **[http://localhost:3000](http://localhost:3000)**.
 
-> **No `.env` file is needed.** All `/api/*` and `/uploads/*` requests are transparently proxied to `http://127.0.0.1:5000` via Next.js rewrites.
+> **Configuration:** You can create a `.env` file based on `.env.example` to customize the backend and API URLs. By default, requests are proxied to `http://127.0.0.1:5000` via Next.js rewrites.
 
 ---
 

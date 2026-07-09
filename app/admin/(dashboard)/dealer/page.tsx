@@ -184,30 +184,30 @@ export default function AdminVendorsPage() {
 		if (selectedVendor.status === "pending") {
 			if (targetStatus === "active") {
 				return {
-					title: "Approve Vendor Registration",
-					desc: `Are you sure you want to approve registration for "${selectedVendor.name}"? This will activate their vendor dashboard and allow them to start posting listings and receiving orders.`,
+					title: "Approve Dealer Registration",
+					desc: `Are you sure you want to approve registration for "${selectedVendor.name}"? This will activate their dealer dashboard and allow them to start posting listings and receiving orders.`,
 					theme: "emerald",
-					confirmText: "Approve Vendor"
+					confirmText: "Approve Dealer"
 				};
 			} else {
 				return {
-					title: "Decline Vendor Registration",
-					desc: `Are you sure you want to decline registration for "${selectedVendor.name}"? They will not be able to log in or access the vendor dashboard.`,
+					title: "Decline Dealer Registration",
+					desc: `Are you sure you want to decline registration for "${selectedVendor.name}"? They will not be able to log in or access the dealer dashboard.`,
 					theme: "red",
-					confirmText: "Decline Vendor"
+					confirmText: "Decline Dealer"
 				};
 			}
 		} else if (selectedVendor.status === "active") {
 			return {
-				title: "Deactivate Vendor Account",
-				desc: `Are you sure you want to deactivate vendor "${selectedVendor.name}"? All their listings will be hidden, and they will be blocked from accessing the vendor dashboard until reactivated.`,
+				title: "Deactivate Dealer Account",
+				desc: `Are you sure you want to deactivate vendor "${selectedVendor.name}"? All their listings will be hidden, and they will be blocked from accessing the dealer dashboard until reactivated.`,
 				theme: "red",
 				confirmText: "Deactivate Account"
 			};
 		} else {
 			return {
-				title: "Reactivate Vendor Account",
-				desc: `Are you sure you want to reactivate vendor "${selectedVendor.name}"? This will restore their active status and re-enable access to their vendor panel.`,
+				title: "Reactivate Dealer Account",
+				desc: `Are you sure you want to reactivate vendor "${selectedVendor.name}"? This will restore their active status and re-enable access to their dealer panel.`,
 				theme: "emerald",
 				confirmText: "Activate Account"
 			};
@@ -226,7 +226,7 @@ export default function AdminVendorsPage() {
 
 			{/* Stats Cards Grid */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-				{/* Total Vendors Card */}
+				{/* Total Dealers Card */}
 				<button
 					onClick={() => setStatusFilter("")}
 					className={`p-5 rounded-2xl text-left bg-white dark:bg-[#13151a]/50 backdrop-blur-md border shadow-sm dark:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer group relative overflow-hidden ${
@@ -241,7 +241,7 @@ export default function AdminVendorsPage() {
 						</svg>
 					</div>
 					<div className="flex items-center justify-between">
-						<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Total Vendors</p>
+						<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Total Dealers</p>
 						<span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">ALL</span>
 					</div>
 					{isLoadingStats ? (
@@ -291,7 +291,7 @@ export default function AdminVendorsPage() {
 						</svg>
 					</div>
 					<div className="flex items-center justify-between">
-						<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Active Vendors</p>
+						<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Active Dealers</p>
 						<span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">ACTIVE</span>
 					</div>
 					{isLoadingStats ? (
@@ -390,7 +390,7 @@ export default function AdminVendorsPage() {
 							<tr className="bg-zinc-50/70 dark:bg-[#1c1e24]/40 border-b border-zinc-200/80 dark:border-white/5 select-none">
 								<th onClick={() => handleSort("name")} className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-gray-400 tracking-wider cursor-pointer group hover:text-zinc-950 dark:hover:text-white transition-colors">
 									<div className="flex items-center gap-1.5">
-										Vendor Info
+										Dealer Info
 										{renderSortIcon("name")}
 									</div>
 								</th>
@@ -442,7 +442,7 @@ export default function AdminVendorsPage() {
 							) : (
 								vendors.map((vendor) => (
 									<tr key={vendor.id} className="hover:bg-zinc-50/40 dark:hover:bg-white/2 transition-colors">
-										{/* Vendor Info */}
+										{/* Dealer Info */}
 										<td className="px-6 py-4">
 											<div className="flex items-center gap-3">
 												<div className="w-9 h-9 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm overflow-hidden shrink-0">
@@ -542,7 +542,7 @@ export default function AdminVendorsPage() {
 												<div className="flex items-center gap-1">
 													{/* View Icon */}
 													<button
-														onClick={() => router.push(`/admin/vendor/${vendor.id}`)}
+														onClick={() => router.push(`/admin/dealer/${vendor.id}`)}
 														className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#272a33] text-zinc-500 dark:text-gray-400 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
 														title="View Vendor Details"
 													>
@@ -556,7 +556,7 @@ export default function AdminVendorsPage() {
 													<button
 														onClick={() => handleOpenEdit(vendor)}
 														className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#272a33] text-zinc-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-														title="Edit Vendor"
+														title="Edit Dealer"
 													>
 														<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -567,7 +567,7 @@ export default function AdminVendorsPage() {
 													<button
 														onClick={() => handleOpenDelete(vendor)}
 														className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#272a33] text-zinc-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
-														title="Delete Vendor"
+														title="Delete Dealer"
 													>
 														<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -608,7 +608,7 @@ export default function AdminVendorsPage() {
 					{selectedVendor && (
 						<div className="p-5 rounded-2xl bg-zinc-50 dark:bg-[#1c1e24]/40 border border-zinc-200/50 dark:border-white/5 text-left space-y-3">
 							<div>
-								<span className="text-[10px] font-bold text-zinc-400 dark:text-gray-500 uppercase tracking-wider">Vendor Info</span>
+								<span className="text-[10px] font-bold text-zinc-400 dark:text-gray-500 uppercase tracking-wider">Dealer Info</span>
 								<div className="flex items-center gap-3 mt-1">
 									<div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-sm shrink-0">
 										{selectedVendor.name.slice(0, 1).toUpperCase()}
@@ -684,11 +684,11 @@ export default function AdminVendorsPage() {
 			</Modal>
 
 
-			{/* Edit Vendor Modal */}
+			{/* Edit Dealer Modal */}
 			<Modal
 				isOpen={editOpen}
 				onClose={handleCloseEdit}
-				title="Edit Vendor Account Details"
+				title="Edit Dealer Account Details"
 				size="lg"
 			>
 				<form onSubmit={handleEditSubmit} className="space-y-4 text-left">
@@ -731,9 +731,9 @@ export default function AdminVendorsPage() {
 							</div>
 						</div>
 
-						{/* Vendor Name */}
+						{/* Dealer Name */}
 						<div className="space-y-1">
-							<label className="text-xs font-bold text-zinc-400 dark:text-gray-500 uppercase">Vendor Name</label>
+							<label className="text-xs font-bold text-zinc-400 dark:text-gray-500 uppercase">Dealer Name</label>
 							<input
 								type="text"
 								required
@@ -815,14 +815,14 @@ export default function AdminVendorsPage() {
 			<Modal
 				isOpen={deleteOpen}
 				onClose={handleCloseDelete}
-				title="Delete Vendor Account"
+				title="Delete Dealer Account"
 				size="md"
 			>
 				<div className="space-y-4">
 					<div className="p-4 rounded-xl bg-red-500/5 dark:bg-red-500/10 border border-red-500/20 text-left text-sm text-red-700 dark:text-red-400">
 						{deleteVendorObj && (
 							<p>
-								Are you sure you want to permanently delete the vendor account <span className="font-bold">&ldquo;{deleteVendorObj.name}&rdquo;</span>? This action is irreversible. All vendor details, listings, and configurations will be permanently destroyed.
+								Are you sure you want to permanently delete the dealer account <span className="font-bold">&ldquo;{deleteVendorObj.name}&rdquo;</span>? This action is irreversible. All dealer details, listings, and configurations will be permanently destroyed.
 							</p>
 						)}
 					</div>

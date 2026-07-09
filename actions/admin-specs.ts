@@ -4,7 +4,7 @@ import { apiClient } from "./apiClient";
 
 export interface AdminSpecFilters {
 	search?: string;
-	status?: "pending" | "approved" | "rejected" | "";
+	status?: "pending" | "active" | "inactive" | "";
 	page?: number;
 	limit?: number;
 	sortBy?: string;
@@ -55,7 +55,7 @@ export async function getAdminBrandsAction(filters?: AdminSpecFilters): Promise<
 
 export async function updateAdminBrandStatusAction(
 	id: number | string,
-	status: "approved" | "rejected",
+	status: "active" | "inactive",
 ): Promise<AdminSpecActionResponse> {
 	try {
 		const response = await apiClient.put(`/admin/specifications/brands/${id}/status`, { status });
@@ -89,7 +89,7 @@ export async function getAdminRamsAction(filters?: AdminSpecFilters): Promise<Ad
 
 export async function updateAdminRamStatusAction(
 	id: number | string,
-	status: "approved" | "rejected",
+	status: "active" | "inactive",
 ): Promise<AdminSpecActionResponse> {
 	try {
 		const response = await apiClient.put(`/admin/specifications/rams/${id}/status`, { status });
@@ -123,7 +123,7 @@ export async function getAdminStoragesAction(filters?: AdminSpecFilters): Promis
 
 export async function updateAdminStorageStatusAction(
 	id: number | string,
-	status: "approved" | "rejected",
+	status: "active" | "inactive",
 ): Promise<AdminSpecActionResponse> {
 	try {
 		const response = await apiClient.put(`/admin/specifications/storages/${id}/status`, { status });
@@ -173,5 +173,39 @@ export async function updateAdminModelAction(
 		return { success: true, data: response.data };
 	} catch (error: any) {
 		return formatError(error, "Failed to update model.");
+	}
+}
+
+export async function updateAdminModelStatusAction(
+	id: number | string,
+	status: "active" | "inactive",
+): Promise<AdminSpecActionResponse> {
+	try {
+		const response = await apiClient.put(`/admin/specifications/models/${id}/status`, { status });
+		return { success: true, data: response.data };
+	} catch (error: any) {
+		return formatError(error, "Failed to update model status.");
+	}
+}
+
+export async function reorderAdminRamsAction(
+	orders: { id: number; order_by: number }[],
+): Promise<AdminSpecActionResponse> {
+	try {
+		const response = await apiClient.put("/admin/specifications/rams/reorder", { orders });
+		return { success: true, data: response.data };
+	} catch (error: any) {
+		return formatError(error, "Failed to reorder RAM options.");
+	}
+}
+
+export async function reorderAdminStoragesAction(
+	orders: { id: number; order_by: number }[],
+): Promise<AdminSpecActionResponse> {
+	try {
+		const response = await apiClient.put("/admin/specifications/storages/reorder", { orders });
+		return { success: true, data: response.data };
+	} catch (error: any) {
+		return formatError(error, "Failed to reorder storage options.");
 	}
 }

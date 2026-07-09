@@ -289,9 +289,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     fetchSessions();
 
     const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-    const socketUrl = isLocalhost
+    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (isLocalhost
       ? `${window.location.protocol}//${window.location.hostname}:5000`
-      : `${window.location.protocol}//${window.location.hostname}`;
+      : `${window.location.protocol}//${window.location.hostname}`);
     console.log(`[ChatContext] Connecting to Socket server at ${socketUrl}`);
 
     const socket = io(socketUrl, {
@@ -354,7 +354,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               senderName: senderName,
             });
 
-            if (currentPathname !== "/chat") {
+            if (!isViewingThisChat) {
               toast(
                 `${senderName}: ${lastMsg.length > 45 ? lastMsg.slice(0, 45) + "…" : lastMsg}`,
                 {
@@ -426,7 +426,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         senderName: data.senderName,
       });
 
-      if (currentPathname !== "/chat") {
+      if (!isViewingThisChat) {
         // For groups: show "GroupName: SenderName: message"
         // For others: show "SenderName: message"
         const toastText = data.type === "group_message"

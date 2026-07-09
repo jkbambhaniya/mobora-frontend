@@ -40,7 +40,7 @@ interface PartnerSelectorProps {
 export function PartnerSelector({
 	value,
 	onChange,
-	label = "Customer / Vendor *",
+	label = "Select Customer / Dealer *",
 	placeholder = "-- Choose Partner --",
 	required = false,
 	valueType = "name",
@@ -48,12 +48,13 @@ export function PartnerSelector({
 }: PartnerSelectorProps) {
 	const { customers, addCustomer, fetchVendors, refreshCustomers } = useDashboard();
 	const [systemVendors, setSystemVendors] = useState<any[]>([]);
-	const [isAddingCust, setIsAddingCust] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	// Phone Input Search State
+	const [inputPhone, setInputPhone] = useState("");
 
 	// Quick Add Form States
 	const [newCustName, setNewCustName] = useState("");
-	const [newCustPhone, setNewCustPhone] = useState("");
 	const [newCustAddress, setNewCustAddress] = useState("");
 	const [newCustIdType, setNewCustIdType] = useState("");
 	const [newCustIdNumber, setNewCustIdNumber] = useState("");
@@ -78,81 +79,79 @@ export function PartnerSelector({
 		loadData();
 	}, [fetchVendors, refreshCustomers]);
 
-	// Build dropdown options dynamically
-	const selectOptions = useMemo(() => {
-		let merged: Array<{ value: string; label: string }> = [];
+	// Clean input phone for comparison
+	const cleanInput = useMemo(() => inputPhone.replace(/[\s\-\+\(\)]/g, ""), [inputPhone]);
 
-		if (valueType === "id") {
-			const customerOptions = customers.map((c) => ({
-				value: `Customer:${c.id}`,
-				label: `👤 ${c.name} (${c.phone || "No Phone"}) — Customer`,
-			}));
-			const vendorOptions = systemVendors.map((v) => ({
-				value: `Vendor:${v.id}`,
-				label: `🏬 ${v.shop_name ? `${v.shop_name} (${v.name})` : v.name} — Vendor`,
-			}));
-			merged = [...customerOptions, ...vendorOptions];
-		} else {
-			const customerOptions = customers.map((c) => ({
-				value: `Customer:${c.name}`,
-				label: `👤 ${c.name} (${c.phone || "No Phone"}) — Customer`,
-			}));
-			const vendorOptions = systemVendors.map((v) => ({
-				value: `Vendor:${v.name}`,
-				label: `🏬 ${v.shop_name ? `${v.shop_name} (${v.name})` : v.name} — Vendor`,
-			}));
-			merged = [...customerOptions, ...vendorOptions];
-		}
-
-		// Filter unique options by value to prevent duplicate keys in React Select
-		const unique: Array<{ value: string; label: string }> = [];
-		const seen = new Set<string>();
-		for (const opt of merged) {
-			if (!seen.has(opt.value)) {
-				seen.add(opt.value);
-				unique.push(opt);
-			}
-		}
-
-		// Inject the current value as an option if it doesn't exist
-		if (value) {
-			const hasValue = unique.some(opt => {
-				const [_, val] = opt.value.split(":");
-				return val?.toLowerCase() === value.toLowerCase() || opt.value.toLowerCase() === value.toLowerCase();
-			});
-			if (!hasValue) {
-				const [pType, pName] = value.includes(":") ? value.split(":") : ["Customer", value];
-				unique.push({
-					value: `${pType}:${pName}`,
-					label: `👤 ${pName} (Past Transaction) — ${pType}`
-				});
-			}
-		}
-
-		return unique;
-	}, [customers, systemVendors, valueType, value]);
-
-	// Map current prop value to a compound option value if passed as plain value
-	const selectedValue = useMemo(() => {
-		if (!value) return "";
-		if (value.startsWith("Customer:") || value.startsWith("Vendor:")) {
-			return value;
-		}
-		// Match by ID or Name
-		const matchedOption = selectOptions.find((opt) => {
-			const [_, val] = opt.value.split(":");
-			return val?.toLowerCase() === value.toLowerCase();
+	// Check if any customer matches the current typed phone number
+	const matchedCustomer = useMemo(() => {
+		if (cleanInput.length < 9) return null;
+		return customers.find((c) => {
+			const cleanPhone = (c.phone || "").replace(/[\s\-\+\(\)]/g, "");
+			return cleanPhone && (cleanPhone === cleanInput || cleanPhone.endsWith(cleanInput) || cleanInput.endsWith(cleanPhone));
 		});
-		return matchedOption ? matchedOption.value : value;
-	}, [value, selectOptions]);
+	}, [cleanInput, customers]);
 
-	// Handle selection change
-	const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-		const val = e.target.value;
-		onChange(val);
-	};
+	// Check if any vendor matches the current typed phone number
+	const matchedVendor = useMemo(() => {
+		if (cleanInput.length < 9) return null;
+		return systemVendors.find((v) => {
+			const cleanPhone = (v.phone || "").replace(/[\s\-\+\(\)]/g, "");
+			return cleanPhone && (cleanPhone === cleanInput || cleanPhone.endsWith(cleanInput) || cleanInput.endsWith(cleanPhone));
+		});
+	}, [cleanInput, systemVendors]);
 
-	// Save Quick Customer Helper
+	// Auto-select if matching customer or vendor is found
+	useEffect(() => {
+		if (matchedCustomer) {
+			if (valueType === "id") {
+				onChange(`Customer:${matchedCustomer.id}`);
+			} else {
+				onChange(`Customer:${matchedCustomer.name}`);
+			}
+			setInputPhone("");
+		} else if (matchedVendor) {
+			if (valueType === "id") {
+				onChange(`Vendor:${matchedVendor.id}`);
+			} else {
+				onChange(`Vendor:${matchedVendor.name}`);
+			}
+			setInputPhone("");
+		}
+	}, [matchedCustomer, matchedVendor, valueType, onChange]);
+
+	// Show registration form if phone is entered but no matching customer or vendor is found
+	const showCreateForm = cleanInput.length >= 9 && !matchedCustomer && !matchedVendor;
+
+	// Find the details of the currently selected partner
+	const selectedPartnerInfo = useMemo(() => {
+		if (!value) return null;
+		const [type, key] = value.includes(":") ? value.split(":") : ["Customer", value];
+		if (type === "Customer") {
+			const cust = customers.find(c => String(c.id) === key || c.name === key);
+			if (cust) {
+				return {
+					name: cust.name,
+					phone: cust.phone,
+					type: "Customer",
+				};
+			}
+		} else if (type === "Vendor") {
+			const vend = systemVendors.find(v => String(v.id) === key || v.name === key);
+			if (vend) {
+				return {
+					name: vend.name,
+					shopName: vend.shop_name,
+					type: "Vendor",
+				};
+			}
+		}
+		return {
+			name: key,
+			type: type,
+		};
+	}, [value, customers, systemVendors]);
+
+	// Save Quick Customer
 	const handleCreateCustomer = async () => {
 		setCustErrors({});
 		setCustFormError("");
@@ -160,7 +159,7 @@ export function PartnerSelector({
 			await quickCustomerSchema.validate(
 				{
 					name: newCustName,
-					phone: newCustPhone,
+					phone: inputPhone,
 					address: newCustAddress || null,
 					idType: newCustIdType || null,
 					idNumber: newCustIdNumber || null,
@@ -187,7 +186,7 @@ export function PartnerSelector({
 		try {
 			const res = await addCustomer({
 				name: newCustName,
-				phone: newCustPhone,
+				phone: inputPhone,
 				email: `${newCustName.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
 				status: "Active",
 				address: newCustAddress || "Quick Registration",
@@ -198,14 +197,13 @@ export function PartnerSelector({
 			});
 
 			if (res.success && res.customer) {
-				setIsAddingCust(false);
 				setNewCustName("");
-				setNewCustPhone("");
 				setNewCustAddress("");
 				setNewCustIdType("");
 				setNewCustIdNumber("");
 				setNewCustKycDocImg(null);
 				setCustErrors({});
+				setInputPhone("");
 				toast.success(`Customer ${newCustName} registered.`);
 				if (valueType === "id") {
 					onChange(`Customer:${res.customer.id}`);
@@ -227,187 +225,175 @@ export function PartnerSelector({
 	};
 
 	return (
-		<div className="space-y-2 w-full text-left">
-			<div className="flex justify-between items-center">
-				<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-					{label}
-				</label>
-				<button
-					type="button"
-					disabled={isSubmitting}
-					onClick={() => {
-						setIsAddingCust(!isAddingCust);
-						setCustErrors({});
-						setCustFormError("");
-					}}
-					className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50"
-				>
-					{isAddingCust ? "Cancel" : "+ Quick Add"}
-				</button>
-			</div>
+		<div className="space-y-3 w-full text-left">
+			{selectedPartnerInfo ? (
+				<div className="space-y-1.5">
+					<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide block">
+						{label}
+					</label>
+					<div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between animate-scaleUp">
+						<div className="flex items-center gap-3">
+							<div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-base">
+								{selectedPartnerInfo.type === "Customer" ? "👤" : "🏬"}
+							</div>
+							<div>
+								<h4 className="font-bold text-zinc-900 dark:text-white text-sm">
+									{selectedPartnerInfo.shopName ? `${selectedPartnerInfo.shopName} (${selectedPartnerInfo.name})` : selectedPartnerInfo.name}
+								</h4>
+								<p className="text-zinc-500 text-xs mt-0.5">
+									{selectedPartnerInfo.phone ? `${selectedPartnerInfo.phone} • ` : ""}{selectedPartnerInfo.type}
+								</p>
+							</div>
+						</div>
+						<button
+							type="button"
+							onClick={() => {
+								onChange("");
+								setInputPhone("");
+								setNewCustName("");
+								setNewCustAddress("");
+								setNewCustIdType("");
+								setNewCustIdNumber("");
+								setNewCustKycDocImg(null);
+							}}
+							className="text-xs text-red-500 hover:text-red-600 font-bold hover:underline cursor-pointer"
+						>
+							Change Partner
+						</button>
+					</div>
+				</div>
+			) : (
+				<div className="space-y-3">
+					<div className="space-y-1">
+						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide block">
+							Select Customer / Dealer by Phone *
+						</label>
+						<PhoneInputField
+							value={inputPhone}
+							onChange={setInputPhone}
+							error={error}
+						/>
+					</div>
 
-			{isAddingCust ? (
-				<div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						<div className="space-y-1">
-							<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-								Full Name *
-							</label>
-							<input
-								type="text"
+					{showCreateForm && (
+						<div className="space-y-3 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp">
+							<div className="p-3 bg-primary/5 border border-primary/10 rounded-xl text-[11px] text-primary font-semibold">
+								ℹ️ This phone number is not registered. Please fill in the details below to quick-register this customer.
+							</div>
+							
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+										Full Name *
+									</label>
+									<input
+										type="text"
+										disabled={isSubmitting}
+										value={newCustName}
+										onChange={(e) => {
+											setNewCustName(e.target.value);
+											setCustErrors((prev) => ({ ...prev, name: "" }));
+										}}
+										placeholder="e.g. John Doe"
+										className={`w-full px-3 py-[7px] border rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
+											${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+									/>
+									{custErrors.name && (
+										<p className="text-[10px] text-red-500 font-semibold mt-1">
+											{custErrors.name}
+										</p>
+									)}
+								</div>
+								
+								<div className="space-y-1">
+									<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+										Address
+									</label>
+									<input
+										type="text"
+										disabled={isSubmitting}
+										value={newCustAddress}
+										onChange={(e) => setNewCustAddress(e.target.value)}
+										placeholder="Enter customer address..."
+										className="w-full px-3 py-[7px] border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+									/>
+								</div>
+							</div>
+
+							{/* GOVERNMENT ID KYC DETAILS (OPTIONAL) */}
+							<div className="border-t border-zinc-200 dark:border-zinc-800 pt-3 mt-1 space-y-3">
+								<h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+									Government ID KYC Details (Optional)
+								</h4>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+									<div className="space-y-1">
+										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+											ID Proof Type
+										</label>
+										<Select
+											value={newCustIdType}
+											onChange={(e) => setNewCustIdType(e.target.value)}
+											placeholder="Select ID Type"
+											size="sm"
+											options={[
+												{ value: "Aadhaar Card", label: "Aadhaar Card" },
+												{ value: "PAN Card", label: "PAN Card" },
+												{ value: "Voter ID", label: "Voter ID" },
+												{ value: "Driving License", label: "Driving License" },
+											]}
+										/>
+									</div>
+									<div className="space-y-1">
+										<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+											ID Document Number
+										</label>
+										<input
+											type="text"
+											disabled={isSubmitting}
+											value={newCustIdNumber}
+											onChange={(e) => setNewCustIdNumber(e.target.value)}
+											placeholder="e.g. 12-digit Aadhaar / 10-digit PAN"
+											className="w-full px-3 py-[7px] border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+										/>
+									</div>
+								</div>
+								<div className="space-y-1">
+									<label className="text-[10px] font-semibold text-zinc-400 uppercase">
+										Upload ID Document Copy (Front/Back Image)
+									</label>
+									<KycDocumentUpload
+										name="quick-add-kyc"
+										value={newCustKycDocImg || undefined}
+										onChange={(val) => setNewCustKycDocImg(val)}
+									/>
+								</div>
+							</div>
+
+							<button
+								type="button"
 								disabled={isSubmitting}
-								value={newCustName}
-								onChange={(e) => {
-									setNewCustName(e.target.value);
-									setCustErrors((prev) => ({ ...prev, name: "" }));
-								}}
-								placeholder="e.g. John Doe"
-								className={`w-full px-3 py-[7px] border rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-									${custErrors.name ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-							/>
-							{custErrors.name && (
-								<p className="text-[10px] text-red-500 font-semibold mt-1">
-									{custErrors.name}
+								onClick={handleCreateCustomer}
+								className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
+							>
+								{isSubmitting ? (
+									<>
+										<svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+										</svg>
+										<span>Saving Customer...</span>
+									</>
+								) : (
+									"Save and Select"
+								)}
+							</button>
+							{custFormError && (
+								<p className="text-xs text-red-500 font-semibold text-center mt-2">
+									{custFormError}
 								</p>
 							)}
 						</div>
-						<div className="space-y-1">
-							<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-								Mobile Number *
-							</label>
-							<PhoneInputField
-								disabled={isSubmitting}
-								size="sm"
-								value={newCustPhone}
-								onChange={(phone) => {
-									setNewCustPhone(phone);
-									setCustErrors((prev) => ({ ...prev, phone: "" }));
-								}}
-								error={custErrors.phone}
-							/>
-						</div>
-					</div>
-					<div className="space-y-1">
-						<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-							Address
-						</label>
-						<textarea
-							disabled={isSubmitting}
-							value={newCustAddress}
-							onChange={(e) => {
-								setNewCustAddress(e.target.value);
-								setCustErrors((prev) => ({ ...prev, address: "" }));
-							}}
-							placeholder="Enter customer address..."
-							rows={2}
-							className={`w-full px-3 py-2 border rounded-xl text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50
-								${custErrors.address ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
-						/>
-						{custErrors.address && (
-							<p className="text-xs text-red-500 font-medium mt-1">
-								{custErrors.address}
-							</p>
-						)}
-					</div>
-
-					{/* GOVERNMENT ID KYC DETAILS (OPTIONAL) */}
-					<div className="border-t border-zinc-200 dark:border-zinc-800 pt-3 mt-1 space-y-3">
-						<h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-							Government ID KYC Details (Optional)
-						</h4>
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-							<div className="space-y-1">
-								<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-									ID Proof Type
-								</label>
-								<Select
-									value={newCustIdType}
-									onChange={(e) => setNewCustIdType(e.target.value)}
-									placeholder="Select ID Type"
-									size="sm"
-									options={[
-										{ value: "Aadhaar Card", label: "Aadhaar Card" },
-										{ value: "PAN Card", label: "PAN Card" },
-										{ value: "Voter ID", label: "Voter ID" },
-										{ value: "Driving License", label: "Driving License" },
-									]}
-								/>
-							</div>
-							<div className="space-y-1">
-								<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-									ID Document Number
-								</label>
-								<input
-									type="text"
-									disabled={isSubmitting}
-									value={newCustIdNumber}
-									onChange={(e) => setNewCustIdNumber(e.target.value)}
-									placeholder="e.g. 12-digit Aadhaar / 10-digit PAN"
-									className="w-full px-3 py-[7px] border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-								/>
-							</div>
-						</div>
-						<div className="space-y-1">
-							<label className="text-[10px] font-semibold text-zinc-400 uppercase">
-								Upload ID Document Copy (Front/Back Image)
-							</label>
-							<KycDocumentUpload
-								name="quick-add-kyc"
-								value={newCustKycDocImg || undefined}
-								onChange={(val) => setNewCustKycDocImg(val)}
-							/>
-						</div>
-					</div>
-					<button
-						type="button"
-						disabled={isSubmitting}
-						onClick={handleCreateCustomer}
-						className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
-					>
-						{isSubmitting ? (
-							<>
-								<svg
-									className="animate-spin h-3.5 w-3.5 text-white"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<circle
-										className="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										strokeWidth="4"
-									/>
-									<path
-										className="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									/>
-								</svg>
-								<span>Saving Customer...</span>
-							</>
-						) : (
-							"Save and Select"
-						)}
-					</button>
-					{custFormError && (
-						<p className="text-xs text-red-500 font-semibold text-center mt-2">
-							{custFormError}
-						</p>
 					)}
-				</div>
-			) : (
-				<div className="relative w-full">
-					<Select
-						value={selectedValue}
-						onChange={handleSelectChange}
-						required={required}
-						placeholder={placeholder}
-						showSearch={true}
-						options={selectOptions}
-						error={error}
-					/>
 				</div>
 			)}
 		</div>

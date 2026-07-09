@@ -493,14 +493,13 @@ export default function ModelDetailsPage() {
 		setDeletingDevice(null);
 	};
 
-	// Filter devices matching this specific brand and model
 	const modelDevices = useMemo(() => {
 		return devices.filter(
 			(d) =>
-				d.brand.toLowerCase() === brand.toLowerCase() &&
-				d.model.toLowerCase() === model.toLowerCase(),
+				slugify(d.brand) === slugify(brandSlug) &&
+				slugify(d.model) === slugify(modelSlug),
 		);
-	}, [devices, brand, model]);
+	}, [devices, brandSlug, modelSlug]);
 
 	// Apply search/condition filters & sorting
 	const sortedAndFilteredModelDevices = useMemo(() => {

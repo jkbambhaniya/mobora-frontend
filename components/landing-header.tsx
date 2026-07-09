@@ -63,7 +63,7 @@ export default function LandingHeader() {
           </Link>
           <Link href="/register">
             <Button variant="gradient" size="sm" shape="pill">
-              Vendor Register
+              Dealer Register
             </Button>
           </Link>
         </div>
@@ -112,7 +112,7 @@ export default function LandingHeader() {
             </Link>
             <Link href="/register" className="w-full" onClick={() => setIsOpen(false)}>
               <Button variant="gradient" className="w-full" shape="pill">
-                Vendor Register
+                Dealer Register
               </Button>
             </Link>
           </div>

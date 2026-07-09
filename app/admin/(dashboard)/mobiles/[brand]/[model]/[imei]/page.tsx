@@ -206,10 +206,10 @@ export default function AdminMobileStockImeiDetailPage({ params }: { params: Pro
 				</div>
 				<div className="text-right">
 					<span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 block mb-1">
-						Vendor Shop
+						Dealer Shop
 					</span>
 					<h2 className="text-xl font-bold text-zinc-800 dark:text-white">
-						{mobile.vendorDetails?.shopName || "Unknown Vendor"}
+						{mobile.vendorDetails?.shopName || "Unknown Dealer"}
 					</h2>
 				</div>
 			</div>
@@ -341,7 +341,7 @@ export default function AdminMobileStockImeiDetailPage({ params }: { params: Pro
 					{mobile.vendorDetails && (
 						<div className="p-6 bg-white dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl shadow-sm space-y-4">
 							<h3 className="font-extrabold text-sm uppercase tracking-wider text-zinc-400">
-								Owner/Vendor Info
+								Owner/Dealer Info
 							</h3>
 							<div className="space-y-2.5 text-xs">
 								<div>
@@ -424,7 +424,7 @@ export default function AdminMobileStockImeiDetailPage({ params }: { params: Pro
 												</td>
 												<td className="py-3 text-zinc-600 dark:text-zinc-300">
 													{tx.type === "Purchase"
-														? (tx.vendor?.name || "Vendor Partner")
+														? (tx.vendor?.name || "Dealer Partner")
 														: (tx.customer?.name ? `${tx.customer.name} (${tx.customer.phone})` : "B2C Customer")}
 												</td>
 												<td className="py-3 text-right font-bold text-zinc-800 dark:text-zinc-200">

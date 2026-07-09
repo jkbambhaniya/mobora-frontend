@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import PaginationComponent from "@/components/ui/Pagination";
 import { formatDate } from "@/utils/date";
 import {
 	getAdminMobilesAction,
@@ -14,37 +13,20 @@ import {
 	AdminMobileFilters
 } from "@/actions/admin-mobiles";
 import { getAdminBrandsAction } from "@/actions/admin-specs";
+import { DataTable, Column } from "@/components/ui/DataTable";
 
 interface MobileStockItem {
 	id: string;
-	stockId: string;
 	brand: string;
 	brandId: number;
 	model: string;
 	modelId: number;
-	storage: string;
-	storageId: number;
-	ram: string;
-	ramId: number;
-	color: string;
-	imei?: string;
-	condition: "NEW" | "OLD";
-	price: number;
-	purchasePrice?: number;
-	repairingCost: number;
-	batteryHealth?: number;
-	status: string;
-	description: string;
 	createdAt: string;
 	totalUnits?: number;
+	availableUnits?: number;
+	soldUnits?: number;
 	brandSlug?: string;
 	modelSlug?: string;
-	vendor?: {
-		id: number;
-		name: string;
-		email: string;
-		shopName: string;
-	} | null;
 }
 
 interface MobileStats {
@@ -68,21 +50,19 @@ export default function AdminMobilesPage() {
 	const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
-	// Filters and Pagination
+	// View Toggle State: grid (cards) vs table (list)
+	const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+	// Filters and Infinite Scroll Pagination
 	const [searchQuery, setSearchQuery] = useState("");
 	const [brandFilter, setBrandFilter] = useState("All");
-	const [conditionFilter, setConditionFilter] = useState("All");
-	const [currentPage, setCurrentPage] = useState(1);
-	const [limit, setLimit] = useState(10);
-	const [totalPages, setTotalPages] = useState(1);
+	const [page, setPage] = useState(1);
+	const [hasMore, setHasMore] = useState(true);
 	const [totalCount, setTotalCount] = useState(0);
 	const [sortBy, setSortBy] = useState("createdAt");
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-	// Actions state
-	const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [selectedItem, setSelectedItem] = useState<MobileStockItem | null>(null);
+	const observerTarget = useRef<HTMLDivElement>(null);
 
 	// Fetch Stats
 	const fetchStats = async () => {
@@ -109,24 +89,28 @@ export default function AdminMobilesPage() {
 	};
 
 	// Fetch Mobiles list
-	const fetchMobiles = useCallback(async () => {
+	const fetchMobiles = useCallback(async (pageNum: number, clearExisting = false) => {
 		setIsLoading(true);
 		try {
 			const filters: AdminMobileFilters = {};
 			if (searchQuery) filters.search = searchQuery;
 			if (brandFilter !== "All") filters.brand = brandFilter;
-			if (conditionFilter !== "All") filters.condition = conditionFilter;
-			filters.page = currentPage;
-			filters.limit = limit;
+			filters.page = pageNum;
+			filters.limit = 6; // Default 6 records
 			filters.sortBy = sortBy;
 			filters.sortOrder = sortOrder;
 
 			const res = await getAdminMobilesAction(filters);
 			if (res.success && res.data && res.data.success) {
-				setMobiles(res.data.mobiles || []);
+				const newMobiles = res.data.mobiles || [];
+				if (clearExisting) {
+					setMobiles(newMobiles);
+				} else {
+					setMobiles((prev) => [...prev, ...newMobiles]);
+				}
 				if (res.data.pagination) {
 					setTotalCount(res.data.pagination.totalCount);
-					setTotalPages(res.data.pagination.totalPages);
+					setHasMore(pageNum < res.data.pagination.totalPages);
 				}
 			}
 		} catch (error) {
@@ -135,59 +119,139 @@ export default function AdminMobilesPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [searchQuery, brandFilter, conditionFilter, currentPage, limit, sortBy, sortOrder]);
+	}, [searchQuery, brandFilter, sortBy, sortOrder]);
+
+	// Reset and fetch page 1 when filters or sorting changes
+	useEffect(() => {
+		setPage(1);
+		fetchMobiles(1, true);
+	}, [searchQuery, brandFilter, sortBy, sortOrder, fetchMobiles]);
+
+	// Fetch next page when page increments (excluding page 1 to prevent double loads)
+	useEffect(() => {
+		if (page > 1) {
+			fetchMobiles(page, false);
+		}
+	}, [page, fetchMobiles]);
+
+	// Scroll trigger Intersection Observer
+	useEffect(() => {
+		const target = observerTarget.current;
+		if (!target || !hasMore || isLoading) return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting) {
+					setPage((prevPage) => prevPage + 1);
+				}
+			},
+			{ threshold: 1.0 }
+		);
+
+		observer.observe(target);
+
+		return () => {
+			if (target) observer.unobserve(target);
+		};
+	}, [observerTarget, hasMore, isLoading]);
 
 	useEffect(() => {
 		fetchStats();
 		fetchBrands();
 	}, []);
 
-	useEffect(() => {
-		fetchMobiles();
-	}, [fetchMobiles]);
-
 	// Handle sort click
 	const handleSort = (field: string) => {
-		if (sortBy === field) {
+		let backendField = field;
+		if (field === "inHandStock") {
+			backendField = "availableUnits";
+		} else if (field === "soldStock") {
+			backendField = "soldUnits";
+		}
+		if (sortBy === backendField) {
 			setSortOrder(sortOrder === "asc" ? "desc" : "asc");
 		} else {
-			setSortBy(field);
+			setSortBy(backendField);
 			setSortOrder("desc");
 		}
-		setCurrentPage(1);
 	};
 
-	// Delete stock handler
-	const handleDelete = async () => {
-		if (!selectedItem) return;
-		setActionLoadingId(selectedItem.stockId);
-		setDeleteOpen(false);
-		try {
-			const res = await deleteAdminMobileAction(selectedItem.stockId);
-			if (res.success) {
-				toast.success("Mobile device deleted from stock successfully.");
-				fetchMobiles();
-				fetchStats();
-			} else {
-				toast.error(res.message || "Failed to delete device.");
-			}
-		} catch (error) {
-			console.error("Delete error:", error);
-			toast.error("An error occurred during deletion.");
-		} finally {
-			setActionLoadingId(null);
-			setSelectedItem(null);
+	const getSortDir = (colKey: string) => {
+		let backendField = colKey;
+		if (colKey === "inHandStock") {
+			backendField = "availableUnits";
+		} else if (colKey === "soldStock") {
+			backendField = "soldUnits";
 		}
+		if (sortBy === backendField) return sortOrder;
+		return null;
 	};
 
-	const getStatusColor = (status: string) => {
-		const s = status.toLowerCase();
-		if (s === "available") return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-		if (s === "sold") return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-		if (s === "review") return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-		if (s === "transit") return "bg-violet-500/10 text-violet-500 border-violet-500/20";
-		return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
-	};
+	// Table column definitions for DataTable view
+	const columns: Column<MobileStockItem>[] = [
+		{
+			key: "model",
+			title: "Model details",
+			sortable: true,
+			render: (g) => (
+				<div className="flex flex-col">
+					<span className="font-extrabold text-zinc-900 dark:text-white leading-tight">
+						{g.brand} {g.model}
+					</span>
+					<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
+						{g.totalUnits || 0} configurations/units
+					</span>
+				</div>
+			),
+		},
+		{
+			key: "brand",
+			title: "Brand",
+			sortable: true,
+			render: (g) => (
+				<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 uppercase tracking-wider">
+					{g.brand}
+				</span>
+			),
+		},
+		{
+			key: "inHandStock",
+			title: "Available Stock",
+			sortable: true,
+			headerClassName: "text-center",
+			className: "text-center font-bold text-zinc-700 dark:text-zinc-300",
+			render: (g) => <span>{g.availableUnits || 0} units</span>,
+		},
+		{
+			key: "soldStock",
+			title: "Sold Units",
+			sortable: true,
+			headerClassName: "text-center",
+			className: "text-center font-semibold text-zinc-500 dark:text-zinc-400",
+			render: (g) => <span>{g.soldUnits || 0} units</span>,
+		},
+		{
+			key: "actions",
+			title: "Actions",
+			sortable: false,
+			headerClassName: "text-center",
+			className: "text-center",
+			render: (g) => (
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => {
+						router.push(
+							`/admin/mobiles/${g.brandSlug || "unknown"}/${g.modelSlug || "unknown"}`,
+						);
+					}}
+					className="py-1.5 px-3.5 rounded-xl text-xs font-bold hover:!bg-indigo-600 hover:!text-white hover:!border-indigo-600 transition-colors cursor-pointer"
+				>
+					View Devices
+				</Button>
+			),
+		},
+	];
 
 	return (
 		<div className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-[#0d0e12] p-8 space-y-8">
@@ -195,7 +259,7 @@ export default function AdminMobilesPage() {
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 				<div>
 					<h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Mobiles Directory</h1>
-					<p className="text-sm text-zinc-500 dark:text-gray-400">View and manage all registered mobile device stock listings across all shop vendors.</p>
+					<p className="text-sm text-zinc-500 dark:text-gray-400">View and manage all registered mobile device stock listings across all shop dealers.</p>
 				</div>
 			</div>
 
@@ -281,7 +345,7 @@ export default function AdminMobilesPage() {
 						</span>
 						<input
 							type="text"
-							placeholder="Search by IMEI, Brand, Model, Color or Vendor Shop..."
+							placeholder="Search by Brand, Model, Color or IMEI..."
 							value={searchQuery}
 							onChange={(e) => {
 								setSearchQuery(e.target.value);
@@ -289,6 +353,36 @@ export default function AdminMobilesPage() {
 							}}
 							className="w-full bg-zinc-50 dark:bg-[#0d0e12]/60 border border-zinc-200 dark:border-white/5 rounded-xl pl-11 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-800 dark:text-white"
 						/>
+					</div>
+
+					{/* View Toggle */}
+					<div className="flex border border-zinc-200 dark:border-zinc-850 p-0.5 rounded-xl gap-0.5 bg-zinc-50 dark:bg-zinc-950 shrink-0">
+						<button
+							onClick={() => { setViewMode("grid"); setLimit(9); setCurrentPage(1); }}
+							className={`p-2 rounded-lg transition-all cursor-pointer ${
+								viewMode === "grid"
+									? "bg-white dark:bg-zinc-900 shadow-sm text-indigo-600 dark:text-indigo-400"
+									: "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+							}`}
+							title="Grid Card View"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+							</svg>
+						</button>
+						<button
+							onClick={() => { setViewMode("table"); setLimit(10); setCurrentPage(1); }}
+							className={`p-2 rounded-lg transition-all cursor-pointer ${
+								viewMode === "table"
+									? "bg-white dark:bg-zinc-900 shadow-sm text-indigo-600 dark:text-indigo-400"
+									: "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+							}`}
+							title="Structured Table View"
+						>
+							<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+							</svg>
+						</button>
 					</div>
 
 					{/* Brand Select */}
@@ -309,28 +403,10 @@ export default function AdminMobilesPage() {
 							))}
 						</select>
 					</div>
-
-
-
-					{/* Condition Select */}
-					<div className="w-full lg:w-40">
-						<select
-							value={conditionFilter}
-							onChange={(e) => {
-								setConditionFilter(e.target.value);
-								setCurrentPage(1);
-							}}
-							className="w-full bg-zinc-50 dark:bg-[#0d0e12]/60 border border-zinc-200 dark:border-white/5 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-800 dark:text-white cursor-pointer"
-						>
-							<option value="All">All Conditions</option>
-							<option value="NEW">New</option>
-							<option value="OLD">Old</option>
-						</select>
-					</div>
 				</div>
 			</div>
 
-			{/* Mobiles Card Grid */}
+			{/* Mobiles Card Grid or Table View */}
 			{isLoading ? (
 				<div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#13151a]/40 border border-zinc-200/80 dark:border-white/5 rounded-2xl shadow-sm">
 					<svg className="animate-spin h-8 w-8 text-indigo-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -345,106 +421,94 @@ export default function AdminMobilesPage() {
 				</div>
 			) : (
 				<div className="space-y-6">
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						{mobiles.map((item) => (
-							<div
-								key={item.id}
-								className="p-6 rounded-2xl border border-zinc-200/80 dark:border-white/5 bg-white dark:bg-[#13151a]/40 hover:bg-zinc-50/50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm flex flex-col justify-between group"
-							>
-								<div className="space-y-4">
-									<div className="flex justify-between items-start">
-										<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 uppercase tracking-wider">
-											{item.brand}
-										</span>
-										<span className="text-[10px] text-zinc-400 font-bold tracking-widest font-mono">
-											{item.totalUnits || 0} UNITS
-										</span>
+					{viewMode === "grid" ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+							{mobiles.map((item) => (
+								<div
+									key={item.id}
+									className="p-6 rounded-2xl border border-zinc-200/80 dark:border-white/5 bg-white dark:bg-[#13151a]/40 hover:bg-zinc-50/50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm flex flex-col justify-between group"
+								>
+									<div className="space-y-4">
+										<div className="flex justify-between items-start">
+											<span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 uppercase tracking-wider">
+												{item.brand}
+											</span>
+											<span className="text-[10px] text-zinc-400 font-bold tracking-widest font-mono">
+												{item.totalUnits || 0} CONFIGS
+											</span>
+										</div>
+
+										<div>
+											<h3 className="font-extrabold text-lg text-zinc-900 dark:text-white leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+												{item.brand} {item.model}
+											</h3>
+										</div>
+
+										<div className="grid grid-cols-2 gap-4 py-2 border-t border-b border-zinc-100 dark:border-white/5">
+											<div>
+												<span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
+													Available
+												</span>
+												<span className="text-sm font-black text-zinc-700 dark:text-zinc-200">
+													{item.availableUnits || 0} units
+												</span>
+											</div>
+											<div>
+												<span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">
+													Sold Out
+												</span>
+												<span className="text-sm font-black text-zinc-700 dark:text-zinc-200">
+													{item.soldUnits || 0} units
+												</span>
+											</div>
+										</div>
 									</div>
 
-									<div>
-										<h3 className="font-extrabold text-lg text-zinc-900 dark:text-white leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-											{item.brand} {item.model}
-										</h3>
-										<p className="text-xs text-zinc-500 dark:text-gray-400 mt-1.5 font-medium">
-											{item.storage} • {item.ram} RAM • {item.color}
+									<Button
+										variant="outline"
+										onClick={() => router.push(`/admin/mobiles/${item.brandSlug || 'unknown'}/${item.modelSlug || 'unknown'}`)}
+										className="w-full mt-6 py-2.5 rounded-xl text-xs font-bold border-zinc-200 dark:border-zinc-800 hover:!bg-indigo-600 hover:!text-white dark:hover:!bg-indigo-600 transition-all duration-300 cursor-pointer"
+									>
+										View Devices
+									</Button>
+								</div>
+							))}
+						</div>
+					) : (
+						<div className="bg-white dark:bg-[#13151a]/40 border border-zinc-200/80 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
+							<DataTable
+								columns={columns}
+								data={mobiles}
+								loading={isLoading}
+								onSort={handleSort}
+								sortDir={getSortDir}
+								emptyMessage={
+									<div className="text-center py-16 space-y-3">
+										<h4 className="font-bold text-zinc-900 dark:text-zinc-200">
+											No Mobile Models Found
+										</h4>
+										<p className="text-xs text-zinc-500 dark:text-gray-400 max-w-sm mx-auto">
+											We couldn't find any mobile listings matching your search or filters.
 										</p>
 									</div>
-
-									<div className="py-2.5 border-t border-b border-zinc-100 dark:border-white/5 flex items-center justify-between text-xs text-zinc-500 dark:text-gray-400">
-										<span>Condition:</span>
-										<span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-											item.condition === "NEW" 
-												? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" 
-												: "bg-orange-500/10 text-orange-500 border-orange-500/20"
-										}`}>
-											{item.condition}
-										</span>
-									</div>
-								</div>
-
-								<Button
-									variant="outline"
-									onClick={() => router.push(`/admin/mobiles/${item.brandSlug || 'unknown'}/${item.modelSlug || 'unknown'}`)}
-									className="w-full mt-6 py-2.5 rounded-xl text-xs font-bold border-zinc-200 dark:border-zinc-800 hover:!bg-indigo-600 hover:!text-white dark:hover:!bg-indigo-600 transition-all duration-300 cursor-pointer"
-								>
-									View Devices
-								</Button>
-							</div>
-						))}
-					</div>
-
-					{/* Pagination */}
-					{!isLoading && totalPages > 1 && (
-						<div className="px-6 py-4 border border-zinc-200 dark:border-white/5 bg-white dark:bg-[#13151a]/40 rounded-2xl flex items-center justify-between shadow-sm">
-							<span className="text-xs text-zinc-500 dark:text-gray-400">
-								Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalCount)} of {totalCount} mobile devices
-							</span>
-							<PaginationComponent
-								page={currentPage}
-								total={totalCount}
-								limit={limit}
-								onPageChange={(page) => setCurrentPage(page)}
-								onLimitChange={(l) => setLimit(l)}
+								}
 							/>
+						</div>
+					)}
+
+					{/* Intersection Target / Loading indicator */}
+					{hasMore && (
+						<div ref={observerTarget} className="flex justify-center py-6">
+							{isLoading && (
+								<svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+									<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+							)}
 						</div>
 					)}
 				</div>
 			)}
-
-			{/* Delete Confirmation Modal */}
-			<Modal
-				isOpen={deleteOpen}
-				onClose={() => {
-					setDeleteOpen(false);
-					setSelectedItem(null);
-				}}
-				title="Remove Stock Entry"
-			>
-				<div className="space-y-4">
-					<p className="text-sm text-zinc-500 dark:text-gray-400 leading-relaxed">
-						Are you sure you want to remove the <strong className="text-zinc-900 dark:text-white">{selectedItem?.brand} {selectedItem?.model}</strong> stock listing for shop <strong className="text-zinc-900 dark:text-white">{selectedItem?.vendor?.shopName}</strong>? This action will delete the item from the active inventory.
-					</p>
-					<div className="flex justify-end gap-3 pt-2">
-						<Button
-							variant="outline"
-							onClick={() => {
-								setDeleteOpen(false);
-								setSelectedItem(null);
-							}}
-							className="cursor-pointer"
-						>
-							Cancel
-						</Button>
-						<Button
-							variant="danger"
-							onClick={handleDelete}
-							className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-						>
-							Delete Stock Listing
-						</Button>
-					</div>
-				</div>
-			</Modal>
 		</div>
 	);
 }

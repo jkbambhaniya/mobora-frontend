@@ -49,7 +49,7 @@ export default function ContactPage() {
           <div className="p-8 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/60 backdrop-blur-md space-y-8 shadow-xl text-left">
             <div>
               <h3 className="font-bold text-lg text-zinc-900 dark:text-white">Business Coordinates</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Mobora Vendor Systems Inc.</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Mobora Dealer Systems Inc.</p>
             </div>
 
             <div className="space-y-6 text-xs text-zinc-650 dark:text-zinc-400">

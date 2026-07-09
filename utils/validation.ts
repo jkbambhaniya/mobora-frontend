@@ -118,7 +118,7 @@ export const mobileValidationSchema = yup.object().shape({
 		.nullable()
 		.test(
 			"is-required-for-purchase",
-			"Customer / Vendor is required.",
+			"Customer / Dealer is required.",
 			function (value) {
 				const isEdit = this.options.context?.isEdit;
 				if (isEdit) return true;

@@ -143,7 +143,7 @@ export default function AddModal({
 							: activeTab === "storages"
 								? "storage option"
 								: "RAM option"}
-						. It will be available in listings and dropdowns once approved by
+						. It will be available in listings and dropdowns once activated by
 						an administrator.
 					</div>
 				)}

@@ -200,7 +200,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 		try {
 			const success = await deleteVendor(vendor.id);
 			if (success) {
-				router.push("/admin/vendor");
+				router.push("/admin/dealer");
 			}
 		} finally {
 			setActionLoading(false);
@@ -213,30 +213,30 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 		if (vendor.status === "pending") {
 			if (targetStatus === "active") {
 				return {
-					title: "Approve Vendor Registration",
-					desc: `Are you sure you want to approve registration for "${vendor.name}"? This will activate their vendor dashboard and allow them to start posting listings and receiving orders.`,
+					title: "Approve Dealer Registration",
+					desc: `Are you sure you want to approve registration for "${vendor.name}"? This will activate their dealer dashboard and allow them to start posting listings and receiving orders.`,
 					theme: "emerald",
-					confirmText: "Approve Vendor"
+					confirmText: "Approve Dealer"
 				};
 			} else {
 				return {
-					title: "Decline Vendor Registration",
-					desc: `Are you sure you want to decline registration for "${vendor.name}"? They will not be able to log in or access the vendor dashboard.`,
+					title: "Decline Dealer Registration",
+					desc: `Are you sure you want to decline registration for "${vendor.name}"? They will not be able to log in or access the dealer dashboard.`,
 					theme: "red",
-					confirmText: "Decline Vendor"
+					confirmText: "Decline Dealer"
 				};
 			}
 		} else if (vendor.status === "active") {
 			return {
-				title: "Deactivate Vendor Account",
-				desc: `Are you sure you want to deactivate vendor "${vendor.name}"? All their listings will be hidden, and they will be blocked from accessing the vendor dashboard until reactivated.`,
+				title: "Deactivate Dealer Account",
+				desc: `Are you sure you want to deactivate vendor "${vendor.name}"? All their listings will be hidden, and they will be blocked from accessing the dealer dashboard until reactivated.`,
 				theme: "red",
 				confirmText: "Deactivate Account"
 			};
 		} else {
 			return {
-				title: "Reactivate Vendor Account",
-				desc: `Are you sure you want to reactivate vendor "${vendor.name}"? This will restore their active status and re-enable access to their vendor panel.`,
+				title: "Reactivate Dealer Account",
+				desc: `Are you sure you want to reactivate vendor "${vendor.name}"? This will restore their active status and re-enable access to their dealer panel.`,
 				theme: "emerald",
 				confirmText: "Activate Account"
 			};
@@ -249,7 +249,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
 				<div className="w-10 h-10 border-4 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
-				<p className="text-sm text-zinc-500 dark:text-gray-400">Loading vendor profile details...</p>
+				<p className="text-sm text-zinc-500 dark:text-gray-400">Loading dealer profile details...</p>
 			</div>
 		);
 	}
@@ -263,9 +263,9 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 					</svg>
 				</div>
 				<h3 className="text-lg font-bold text-zinc-950 dark:text-white">Profile Load Error</h3>
-				<p className="text-sm text-zinc-500 dark:text-gray-400">{error || "The requested vendor profile could not be found."}</p>
-				<Button size="sm" onClick={() => router.push("/admin/vendor")}>
-					Back to Vendors
+				<p className="text-sm text-zinc-500 dark:text-gray-400">{error || "The requested dealer profile could not be found."}</p>
+				<Button size="sm" onClick={() => router.push("/admin/dealer")}>
+					Back to Dealers
 				</Button>
 			</div>
 		);
@@ -499,7 +499,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 				if (t.partner_type === "Customer") {
 					return t.customer?.name || "Walk-in Customer";
 				}
-				return t.partnerVendor?.name || "Partner Vendor";
+				return t.partnerVendor?.name || "Partner Dealer";
 			}
 		},
 		{
@@ -642,13 +642,13 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 			{/* Breadcrumbs & Header Actions */}
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 				<button
-					onClick={() => router.push("/admin/vendor")}
+					onClick={() => router.push("/admin/dealer")}
 					className="flex items-center gap-2 text-xs font-bold text-zinc-500 dark:text-gray-400 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer w-fit"
 				>
 					<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
 					</svg>
-					Back to Vendors
+					Back to Dealers
 				</button>
 
 				<div className="flex flex-wrap items-center gap-2">
@@ -764,8 +764,8 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 								</p>
 							</div>
 							<div>
-								<span className="text-[10px] text-zinc-400 dark:text-gray-500 uppercase font-semibold">Vendor ID Reference</span>
-								<p className="text-xs font-bold text-zinc-800 dark:text-gray-200 mt-0.5">#VND-{String(vendor.id).padStart(4, "0")}</p>
+								<span className="text-[10px] text-zinc-400 dark:text-gray-500 uppercase font-semibold">Dealer ID Reference</span>
+								<p className="text-xs font-bold text-zinc-800 dark:text-gray-200 mt-0.5">#DLR-{String(vendor.id).padStart(4, "0")}</p>
 							</div>
 						</div>
 					</div>
@@ -907,26 +907,8 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 							<div className="bg-white dark:bg-[#13151a]/50 border border-zinc-200/80 dark:border-white/5 rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-6">
 								<h3 className="text-sm font-bold text-zinc-950 dark:text-white border-b border-zinc-100 dark:border-white/5 pb-3">Billing & Parameters</h3>
 								
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+								<div className="grid grid-cols-1 gap-6 text-left">
 									<div className="space-y-1">
-										<span className="text-[10px] font-bold text-zinc-400 dark:text-gray-500 uppercase tracking-wider">GST Configuration</span>
-										<div className="flex items-center gap-1.5 mt-0.5">
-											<span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-												vendor.businessDetail?.gst_enabled 
-													? "bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
-													: "bg-zinc-100 border border-zinc-200 dark:bg-white/5 dark:border-white/5 text-zinc-500 dark:text-gray-400"
-											}`}>
-												{vendor.businessDetail?.gst_enabled ? "GST Enabled" : "GST Disabled"}
-											</span>
-										</div>
-									</div>
-
-									<div className="space-y-1">
-										<span className="text-[10px] font-bold text-zinc-400 dark:text-gray-500 uppercase tracking-wider">GST Rate Apply</span>
-										<p className="text-sm font-bold text-zinc-800 dark:text-gray-200">{vendor.businessDetail?.gst_rate ?? 18}%</p>
-									</div>
-
-									<div className="md:col-span-2 space-y-1">
 										<span className="text-[10px] font-bold text-zinc-400 dark:text-gray-500 uppercase tracking-wider">Accepted Payment Methods</span>
 										<p className="text-sm font-bold text-zinc-800 dark:text-gray-200 mt-1">{vendor.businessDetail?.payment_methods || "N/A"}</p>
 									</div>
@@ -951,7 +933,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 								<DataTable
 									columns={modelColumns}
 									data={filteredModels}
-									emptyMessage="No device models found for this vendor."
+									emptyMessage="No device models found for this dealer."
 								/>
 							</div>
 						</div>
@@ -1030,7 +1012,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 								<DataTable
 									columns={txColumns}
 									data={filteredTxs}
-									emptyMessage="No transaction logs found for this vendor."
+									emptyMessage="No transaction logs found for this dealer."
 								/>
 							</div>
 						</div>
@@ -1067,7 +1049,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 								<DataTable
 									columns={repairColumns}
 									data={filteredRepairs}
-									emptyMessage="No repair orders found for this vendor."
+									emptyMessage="No repair orders found for this dealer."
 								/>
 							</div>
 						</div>
@@ -1121,7 +1103,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 			<Modal
 				isOpen={editOpen}
 				onClose={handleCloseEdit}
-				title="Edit Vendor Account Details"
+				title="Edit Dealer Account Details"
 				size="lg"
 			>
 				<form onSubmit={handleEditSubmit} className="space-y-4 text-left">
@@ -1164,9 +1146,9 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 							</div>
 						</div>
 
-						{/* Vendor Name */}
+						{/* Dealer Name */}
 						<div className="space-y-1">
-							<label className="text-xs font-bold text-zinc-400 dark:text-gray-500 uppercase">Vendor Name</label>
+							<label className="text-xs font-bold text-zinc-400 dark:text-gray-500 uppercase">Dealer Name</label>
 							<input
 								type="text"
 								required
@@ -1248,13 +1230,13 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 			<Modal
 				isOpen={deleteOpen}
 				onClose={handleCloseDelete}
-				title="Delete Vendor Account"
+				title="Delete Dealer Account"
 				size="md"
 			>
 				<div className="space-y-4">
 					<div className="p-4 rounded-xl bg-red-500/5 dark:bg-red-500/10 border border-red-500/20 text-left text-sm text-red-700 dark:text-red-400">
 						<p>
-							Are you sure you want to permanently delete the vendor account <span className="font-bold">&ldquo;{vendor.name}&rdquo;</span>? This action is irreversible. All vendor details, listings, and configurations will be permanently destroyed.
+							Are you sure you want to permanently delete the dealer account <span className="font-bold">&ldquo;{vendor.name}&rdquo;</span>? This action is irreversible. All dealer details, listings, and configurations will be permanently destroyed.
 						</p>
 					</div>
 

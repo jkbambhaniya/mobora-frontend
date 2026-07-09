@@ -49,12 +49,12 @@ const CONDITIONS = [
 const FAQS: Record<string, { question: string; answer: string }[]> = {
   General: [
     {
-      question: "What is Mobora Vendor Hub?",
-      answer: "Mobora is an all-in-one platform for mobile vendors to list pre-owned devices, evaluate trade-in offers, and process instant customer device exchanges.",
+      question: "What is Mobora Dealer Hub?",
+      answer: "Mobora is an all-in-one platform for mobile dealers to list pre-owned devices, evaluate trade-in offers, and process instant customer device exchanges.",
     },
     {
-      question: "How do I get started as a vendor?",
-      answer: "Simply click on 'Vendor Register' to create your vendor profile, set up your shop profile, and start listing device inventories.",
+      question: "How do I get started as a dealer?",
+      answer: "Simply click on 'Dealer Register' to create your dealer profile, set up your shop profile, and start listing device inventories.",
     },
   ],
   "Devices & Grading": [

@@ -39,7 +39,7 @@ export default function SpecificationHeader({
 				? "Request Storage"
 				: activeTab === "rams"
 					? "Request RAM"
-					: "Add Model";
+					: "Request Model";
 
 	return (
 		<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/40">

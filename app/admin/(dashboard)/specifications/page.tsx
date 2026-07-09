@@ -21,13 +21,16 @@ import {
 	getAdminModelsAction,
 	deleteAdminModelAction,
 	updateAdminModelAction,
+	updateAdminModelStatusAction,
+	reorderAdminRamsAction,
+	reorderAdminStoragesAction,
 } from "@/actions/admin-specs";
 
 // ─────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────
 
-type SpecStatus = "pending" | "approved" | "rejected";
+type SpecStatus = "pending" | "active" | "inactive";
 type ActiveTab = "brands" | "rams" | "storages" | "models";
 
 interface SpecItem {
@@ -48,6 +51,7 @@ interface ModelItem {
 	vendor_name: string;
 	vendor_email: string | null;
 	vendor_profile_img: string | null;
+	status: SpecStatus;
 	created_at: string;
 }
 
@@ -59,10 +63,10 @@ interface Pagination {
 }
 
 interface Summary {
-	brands: { pending: number; approved: number; rejected: number };
-	rams: { pending: number; approved: number; rejected: number };
-	storages: { pending: number; approved: number; rejected: number };
-	models: { total: number };
+	brands: { pending: number; active: number; inactive: number };
+	rams: { pending: number; active: number; inactive: number };
+	storages: { pending: number; active: number; inactive: number };
+	models: { pending: number; active: number; inactive: number };
 	totalPending: number;
 }
 
@@ -79,19 +83,19 @@ function StatusBadge({ status }: { status: SpecStatus }) {
 			dot: "bg-amber-500",
 			label: "Pending",
 		},
-		approved: {
+		active: {
 			bg: "bg-emerald-50 dark:bg-emerald-500/10",
 			border: "border-emerald-200 dark:border-emerald-500/20",
 			text: "text-emerald-700 dark:text-emerald-400",
 			dot: "bg-emerald-500",
-			label: "Approved",
+			label: "Active",
 		},
-		rejected: {
+		inactive: {
 			bg: "bg-red-50 dark:bg-red-500/10",
 			border: "border-red-200 dark:border-red-500/20",
 			text: "text-red-700 dark:text-red-400",
 			dot: "bg-red-500",
-			label: "Rejected",
+			label: "Inactive",
 		},
 	};
 	const c = config[status] || config.pending;
@@ -187,6 +191,7 @@ interface SpecTableProps {
 	onReject: (item: SpecItem) => void;
 	onDelete: (item: SpecItem) => void;
 	actionLoadingId: number | null;
+	onReorder?: (dragIndex: number, hoverIndex: number) => void;
 }
 
 function SpecTable({
@@ -208,7 +213,10 @@ function SpecTable({
 	onReject,
 	onDelete,
 	actionLoadingId,
+	onReorder,
 }: SpecTableProps) {
+	const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+	const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 	const labelField = tab === "brands" ? "name" : "value";
 	const columnLabel = tab === "brands" ? "Brand Name" : tab === "rams" ? "RAM Size" : "Storage Size";
 
@@ -249,7 +257,7 @@ function SpecTable({
 				</div>
 				{/* Status Filter */}
 				<div className="flex items-center gap-1.5 bg-white dark:bg-[#13151a] border border-zinc-200 dark:border-white/5 rounded-xl p-1">
-					{(["", "pending", "approved", "rejected"] as const).map((s) => (
+					{(["", "pending", "active", "inactive"] as const).map((s) => (
 						<button
 							key={s}
 							onClick={() => onStatusFilterChange(s)}
@@ -332,9 +340,56 @@ function SpecTable({
 									const label = item.name || item.value || "—";
 									const isActing = actionLoadingId === item.id;
 									const offset = ((pagination?.currentPage ?? 1) - 1) * (pagination?.limit ?? 15);
+									const isDraggable = tab === "rams" || tab === "storages";
 									return (
-										<tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-colors group">
-											<td className="px-5 py-4 text-zinc-400 dark:text-gray-600 font-mono text-xs">{offset + idx + 1}</td>
+										<tr
+											key={item.id}
+											draggable={isDraggable}
+											onDragStart={(e) => {
+												if (!isDraggable) return;
+												setDraggedIdx(idx);
+												e.dataTransfer.effectAllowed = "move";
+											}}
+											onDragEnter={(e) => {
+												if (!isDraggable) return;
+												setDragOverIdx(idx);
+											}}
+											onDragLeave={() => {
+												if (!isDraggable) return;
+												setDragOverIdx((prev) => (prev === idx ? null : prev));
+											}}
+											onDragOver={(e) => {
+												if (!isDraggable) return;
+												e.preventDefault();
+											}}
+											onDrop={(e) => {
+												if (!isDraggable || draggedIdx === null || draggedIdx === idx) return;
+												onReorder && onReorder(draggedIdx, idx);
+												setDraggedIdx(null);
+												setDragOverIdx(null);
+											}}
+											onDragEnd={() => {
+												setDraggedIdx(null);
+												setDragOverIdx(null);
+											}}
+											className={`hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] transition-all duration-150 group ${
+												isDraggable ? "cursor-move" : ""
+											} ${draggedIdx === idx ? "opacity-30" : ""} ${
+												dragOverIdx === idx
+													? "border-t-2 border-indigo-600 bg-indigo-500/[0.08] dark:bg-indigo-500/[0.15]"
+													: ""
+											}`}
+										>
+											<td className="px-5 py-4 text-zinc-400 dark:text-gray-600 font-mono text-xs">
+												<div className="flex items-center gap-1.5">
+													{isDraggable && (
+														<svg className="w-3.5 h-3.5 text-zinc-400 cursor-grab shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8h16M4 16h16" />
+														</svg>
+													)}
+													<span>{offset + idx + 1}</span>
+												</div>
+											</td>
 											<td className="px-5 py-4">
 												<span className="font-semibold text-zinc-900 dark:text-white">{label}</span>
 											</td>
@@ -358,7 +413,7 @@ function SpecTable({
 																<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 																	<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
 																</svg>
-																Approve
+																Activate
 															</button>
 															<button
 																onClick={() => onReject(item)}
@@ -368,11 +423,11 @@ function SpecTable({
 																<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 																	<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
 																</svg>
-																Reject
+																Deactivate
 															</button>
 														</>
 													)}
-													{item.status === "approved" && (
+													{item.status === "active" && (
 														<button
 															onClick={() => onReject(item)}
 															disabled={isActing}
@@ -381,10 +436,10 @@ function SpecTable({
 															<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 																<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
 															</svg>
-															Revoke
+															Deactivate
 														</button>
 													)}
-													{item.status === "rejected" && (
+													{item.status === "inactive" && (
 														<button
 															onClick={() => onApprove(item)}
 															disabled={isActing}
@@ -393,7 +448,7 @@ function SpecTable({
 															<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 																<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
 															</svg>
-															Re-Approve
+															Activate
 														</button>
 													)}
 													<button
@@ -439,14 +494,14 @@ function SpecTable({
 interface StatCardProps {
 	label: string;
 	pending: number;
-	approved: number;
-	rejected: number;
+	activeCount: number;
+	inactiveCount: number;
 	icon: React.ReactNode;
 	onClick: () => void;
 	active?: boolean;
 }
 
-function StatCard({ label, pending, approved, rejected, icon, onClick, active }: StatCardProps) {
+function StatCard({ label, pending, activeCount, inactiveCount, icon, onClick, active }: StatCardProps) {
 	return (
 		<button
 			onClick={onClick}
@@ -472,11 +527,11 @@ function StatCard({ label, pending, approved, rejected, icon, onClick, active }:
 			<div className="flex items-center gap-3 text-xs">
 				<span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
 					<span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-					{approved} approved
+					{activeCount} active
 				</span>
 				<span className="flex items-center gap-1 text-red-500 dark:text-red-400 font-semibold">
 					<span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-					{rejected} rejected
+					{inactiveCount} inactive
 				</span>
 			</div>
 		</button>
@@ -492,13 +547,17 @@ function ModelTable({
 	isLoading,
 	pagination,
 	search,
+	statusFilter,
 	sortBy,
 	sortOrder,
 	limit,
 	onSearchChange,
+	onStatusFilterChange,
 	onPageChange,
 	onLimitChange,
 	onSort,
+	onApprove,
+	onReject,
 	onEdit,
 	onDelete,
 	actionLoadingId,
@@ -507,13 +566,17 @@ function ModelTable({
 	isLoading: boolean;
 	pagination: Pagination | null;
 	search: string;
+	statusFilter: string;
 	sortBy: string;
 	sortOrder: "asc" | "desc";
 	limit: number;
 	onSearchChange: (v: string) => void;
+	onStatusFilterChange: (v: SpecStatus | "") => void;
 	onPageChange: (p: number) => void;
 	onLimitChange: (limit: number) => void;
 	onSort: (f: string) => void;
+	onApprove: (item: ModelItem) => void;
+	onReject: (item: ModelItem) => void;
 	onEdit: (item: ModelItem) => void;
 	onDelete: (item: ModelItem) => void;
 	actionLoadingId: number | null;
@@ -549,40 +612,10 @@ function ModelTable({
 			),
 		},
 		{
-			key: "vendor",
-			title: "Vendor",
-			sortable: false,
-			render: (row) =>
-				row.vendor_id ? (
-					<div className="flex items-center gap-3">
-						{row.vendor_profile_img ? (
-							<img
-								src={row.vendor_profile_img}
-								alt={row.vendor_name}
-								className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-white/5 shrink-0"
-							/>
-						) : (
-							<div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-xs shrink-0">
-								{row.vendor_name.slice(0, 1).toUpperCase()}
-							</div>
-						)}
-						<div className="min-w-0">
-							<Link
-								href={`/admin/vendor/${row.vendor_id}`}
-								className="font-semibold text-zinc-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors block text-xs truncate"
-							>
-								{row.vendor_name}
-							</Link>
-							{row.vendor_email && (
-								<p className="text-zinc-400 dark:text-gray-500 text-[10px] truncate leading-none mt-0.5">
-									{row.vendor_email}
-								</p>
-							)}
-						</div>
-					</div>
-				) : (
-					<span className="text-xs text-zinc-400 dark:text-gray-500 italic">Global</span>
-				),
+			key: "status",
+			title: "Status",
+			sortable: true,
+			render: (row) => <StatusBadge status={row.status} />,
 		},
 		{
 			key: "created_at",
@@ -601,6 +634,42 @@ function ModelTable({
 				const isActing = actionLoadingId === row.id;
 				return (
 					<div className="flex items-center justify-end gap-2">
+						{row.status === "pending" && (
+							<>
+								<button
+									onClick={() => onApprove(row)}
+									disabled={isActing}
+									className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+								>
+									Activate
+								</button>
+								<button
+									onClick={() => onReject(row)}
+									disabled={isActing}
+									className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+								>
+									Deactivate
+								</button>
+							</>
+						)}
+						{row.status === "active" && (
+							<button
+								onClick={() => onReject(row)}
+								disabled={isActing}
+								className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+							>
+								Deactivate
+							</button>
+						)}
+						{row.status === "inactive" && (
+							<button
+								onClick={() => onApprove(row)}
+								disabled={isActing}
+								className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+							>
+								Activate
+							</button>
+						)}
 						<button
 							onClick={() => onEdit(row)}
 							disabled={isActing}
@@ -637,6 +706,16 @@ function ModelTable({
 						className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-[#13151a] border border-zinc-200 dark:border-white/5 rounded-xl text-zinc-800 dark:text-gray-100 placeholder-zinc-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all"
 					/>
 				</div>
+				<select
+					value={statusFilter}
+					onChange={(e) => onStatusFilterChange(e.target.value as any)}
+					className="px-4 py-2.5 text-sm bg-white dark:bg-[#13151a] border border-zinc-200 dark:border-white/5 rounded-xl text-zinc-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all"
+				>
+					<option value="">All Status</option>
+					<option value="pending">Pending</option>
+					<option value="active">Active</option>
+					<option value="inactive">Inactive</option>
+				</select>
 				{pagination && (
 					<span className="text-xs text-zinc-500 dark:text-gray-400 ml-auto">{pagination.totalCount} total</span>
 				)}
@@ -721,15 +800,15 @@ export default function AdminSpecificationsPage() {
 	const [allBrands, setAllBrands] = useState<{ id: number; name: string }[]>([]);
 	const [isLoadingBrands, setIsLoadingBrands] = useState(false);
 
-	const fetchAllApprovedBrands = useCallback(async () => {
+	const fetchAllActiveBrands = useCallback(async () => {
 		setIsLoadingBrands(true);
 		try {
-			const res = await getAdminBrandsAction({ status: "approved", limit: 100 });
+			const res = await getAdminBrandsAction({ status: "active", limit: 100 });
 			if (res.success && res.data?.success) {
 				setAllBrands(res.data.data || []);
 			}
 		} catch (err) {
-			console.error("Failed to fetch approved brands:", err);
+			console.error("Failed to fetch active brands:", err);
 		} finally {
 			setIsLoadingBrands(false);
 		}
@@ -737,9 +816,9 @@ export default function AdminSpecificationsPage() {
 
 	useEffect(() => {
 		if (admin) {
-			fetchAllApprovedBrands();
+			fetchAllActiveBrands();
 		}
-	}, [admin, fetchAllApprovedBrands]);
+	}, [admin, fetchAllActiveBrands]);
 
 	const handleSaveModelEdit = async () => {
 		if (!editModelData.model) return;
@@ -791,12 +870,12 @@ export default function AdminSpecificationsPage() {
 		if (!admin) return;
 		setIsLoadingItems(true);
 		const filters = {
-			search: search || undefined,
-			status: statusFilter || undefined,
+			search,
 			page: currentPage,
 			limit,
 			sortBy,
 			sortOrder,
+			status: statusFilter,
 		};
 		try {
 			if (activeTab === "models") {
@@ -847,8 +926,13 @@ export default function AdminSpecificationsPage() {
 		setActiveTab(tab);
 		setSearch("");
 		setStatusFilter("");
-		setSortBy("created_at");
-		setSortOrder("desc");
+		if (tab === "rams" || tab === "storages") {
+			setSortBy("order_by");
+			setSortOrder("asc");
+		} else {
+			setSortBy("created_at");
+			setSortOrder("desc");
+		}
 		setCurrentPage(1);
 	};
 
@@ -857,15 +941,50 @@ export default function AdminSpecificationsPage() {
 		else { setSortBy(field); setSortOrder("asc"); }
 	};
 
+	const handleReorder = async (dragIndex: number, hoverIndex: number) => {
+		const newItems = [...items];
+		const draggedItem = newItems[dragIndex];
+		newItems.splice(dragIndex, 1);
+		newItems.splice(hoverIndex, 0, draggedItem);
+		
+		setItems(newItems);
+
+		const offset = ((pagination?.currentPage ?? 1) - 1) * limit;
+		const orders = newItems.map((item, index) => ({
+			id: item.id,
+			order_by: offset + index + 1,
+		}));
+
+		try {
+			let res;
+			if (activeTab === "rams") {
+				res = await reorderAdminRamsAction(orders);
+			} else {
+				res = await reorderAdminStoragesAction(orders);
+			}
+
+			if (res.success && res.data?.success) {
+				toast.success("Order updated successfully.");
+			} else {
+				toast.error(res.message || "Failed to update order.");
+				await fetchItems();
+			}
+		} catch (err) {
+			toast.error("Failed to update order.");
+			await fetchItems();
+		}
+	};
+
 	// Generic approve/reject/delete actions
-	async function performStatusUpdate(item: SpecItem, status: "approved" | "rejected") {
+	async function performStatusUpdate(item: SpecItem, status: "active" | "inactive") {
 		setActionLoadingId(item.id);
 		setIsConfirmLoading(true);
 		try {
 			let res;
 			if (activeTab === "brands") res = await updateAdminBrandStatusAction(item.id, status);
 			else if (activeTab === "rams") res = await updateAdminRamStatusAction(item.id, status);
-			else res = await updateAdminStorageStatusAction(item.id, status);
+			else if (activeTab === "storages") res = await updateAdminStorageStatusAction(item.id, status);
+			else res = await updateAdminModelStatusAction(item.id, status);
 
 			if (res.success && res.data?.success) {
 				toast.success(`${activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(1, -1)} ${status} successfully.`);
@@ -913,25 +1032,25 @@ export default function AdminSpecificationsPage() {
 		setConfirmDialog({
 			open: true,
 			title: "Approve Request",
-			description: `Approve "${label}"? It will become available to vendors for use in listings.`,
+			description: `Approve "${label}"? It will become available to dealers for use in listings.`,
 			confirmLabel: "Approve",
 			confirmClass: "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20",
-			onConfirm: () => performStatusUpdate(item, "approved"),
+			onConfirm: () => performStatusUpdate(item, "active"),
 		});
 	};
 
 	const handleReject = (item: SpecItem) => {
 		const label = item.name || item.value || "this entry";
-		const isRevoke = item.status === "approved";
+		const isRevoke = item.status === "active";
 		setConfirmDialog({
 			open: true,
-			title: isRevoke ? "Revoke Approval" : "Reject Request",
+			title: isRevoke ? "Deactivate Specification" : "Reject Request",
 			description: isRevoke
-				? `Revoke approval for "${label}"? Vendors will no longer be able to use it.`
+				? `Deactivate "${label}"? Dealers will no longer be able to use it.`
 				: `Reject "${label}"? This will prevent it from being used in listings.`,
-			confirmLabel: isRevoke ? "Revoke" : "Reject",
+			confirmLabel: isRevoke ? "Deactivate" : "Reject",
 			confirmClass: "bg-red-600 hover:bg-red-500 shadow-red-600/20",
-			onConfirm: () => performStatusUpdate(item, "rejected"),
+			onConfirm: () => performStatusUpdate(item, "inactive"),
 		});
 	};
 
@@ -993,7 +1112,7 @@ export default function AdminSpecificationsPage() {
 				<div>
 					<h1 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Specifications</h1>
 					<p className="text-sm text-zinc-500 dark:text-gray-400 mt-1">
-						Review and approve vendor-submitted specification requests for brands, RAM and storage options.
+						Review and approve dealer-submitted specification requests for brands, RAM and storage options.
 					</p>
 				</div>
 				{summary && summary.totalPending > 0 && (
@@ -1015,8 +1134,8 @@ export default function AdminSpecificationsPage() {
 						<StatCard
 							label="Brands"
 							pending={summary?.brands.pending ?? 0}
-							approved={summary?.brands.approved ?? 0}
-							rejected={summary?.brands.rejected ?? 0}
+							activeCount={summary?.brands.active ?? 0}
+							inactiveCount={summary?.brands.inactive ?? 0}
 							active={activeTab === "brands"}
 							onClick={() => handleTabChange("brands")}
 							icon={
@@ -1028,8 +1147,8 @@ export default function AdminSpecificationsPage() {
 						<StatCard
 							label="RAM Options"
 							pending={summary?.rams.pending ?? 0}
-							approved={summary?.rams.approved ?? 0}
-							rejected={summary?.rams.rejected ?? 0}
+							activeCount={summary?.rams.active ?? 0}
+							inactiveCount={summary?.rams.inactive ?? 0}
 							active={activeTab === "rams"}
 							onClick={() => handleTabChange("rams")}
 							icon={
@@ -1041,8 +1160,8 @@ export default function AdminSpecificationsPage() {
 						<StatCard
 							label="Storage Options"
 							pending={summary?.storages.pending ?? 0}
-							approved={summary?.storages.approved ?? 0}
-							rejected={summary?.storages.rejected ?? 0}
+							activeCount={summary?.storages.active ?? 0}
+							inactiveCount={summary?.storages.inactive ?? 0}
 							active={activeTab === "storages"}
 							onClick={() => handleTabChange("storages")}
 							icon={
@@ -1051,32 +1170,20 @@ export default function AdminSpecificationsPage() {
 								</svg>
 							}
 						/>
-						{/* Models stat card — total only, no status flow */}
-						<button
+						{/* Models stat card */}
+						<StatCard
+							label="Device Models"
+							pending={summary?.models?.pending ?? 0}
+							activeCount={summary?.models?.active ?? 0}
+							inactiveCount={summary?.models?.inactive ?? 0}
+							active={activeTab === "models"}
 							onClick={() => handleTabChange("models")}
-							className={`text-left p-5 rounded-2xl border transition-all cursor-pointer ${
-								activeTab === "models"
-									? "bg-indigo-50 dark:bg-indigo-600/10 border-indigo-200 dark:border-indigo-500/30 shadow-md shadow-indigo-600/10"
-									: "bg-white dark:bg-[#13151a] border-zinc-200/80 dark:border-white/5 hover:border-zinc-300 dark:hover:border-white/10"
-							}`}
-						>
-							<div className="flex items-start justify-between gap-3 mb-4">
-								<div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-									activeTab === "models" ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400" : "bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-gray-400"
-								}`}>
-									<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-									</svg>
-								</div>
-							</div>
-							<p className={`text-sm font-bold mb-3 ${activeTab === "models" ? "text-indigo-700 dark:text-indigo-300" : "text-zinc-900 dark:text-white"}`}>Device Models</p>
-							<div className="flex items-center gap-2 text-xs">
-								<span className="flex items-center gap-1 text-zinc-600 dark:text-gray-400 font-semibold">
-									<span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-									{summary?.models?.total ?? 0} total
-								</span>
-							</div>
-						</button>
+							icon={
+								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+								</svg>
+							}
+						/>
 					</>
 				)}
 			</div>
@@ -1090,6 +1197,7 @@ export default function AdminSpecificationsPage() {
 							? t.key === "brands" ? (summary.brands?.pending ?? 0)
 								: t.key === "rams" ? (summary.rams?.pending ?? 0)
 								: t.key === "storages" ? (summary.storages?.pending ?? 0)
+								: t.key === "models" ? (summary.models?.pending ?? 0)
 								: 0
 							: 0;
 						return (
@@ -1123,13 +1231,17 @@ export default function AdminSpecificationsPage() {
 						isLoading={isLoadingItems}
 						pagination={pagination}
 						search={search}
+						statusFilter={statusFilter}
 						sortBy={sortBy}
 						sortOrder={sortOrder}
 						limit={limit}
 						onSearchChange={(v) => { setSearch(v); setCurrentPage(1); }}
+						onStatusFilterChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
 						onPageChange={setCurrentPage}
 						onLimitChange={(l) => { setLimit(l); setCurrentPage(1); }}
 						onSort={handleSort}
+						onApprove={handleApprove}
+						onReject={handleReject}
 						onEdit={(item) => setEditModelData({ open: true, model: item, name: item.name, brandId: item.brand_id })}
 						onDelete={(item) => handleDelete(item)}
 						actionLoadingId={actionLoadingId}
@@ -1154,6 +1266,7 @@ export default function AdminSpecificationsPage() {
 						onReject={handleReject}
 						onDelete={handleDelete}
 						actionLoadingId={actionLoadingId}
+						onReorder={handleReorder}
 					/>
 				)}
 			</div>

@@ -79,7 +79,7 @@ export default function AdminMobileDeviceSlugDetailPage({ params }: { params: Pr
 	}, [brandSlug, modelSlug]);
 
 	const handleDeleteStock = async (stockId: string) => {
-		if (!confirm("Are you sure you want to remove this vendor stock listing? This action cannot be undone.")) return;
+		if (!confirm("Are you sure you want to remove this dealer stock listing? This action cannot be undone.")) return;
 		setActionLoadingId(stockId);
 		try {
 			const res = await deleteAdminMobileAction(stockId);
@@ -302,7 +302,7 @@ export default function AdminMobileDeviceSlugDetailPage({ params }: { params: Pr
 							{filteredStocks.length === 0 ? (
 								<tr>
 									<td colSpan={8} className="text-center py-12 text-sm text-zinc-500 dark:text-gray-400">
-										No vendor stock entries registered for this device matching your search.
+										No dealer stock entries registered for this device matching your search.
 									</td>
 								</tr>
 							) : (

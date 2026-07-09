@@ -31,7 +31,7 @@ export function useSpecificationsTable(activeTab: Tab) {
 		search: "",
 		page: 1,
 		limit: 10,
-		sortBy: "value",
+		sortBy: "order_by",
 		sortOrder: "asc" as "asc" | "desc",
 	});
 
@@ -39,7 +39,7 @@ export function useSpecificationsTable(activeTab: Tab) {
 		search: "",
 		page: 1,
 		limit: 10,
-		sortBy: "value",
+		sortBy: "order_by",
 		sortOrder: "asc" as "asc" | "desc",
 	});
 

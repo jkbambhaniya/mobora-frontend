@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAdminAuth } from "@/context/admin/auth-context";
 import { useAdminDashboard } from "@/context/admin/dashboard-context";
+import { useAdminChats } from "@/context/admin/chat-context";
 import { apiClient } from "@/actions/apiClient";
-import { io, Socket } from "socket.io-client";
 import { toast } from "react-hot-toast";
 
 const quickReplies = [
@@ -53,24 +53,34 @@ const getAttachmentUrl = (url?: string) => {
 	if (!url) return "";
 	if (url.startsWith("http://") || url.startsWith("https://")) return url;
 	const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-	const backendHost = typeof window !== "undefined"
+	const backendHost = process.env.NEXT_PUBLIC_BACKEND_URL || (typeof window !== "undefined"
 		? (isLocalhost ? `${window.location.protocol}//${window.location.hostname}:5000` : `${window.location.protocol}//${window.location.hostname}`)
-		: "http://localhost:5000";
+		: "http://localhost:5000");
 	return `${backendHost}${url}`;
 };
 
 export default function AdminChatPage() {
 	const { admin } = useAdminAuth();
 	const { vendors, fetchVendors, isLoadingVendors } = useAdminDashboard();
-	const [chats, setChats] = useState<ChatSession[]>([]);
-	const [activeChatId, setActiveChatId] = useState<string | null>(null);
-	const [activeChatMessages, setActiveChatMessages] = useState<ChatMessage[]>([]);
+	const {
+		chats,
+		setChats,
+		activeChatId,
+		setActiveChatId,
+		activeChatMessages,
+		setActiveChatMessages,
+		isConnected,
+		socketRef,
+		fetchSessions,
+		fetchMessages,
+		sendMessage,
+	} = useAdminChats();
+
 	const [searchTerm, setSearchTerm] = useState("");
 	const [newMessage, setNewMessage] = useState("");
 	const [showDetails, setShowDetails] = useState(true);
 	const [showMobileChat, setShowMobileChat] = useState(false);
 	const [isUploading, setIsUploading] = useState(false);
-	const [isConnected, setIsConnected] = useState(false);
 
 	// New Chat Dialog States
 	const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -81,7 +91,6 @@ export default function AdminChatPage() {
 	const [initialMessage, setInitialMessage] = useState("");
 	const [broadcastText, setBroadcastText] = useState("");
 
-	const socketRef = useRef<Socket | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,76 +104,6 @@ export default function AdminChatPage() {
 		fetchVendors();
 		fetchSessions();
 	}, []);
-
-	// Socket lifecycle
-	useEffect(() => {
-		if (!admin) return;
-
-		const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-		const socketUrl = isLocalhost
-			? `${window.location.protocol}//${window.location.hostname}:5000`
-			: `${window.location.protocol}//${window.location.hostname}`;
-		console.log(`[AdminChat] Connecting to socket at ${socketUrl}`);
-
-		const socket = io(socketUrl, {
-			withCredentials: true,
-			transports: ["websocket", "polling"]
-		});
-
-		socketRef.current = socket;
-
-		socket.on("connect", () => {
-			console.log("[AdminChat] Socket connected!");
-			setIsConnected(true);
-			socket.emit("register_admin", { adminId: admin.id });
-		});
-
-		socket.on("connect_error", (err) => {
-			console.warn("[AdminChat] Connection error:", err.message);
-			setIsConnected(false);
-		});
-
-		socket.on("disconnect", () => {
-			console.log("[AdminChat] Socket disconnected.");
-			setIsConnected(false);
-		});
-
-		socket.on("admin_sessions_update", (updatedSessions: ChatSession[]) => {
-			setChats(updatedSessions);
-		});
-
-		socket.on("receive_message", (message: ChatMessage) => {
-			setActiveChatMessages((prev) => {
-				if (prev.some((m) => m.id === message.id)) return prev;
-				return [...prev, message];
-			});
-		});
-
-		socket.on("messages_read", ({ chatId }: { chatId: string }) => {
-			setActiveChatMessages((prev) =>
-				prev.map((m) =>
-					m.sender === "admin" && m.status !== "read" ? { ...m, status: "read" } : m
-				)
-			);
-		});
-
-		return () => {
-			socket.disconnect();
-			socketRef.current = null;
-			setIsConnected(false);
-		};
-	}, [admin]);
-
-	// Sync active room changes with socket
-	useEffect(() => {
-		if (!socketRef.current || !isConnected) return;
-
-		if (activeChatId) {
-			socketRef.current.emit("active_chat_changed", { chatId: activeChatId });
-		} else {
-			socketRef.current.emit("active_chat_changed", { chatId: null });
-		}
-	}, [activeChatId, isConnected]);
 
 	// Load messages when active chat changes
 	useEffect(() => {
@@ -186,44 +125,6 @@ export default function AdminChatPage() {
 			scrollToBottom();
 		}
 	}, [activeChatMessages]);
-
-	// Fetch sessions via HTTP
-	const fetchSessions = async () => {
-		try {
-			const res = await apiClient.get("/admin/chat/sessions");
-			if (res?.data?.success) {
-				setChats(res.data.chats || []);
-			}
-		} catch (err: any) {
-			console.error("[AdminChat] Error fetching sessions:", err.message);
-		}
-	};
-
-	// Fetch messages via HTTP
-	const fetchMessages = async (chatId: string, limit = 15, offsetVal = 0) => {
-		try {
-			const res = await apiClient.get(`/admin/chat/sessions/${chatId}/messages?limit=${limit}&offset=${offsetVal}`);
-			if (res?.data?.success) {
-				const newMessages = res.data.messages || [];
-				const hasMoreMsg = res.data.hasMore || false;
-				if (offsetVal === 0) {
-					setActiveChatMessages(newMessages);
-				} else {
-					setActiveChatMessages((prev) => {
-						const existingIds = new Set(prev.map((m) => m.id));
-						const filteredNew = newMessages.filter((m: any) => !existingIds.has(m.id));
-						return [...filteredNew, ...prev];
-					});
-				}
-				setHasMore(hasMoreMsg);
-				return { messages: newMessages, hasMore: hasMoreMsg };
-			}
-			return null;
-		} catch (err: any) {
-			console.error("[AdminChat] Error fetching messages:", err.message);
-			return null;
-		}
-	};
 
 	// Load more messages on scroll to top
 	const handleScroll = async () => {
@@ -263,17 +164,7 @@ export default function AdminChatPage() {
 		}
 		if (!textToSend.trim() && !attachment) return;
 
-		if (!socketRef.current || !isConnected) {
-			toast.error("Chat connection is offline. Trying to reconnect...");
-			return;
-		}
-
-		socketRef.current.emit("send_message", {
-			chatId: activeChatId,
-			adminId: admin?.id,
-			text: textToSend,
-			attachment,
-		});
+		sendMessage(activeChatId, textToSend, attachment);
 		setNewMessage("");
 	};
 

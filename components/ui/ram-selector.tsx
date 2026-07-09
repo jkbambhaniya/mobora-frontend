@@ -64,7 +64,7 @@ export function RamSelector({
 					<button
 						type="button"
 						onClick={() => setIsAdding(!isAdding)}
-						className="text-[10px] text-primary hover:underline font-bold cursor-pointer"
+						className={`text-[10px] hover:underline font-bold cursor-pointer ${isAdding ? "text-red-500 hover:text-red-600" : "text-primary"}`}
 					>
 						{isAdding ? "Cancel" : "Request RAM"}
 					</button>

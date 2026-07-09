@@ -17,6 +17,7 @@ import { toast as hotToast } from "react-hot-toast";
 import * as yup from "yup";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { Select } from "@/components/ui/select";
+import { LightGallery } from "@/components/ui/LightGallery";
 import { getCustomerByIdAction, updateCustomerKycAction } from "@/actions/customer";
 import { streamInvoice, downloadInvoice } from "@/utils/invoice";
 
@@ -90,7 +91,7 @@ export default function CustomerDetailPage() {
 	/* ── Local state for the page ── */
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-	const [activeLightboxImg, setActiveLightboxImg] = useState<string | null>(null);
+	const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null);
 	const [historyTab, setHistoryTab] = useState<"purchases" | "sales">("purchases");
 
 	/* Edit form fields */
@@ -880,7 +881,7 @@ export default function CustomerDetailPage() {
 												{customer.kycDocumentImg.split(",").filter(Boolean).map((docUrl, idx) => (
 													<div
 														key={idx}
-														onClick={() => setActiveLightboxImg(docUrl)}
+														onClick={() => setActiveLightboxIndex(idx)}
 														className="block relative rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden group cursor-pointer aspect-video"
 													>
 														<img
@@ -1025,32 +1026,13 @@ export default function CustomerDetailPage() {
 				warningText="This action cannot be undone."
 			/>
 
-			{activeLightboxImg && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity duration-300"
-					onClick={() => setActiveLightboxImg(null)}
-				>
-					<div className="relative max-w-4xl max-h-[90vh] p-4 flex items-center justify-center">
-						<button
-							className="absolute top-4 right-4 text-white hover:text-zinc-300 focus:outline-none bg-black/50 p-2 rounded-full cursor-pointer z-10"
-							onClick={(e) => {
-								e.stopPropagation();
-								setActiveLightboxImg(null);
-							}}
-						>
-							<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-								<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-						<img
-							src={activeLightboxImg}
-							alt="KYC Document Lightbox"
-							className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
-							onClick={(e) => e.stopPropagation()}
-						/>
-					</div>
-				</div>
-			)}
+			<LightGallery
+				images={customer.kycDocumentImg ? customer.kycDocumentImg.split(",").filter(Boolean) : []}
+				initialIndex={activeLightboxIndex ?? 0}
+				isOpen={activeLightboxIndex !== null}
+				onClose={() => setActiveLightboxIndex(null)}
+				title={`${customer.name}'s ${customer.idType || "KYC"} Document`}
+			/>
 		</>
 	);
 }

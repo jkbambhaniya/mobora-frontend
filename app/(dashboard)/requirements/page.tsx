@@ -325,7 +325,7 @@ export default function RequirementsPage() {
 
 						<SelectWithCreate
 							label="Model"
-							addButtonLabel="+ Add Model"
+							addButtonLabel="+ Request Model"
 							value={modelId}
 							onChange={(e) => {
 								setModelId(e.target.value);

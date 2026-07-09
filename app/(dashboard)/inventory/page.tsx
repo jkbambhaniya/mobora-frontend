@@ -41,6 +41,7 @@ export default function InventoryPage() {
 		trades,
 		triggerToast,
 		fetchVendors,
+		refreshTrades,
 	} = useDashboard();
 
 
@@ -338,6 +339,7 @@ export default function InventoryPage() {
 			if (success) {
 				triggerToast(`Deleted ${deletingDevice.name} listing.`);
 				await refreshMetrics();
+				await refreshTrades();
 			} else {
 				triggerToast("Failed to delete listing.");
 			}
@@ -450,6 +452,7 @@ export default function InventoryPage() {
 				triggerToast(editingDevice ? "Stock listing updated." : "Stock device registered.");
 				setIsFormOpen(false);
 				await refreshMetrics();
+				await refreshTrades();
 			} else {
 				if (res.conflict) {
 					setConflictInfo(res.conflict);
@@ -499,16 +502,16 @@ export default function InventoryPage() {
 			try {
 				const res = await specs.addModel(newModelVal.trim(), Number(formBrand));
 				if (res.success) {
-					triggerToast("Model created successfully.");
+					triggerToast("Model request submitted.");
 					await specs.refreshAllSpecs();
 					setNewModelVal("");
 					setIsAddingModel(false);
 					clearFieldError("model");
 				} else {
-					setModelInlineError(res.message || "Failed to add model.");
+					setModelInlineError(res.message || "Failed to request model.");
 				}
 			} catch (err) {
-				setModelInlineError("Failed to add model.");
+				setModelInlineError("Failed to request model.");
 			} finally {
 				setIsSubmittingModel(false);
 			}
@@ -1109,7 +1112,7 @@ export default function InventoryPage() {
 								size="sm"
 								disabled={isSubmitting}
 								onClick={() => setIsFormOpen(false)}
-								className="cursor-pointer"
+								className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
 							>
 								Cancel
 							</Button>

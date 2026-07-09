@@ -22,9 +22,9 @@ const getAttachmentUrl = (url?: string) => {
 	if (!url) return "";
 	if (url.startsWith("http://") || url.startsWith("https://")) return url;
 	const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-	const backendHost = typeof window !== "undefined"
+	const backendHost = process.env.NEXT_PUBLIC_BACKEND_URL || (typeof window !== "undefined"
 		? (isLocalhost ? `${window.location.protocol}//${window.location.hostname}:5000` : `${window.location.protocol}//${window.location.hostname}`)
-		: "http://localhost:5000";
+		: "http://localhost:5000");
 	return `${backendHost}${url}`;
 };
 

@@ -50,14 +50,14 @@ const businessSchema = yup.object().shape({
     .string()
     .trim()
     .required("Accepted Payment Methods is required."),
-  gst_enabled: yup.boolean().required(),
+  gst_enabled: yup.boolean().notRequired(),
   gst_rate: yup
     .number()
     .transform((value) => (isNaN(value) ? undefined : value))
     .typeError("GST Rate must be a number")
     .min(0, "GST Rate cannot be negative")
     .max(100, "GST Rate cannot exceed 100%")
-    .required("GST Rate is required."),
+    .notRequired(),
   markup: yup
     .number()
     .transform((value) => (isNaN(value) ? undefined : value))
@@ -221,63 +221,18 @@ export const BusinessDetails: React.FC<BusinessDetailsProps> = ({ initialData, o
         )}
       </div>
 
-      {/* GST & Pricing Settings Section */}
+      {/* Pricing Settings Section */}
       <div className="p-5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/30 dark:bg-zinc-900/10 space-y-4">
         <div>
           <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">
-            Billing & Pricing Configuration
+            Pricing Configuration
           </h4>
           <p className="text-[10px] text-zinc-405 mt-0.5">
-            Configure GST Margin Scheme and customize your default device markup rate.
+            Customize your default device markup rate.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Enable GST calculations
-            </span>
-            <label className="relative inline-flex items-center cursor-pointer select-none">
-              <input
-                type="checkbox"
-                name="gst_enabled"
-                checked={formData.gst_enabled}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, gst_enabled: e.target.checked }));
-                }}
-                disabled={isLoading}
-                className="sr-only peer"
-              />
-              <div className="w-10 h-5.5 bg-zinc-250 dark:bg-zinc-750 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-emerald-500" />
-            </label>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-400 dark:text-zinc-505 uppercase tracking-wider block">
-              Default GST Rate (%)
-            </label>
-            <input
-              type="number"
-              name="gst_rate"
-              value={formData.gst_rate}
-              onChange={(e) => {
-                setFormData((prev) => ({ ...prev, gst_rate: parseInt(e.target.value) || 0 }));
-              }}
-              disabled={isLoading || !formData.gst_enabled}
-              min="0"
-              max="100"
-              placeholder="18"
-              className={`w-full px-4 py-2.5 rounded-xl border bg-zinc-50 dark:bg-zinc-900/40 text-sm focus:bg-white dark:focus:bg-zinc-950 focus:outline-none focus:ring-2 transition-all ${
-                !formData.gst_enabled ? "opacity-50 cursor-not-allowed bg-zinc-100 dark:bg-zinc-900" : "border-transparent focus:ring-primary/10 dark:focus:ring-primary/25 focus:border-primary/20 dark:focus:border-primary/40"
-              }`}
-            />
-            {errors.gst_rate && (
-              <span className="text-[10px] font-bold text-red-500 dark:text-red-400">
-                {errors.gst_rate}
-              </span>
-            )}
-          </div>
-
+        <div className="max-w-xs">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">
               Default Selling Markup (%)

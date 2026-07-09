@@ -114,11 +114,11 @@ export const LoginForm: React.FC = () => {
 					}
 				}
 			} else {
-				router.push("/dashboard");
+				window.location.href = "/dashboard";
 			}
 		} catch (error) {
 			console.warn("API fallback: signing in locally in dev mode", error);
-			router.push("/dashboard");
+			window.location.href = "/dashboard";
 		} finally {
 			setIsLoading(false);
 		}
@@ -136,7 +136,7 @@ export const LoginForm: React.FC = () => {
 			if (result.success) {
 				setStatusFeedback("Account approved! Redirecting...");
 				setTimeout(() => {
-					router.push("/dashboard");
+					window.location.href = "/dashboard";
 				}, 1000);
 			} else {
 				if (result.status === 403) {
@@ -201,7 +201,7 @@ export const LoginForm: React.FC = () => {
 						Sign In
 					</h1>
 					<p className="text-zinc-500 dark:text-zinc-400 text-sm">
-						Enter your credentials to access your Mobora Vendor
+						Enter your credentials to access your Mobora Dealer
 						Panel
 					</p>
 				</div>

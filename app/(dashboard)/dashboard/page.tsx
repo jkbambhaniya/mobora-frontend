@@ -20,6 +20,8 @@ import {
 	Legend,
 	PieChart,
 	Pie,
+	LineChart,
+	Line,
 } from "recharts";
 
 export default function Dashboard() {
@@ -143,10 +145,29 @@ export default function Dashboard() {
 
 	// Timeline Data
 	const transactionTimelineData = useMemo(() => {
-		const sortedTrades = [...filteredTrades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 		const groups: { [key: string]: { date: string; Sales: number; Purchases: number } } = {};
 
-		sortedTrades.forEach((t) => {
+		// Pre-populate groups with all dates in the selected range to show a complete timeline
+		try {
+			let start = new Date(startDate);
+			const end = new Date(endDate);
+			
+			// If it's a single day (e.g. Today or Yesterday only), pad by showing the previous day as well to draw a line
+			if (startDate === endDate) {
+				start.setDate(start.getDate() - 1);
+			}
+
+			const current = new Date(start);
+			while (current <= end) {
+				const dateStr = current.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+				groups[dateStr] = { date: dateStr, Sales: 0, Purchases: 0 };
+				current.setDate(current.getDate() + 1);
+			}
+		} catch (e) {
+			console.error("Error pre-populating dates", e);
+		}
+
+		filteredTrades.forEach((t) => {
 			let dateStr = t.date;
 			try {
 				const d = new Date(t.date);
@@ -165,7 +186,7 @@ export default function Dashboard() {
 		});
 
 		return Object.values(groups);
-	}, [filteredTrades]);
+	}, [filteredTrades, startDate, endDate]);
 
 	const timelineData = transactionTimelineData;
 
@@ -457,20 +478,10 @@ export default function Dashboard() {
 						</div>
 					</div>
 
-					<div className="flex-1 w-full min-h-0 mt-6 flex items-center justify-center">
+					<div className="h-[280px] w-full mt-6 flex items-center justify-center">
 						{timelineData.length > 0 ? (
-							<ResponsiveContainer width="100%" height="100%">
-								<AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-									<defs>
-										<linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-											<stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-											<stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-										</linearGradient>
-										<linearGradient id="colorPurchases" x1="0" y1="0" x2="0" y2="1">
-											<stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
-											<stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-										</linearGradient>
-									</defs>
+							<ResponsiveContainer width="100%" height={280}>
+								<LineChart data={timelineData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
 									<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:stroke-white/5" />
 									<XAxis dataKey="date" stroke="#a1a1aa" fontSize={10} tickLine={false} />
 									<YAxis stroke="#a1a1aa" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
@@ -485,9 +496,9 @@ export default function Dashboard() {
 										}}
 									/>
 									<Legend wrapperStyle={{ fontSize: 10, paddingTop: 10 }} />
-									<Area type="monotone" dataKey="Sales" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" name="Sales Revenue" />
-									<Area type="monotone" dataKey="Purchases" stroke="#4f46e5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorPurchases)" name="Stock Purchases" />
-								</AreaChart>
+									<Line type="monotone" dataKey="Sales" stroke="#10b981" strokeWidth={2.5} activeDot={{ r: 6 }} name="Sales Revenue" />
+									<Line type="monotone" dataKey="Purchases" stroke="#4f46e5" strokeWidth={2.5} activeDot={{ r: 6 }} name="Stock Purchases" />
+								</LineChart>
 							</ResponsiveContainer>
 						) : (
 							<p className="text-xs text-zinc-400">No transactions recorded in this date range.</p>

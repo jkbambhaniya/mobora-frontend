@@ -51,7 +51,7 @@ export default function Header() {
 			case "/specifications":
 				return "Dynamic Config Desk";
 			case "/billing":
-				return "GST & Margin Scheme Invoicing";
+				return "Billing & Invoicing";
 			case "/exchanges":
 				return "Exchanges Valuation Desk";
 			case "/orders":
@@ -254,7 +254,7 @@ export default function Header() {
 						)}
 						<div className="hidden md:block">
 							<div className="text-[11px] font-bold text-zinc-900 dark:text-zinc-50">
-								{vendor?.name || "Vendor"}
+								{vendor?.name || "Dealer"}
 							</div>
 							<div className="text-[8px] text-zinc-400 font-semibold uppercase tracking-wider">
 								Store Owner
@@ -282,7 +282,7 @@ export default function Header() {
 									Signed in as
 								</span>
 								<span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 block truncate">
-									{vendor?.name || "Vendor"}
+									{vendor?.name || "Dealer"}
 								</span>
 								<span className="text-[9px] text-zinc-450 dark:text-zinc-550 block truncate">
 									{vendor?.email || ""}

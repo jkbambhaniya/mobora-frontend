@@ -34,13 +34,13 @@ interface Requirement {
 interface Metrics {
 	totalRequirements: number;
 	activeRequirements: number;
-	uniqueVendors: number;
+	uniqueDealers: number;
 }
 
 export default function AdminRequirementsPage() {
 	const router = useRouter();
 	const [requirements, setRequirements] = useState<Requirement[]>([]);
-	const [metrics, setMetrics] = useState<Metrics>({ totalRequirements: 0, activeRequirements: 0, uniqueVendors: 0 });
+	const [metrics, setMetrics] = useState<Metrics>({ totalRequirements: 0, activeRequirements: 0, uniqueDealers: 0 });
 	const [isLoading, setIsLoading] = useState(true);
 
 	// Filters & Pagination
@@ -178,7 +178,7 @@ export default function AdminRequirementsPage() {
 						Device Requirements
 					</h1>
 					<p className="text-sm text-zinc-500 dark:text-gray-400 mt-1 ml-11">
-						Monitor all device requirement alerts set by vendors across the platform.
+						Monitor all device requirement alerts set by dealers across the platform.
 					</p>
 				</div>
 			</div>
@@ -225,9 +225,9 @@ export default function AdminRequirementsPage() {
 							</svg>
 						</div>
 						<div>
-							<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Vendors Requesting</p>
+							<p className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider">Dealers Requesting</p>
 							<h3 className="text-3xl font-extrabold text-orange-600 dark:text-orange-400 mt-1">
-								{isLoading ? "..." : metrics.uniqueVendors}
+								{isLoading ? "..." : metrics.uniqueDealers}
 							</h3>
 						</div>
 					</div>
@@ -244,7 +244,7 @@ export default function AdminRequirementsPage() {
 					</span>
 					<input
 						type="text"
-						placeholder="Search by vendor name or email..."
+						placeholder="Search by dealer name or email..."
 						value={searchQuery}
 						onChange={(e) => {
 							setSearchQuery(e.target.value);
@@ -293,7 +293,7 @@ export default function AdminRequirementsPage() {
 									onClick={() => handleSort("vendor_id")}
 								>
 									<div className="flex items-center gap-1">
-										Vendor
+										Dealer
 										{renderSortIcon("vendor_id")}
 									</div>
 								</th>

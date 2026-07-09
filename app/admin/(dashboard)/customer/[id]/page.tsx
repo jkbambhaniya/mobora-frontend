@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { PhoneInputField } from "@/components/ui/PhoneInputField";
 import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload";
+import { LightGallery } from "@/components/ui/LightGallery";
 
 interface PurchaseTransaction {
 	id: string;
@@ -93,6 +94,7 @@ export default function AdminCustomerDetailsPage({ params }: { params?: any }) {
 	const [editIdNumber, setEditIdNumber] = useState("");
 	const [editKycDocImg, setEditKycDocImg] = useState<string | null>(null);
 	const [actionLoading, setActionLoading] = useState(false);
+	const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null);
 
 	const handleOpenEdit = () => {
 		if (!customer) return;
@@ -347,11 +349,9 @@ export default function AdminCustomerDetailsPage({ params }: { params?: any }) {
 										<span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400">ID Document Copies</span>
 										<div className="grid grid-cols-2 gap-2">
 											{customer.kycDocumentImg.split(",").filter(Boolean).map((docUrl, idx) => (
-												<a
+												<div
 													key={idx}
-													href={docUrl}
-													target="_blank"
-													rel="noreferrer"
+													onClick={() => setActiveLightboxIndex(idx)}
 													className="block relative rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden group cursor-pointer aspect-video"
 												>
 													<img
@@ -366,7 +366,7 @@ export default function AdminCustomerDetailsPage({ params }: { params?: any }) {
 														</svg>
 														View Page {idx + 1}
 													</div>
-												</a>
+												</div>
 											))}
 										</div>
 									</div>
@@ -646,6 +646,16 @@ export default function AdminCustomerDetailsPage({ params }: { params?: any }) {
 					</form>
 				</div>
 			</Modal>
+
+			{customer && (
+				<LightGallery
+					images={customer.kycDocumentImg ? customer.kycDocumentImg.split(",").filter(Boolean) : []}
+					initialIndex={activeLightboxIndex ?? 0}
+					isOpen={activeLightboxIndex !== null}
+					onClose={() => setActiveLightboxIndex(null)}
+					title={`${customer.name}'s ${customer.idType || "KYC"} Document`}
+				/>
+			)}
 		</div>
 	);
 }

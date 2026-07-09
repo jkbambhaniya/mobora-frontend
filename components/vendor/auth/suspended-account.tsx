@@ -38,7 +38,7 @@ export const SuspendedAccount: React.FC<SuspendedAccountProps> = ({
           Account Suspended
         </h2>
         <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
-          Your vendor account has been suspended by an administrator due to a policy violation or outstanding verification issue.
+          Your dealer account has been suspended by an administrator due to a policy violation or outstanding verification issue.
         </p>
       </div>
 
@@ -48,7 +48,7 @@ export const SuspendedAccount: React.FC<SuspendedAccountProps> = ({
 
       <div className="space-y-3 pt-4 max-w-xs mx-auto">
         <a
-          href="mailto:support@mobora.com?subject=Suspended%20Vendor%20Account"
+          href="mailto:support@mobora.com?subject=Suspended%20Dealer%20Account"
           className="block w-full animate-[bounce_5s_infinite]"
         >
           <Button

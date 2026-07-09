@@ -220,7 +220,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 		if (matchedBrand) {
 			specs.addModel(modelName, matchedBrand.id);
 		} else {
-			triggerToast("Select a valid approved brand before adding a model.");
+			triggerToast("Select a valid active brand before adding a model.");
 		}
 	};
 

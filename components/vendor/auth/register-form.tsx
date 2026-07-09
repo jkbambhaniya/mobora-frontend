@@ -300,7 +300,7 @@ export const RegisterForm: React.FC = () => {
 								</div>
 								<div className="space-y-0.5">
 									<h4 className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
-										Vendor Portal Live
+										Dealer Portal Live
 									</h4>
 									<p className="text-[11px] text-zinc-450 dark:text-zinc-500">
 										Access inventory tools, run grading
@@ -323,7 +323,7 @@ export const RegisterForm: React.FC = () => {
 				<form onSubmit={handleSubmit} className="space-y-3">
 					<div className="space-y-1">
 						<h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
-							Create Vendor Account
+							Create Dealer Account
 						</h1>
 						<p className="text-zinc-500 dark:text-zinc-400 text-sm">
 							Sign up today and start listing, buying, and

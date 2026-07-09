@@ -67,9 +67,9 @@ export function DeviceSaleModal({
 		setSellFormError("");
 	};
 
-	const gstEnabled = vendor?.gst_enabled !== false;
-	const gstRate = vendor?.gst_rate ?? 18;
-	const gstFactor = 1 + gstRate / 100;
+	const gstEnabled = false;
+	const gstRate = 0;
+	const gstFactor = 1;
 
 	// Profit & GST Calculations
 	const calculatedProfit = useMemo(() => {
@@ -77,13 +77,13 @@ export function DeviceSaleModal({
 		const priceNum = parseFloat(sellPrice) || 0;
 		const cost = (device.purchasePrice || 0) + (device.repairingCost || 0);
 		const rawProfit = priceNum - cost;
-		const gstAmount = (gstEnabled && rawProfit > 0) ? Math.round(rawProfit - (rawProfit / gstFactor)) : 0;
-		const cgst = Math.round(gstAmount / 2);
-		const sgst = gstAmount - cgst;
-		const taxableValue = priceNum - gstAmount;
-		const netProfit = rawProfit - gstAmount;
+		const gstAmount = 0;
+		const cgst = 0;
+		const sgst = 0;
+		const taxableValue = priceNum;
+		const netProfit = rawProfit;
 		return { rawProfit, gstAmount, cgst, sgst, taxableValue, netProfit };
-	}, [device, sellPrice, gstEnabled, gstFactor]);
+	}, [device, sellPrice]);
 
 	const handleSellSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -305,7 +305,7 @@ export function DeviceSaleModal({
 							setSellCustomer(val);
 							clearSellError("sellCustomer");
 						}}
-						label="Customer / Vendor *"
+						label="Customer / Dealer *"
 						placeholder="-- Choose Partner --"
 						required={true}
 						valueType="name"
@@ -389,69 +389,38 @@ export function DeviceSaleModal({
 									{netProfit >= 0 ? "+" : ""}₹{netProfit.toLocaleString()}
 								</span>
 							</div>
-
-							{gstEnabled && netProfit > 0 ? (
-								<div className="p-3 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-[11px] text-zinc-550 dark:text-zinc-400 space-y-1 animate-scaleUp">
-									<div className="flex justify-between font-semibold">
-										<span>GST Margin Scheme Details ({gstRate}%):</span>
-										<span className="text-zinc-700 dark:text-zinc-300">GST on Margin</span>
-									</div>
-									<div className="flex justify-between">
-										<span>CGST ({gstRate / 2}% on Margin):</span>
-										<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
-											₹{cgst.toLocaleString()}
-										</span>
-									</div>
-									<div className="flex justify-between">
-										<span>SGST ({gstRate / 2}% on Margin):</span>
-										<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
-											₹{sgst.toLocaleString()}
-										</span>
-									</div>
-									<div className="flex justify-between border-t border-zinc-150 dark:border-zinc-850 pt-1 mt-1 font-semibold">
-										<span>Taxable Value (Item):</span>
-										<span className="font-mono text-zinc-750 dark:text-zinc-250" suppressHydrationWarning>
-											₹{taxableValue.toLocaleString()}
-										</span>
-									</div>
-									<span className="text-[9px] text-zinc-400 dark:text-zinc-505 block mt-1 leading-normal italic">
-										*GST is calculated only on the profit margin of ₹{rawProfit.toLocaleString()} under Rule 32(5) of CGST Rules, 2017.
+							<div className="p-3 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-[11px] text-zinc-550 dark:text-zinc-400 space-y-1 animate-scaleUp">
+								<div className="flex justify-between font-semibold">
+									<span>Transaction Breakdown:</span>
+									<span className="text-zinc-700 dark:text-zinc-300">Cost & Margin</span>
+								</div>
+								<div className="flex justify-between">
+									<span>Purchase Price:</span>
+									<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
+										₹{(device.purchasePrice || 0).toLocaleString()}
 									</span>
 								</div>
-							) : (
-								<div className="p-3 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 text-[11px] text-zinc-550 dark:text-zinc-400 space-y-1 animate-scaleUp">
-									<div className="flex justify-between font-semibold">
-										<span>Transaction Breakdown:</span>
-										<span className="text-zinc-700 dark:text-zinc-300">Cost & Margin</span>
-									</div>
+								{device.repairingCost ? (
 									<div className="flex justify-between">
-										<span>Purchase Price:</span>
+										<span>Repairing Cost:</span>
 										<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
-											₹{(device.purchasePrice || 0).toLocaleString()}
+											₹{device.repairingCost.toLocaleString()}
 										</span>
 									</div>
-									{device.repairingCost ? (
-										<div className="flex justify-between">
-											<span>Repairing Cost:</span>
-											<span className="font-mono text-zinc-700 dark:text-zinc-300" suppressHydrationWarning>
-												₹{device.repairingCost.toLocaleString()}
-											</span>
-										</div>
-									) : null}
-									<div className="flex justify-between border-t border-zinc-150 dark:border-zinc-850 pt-1 mt-1 font-semibold">
-										<span>Total Cost (Cost Price):</span>
-										<span className="font-mono text-zinc-750 dark:text-zinc-250" suppressHydrationWarning>
-											₹{((device.purchasePrice || 0) + (device.repairingCost || 0)).toLocaleString()}
-										</span>
-									</div>
-									<div className="flex justify-between text-emerald-500 font-bold border-t border-dashed border-zinc-150 dark:border-zinc-850 pt-1 mt-1">
-										<span>Net Profit:</span>
-										<span suppressHydrationWarning>
-											{netProfit >= 0 ? "+" : ""}₹{netProfit.toLocaleString()}
-										</span>
-									</div>
+								) : null}
+								<div className="flex justify-between border-t border-zinc-150 dark:border-zinc-850 pt-1 mt-1 font-semibold">
+									<span>Total Cost (Cost Price):</span>
+									<span className="font-mono text-zinc-750 dark:text-zinc-250" suppressHydrationWarning>
+										₹{((device.purchasePrice || 0) + (device.repairingCost || 0)).toLocaleString()}
+									</span>
 								</div>
-							)}
+								<div className="flex justify-between text-emerald-500 font-bold border-t border-dashed border-zinc-150 dark:border-zinc-850 pt-1 mt-1">
+									<span>Net Profit:</span>
+									<span suppressHydrationWarning>
+										{netProfit >= 0 ? "+" : ""}₹{netProfit.toLocaleString()}
+									</span>
+								</div>
+							</div>
 						</div>
 					)}
 

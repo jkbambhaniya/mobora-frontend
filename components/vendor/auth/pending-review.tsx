@@ -44,7 +44,7 @@ export const PendingReview: React.FC<PendingReviewProps> = ({
           Application Under Review
         </h2>
         <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-sm mx-auto leading-relaxed">
-          Your Mobora Vendor registration is pending administrator approval. We verify all vendor applications to ensure platform security.
+          Your Mobora Dealer registration is pending administrator approval. We verify all dealer applications to ensure platform security.
         </p>
       </div>
 
@@ -156,7 +156,7 @@ export const PendingReview: React.FC<PendingReviewProps> = ({
           </button>
           <span className="text-zinc-300 dark:text-zinc-800">•</span>
           <a
-            href="mailto:support@mobora.com?subject=Vendor%20Account%20Review"
+            href="mailto:support@mobora.com?subject=Dealer%20Account%20Review"
             className="hover:text-primary transition-colors cursor-pointer"
           >
             Contact Support

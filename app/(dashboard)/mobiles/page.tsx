@@ -319,18 +319,18 @@ export default function MobilesPage() {
 				} else {
 					const res = await specs.addModel(newModelVal.trim(), Number(formBrand));
 					if (res.success) {
-						toast.success("Model created successfully.");
+						toast.success("Model request submitted.");
 						// Re-fetch all specs to get the updated model list
 						await specs.refreshAllSpecs();
 						setNewModelVal("");
 						setIsAddingModel(false);
 						clearFieldError("model");
 					} else {
-						setModelInlineError(res.message || "Failed to add model.");
+						setModelInlineError(res.message || "Failed to request model.");
 					}
 				}
 			} catch (err) {
-				setModelInlineError(isEditingModel ? "Failed to update model." : "Failed to add model.");
+				setModelInlineError(isEditingModel ? "Failed to update model." : "Failed to request model.");
 			} finally {
 				setIsSubmittingModel(false);
 			}
@@ -910,7 +910,7 @@ export default function MobilesPage() {
 								size="sm"
 								disabled={isSubmitting}
 								onClick={() => setIsFormOpen(false)}
-								className="cursor-pointer"
+								className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
 							>
 								Cancel
 							</Button>

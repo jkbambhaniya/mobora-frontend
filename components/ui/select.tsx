@@ -23,6 +23,7 @@ interface SelectProps {
 	size?: "sm" | "md";
 	onOptionEdit?: (value: string | number, label: string) => void;
 	showSearch?: boolean;
+	onSearchChange?: (term: string) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -40,6 +41,7 @@ export const Select: React.FC<SelectProps> = ({
 	size = "md",
 	onOptionEdit,
 	showSearch = false,
+	onSearchChange,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
@@ -263,7 +265,11 @@ export const Select: React.FC<SelectProps> = ({
 							type="text"
 							placeholder="Search..."
 							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
+							onChange={(e) => {
+								const val = e.target.value;
+								setSearchTerm(val);
+								if (onSearchChange) onSearchChange(val);
+							}}
 							className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 focus:outline-none focus:ring-1 focus:ring-primary text-zinc-900 dark:text-zinc-100"
 							onClick={(e) => e.stopPropagation()} // Prevent closing dropdown on input click
 						/>
@@ -293,7 +299,7 @@ export const Select: React.FC<SelectProps> = ({
 								<button
 									type="button"
 									onClick={() => handleSelect(opt.value)}
-									className="flex-1 text-left px-4 py-2 text-xs cursor-pointer truncate bg-transparent border-0 focus:outline-none"
+									className="flex-1 text-left px-4 py-2 text-xs text-inherit cursor-pointer truncate bg-transparent border-0 focus:outline-none"
 								>
 									{opt.label}
 								</button>

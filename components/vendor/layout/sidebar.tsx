@@ -25,7 +25,7 @@ export default function Sidebar() {
 	};
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 	const hasUnreadMessages = chats?.some((c) => c.unreadCount > 0) || false;
-	const contactPerson = vendor?.name || "Vendor";
+	const contactPerson = vendor?.name || "Dealer";
 	const pathname = usePathname();
 
 	const isTabActive = (tabPath: string) => {
@@ -56,7 +56,7 @@ export default function Sidebar() {
 								Mobora Portal
 							</h1>
 							<span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">
-								Vendor Desk
+								Dealer Desk
 							</span>
 						</div>
 					</div>
