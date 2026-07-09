@@ -349,7 +349,7 @@ export default function AdminMobilesPage() {
 							value={searchQuery}
 							onChange={(e) => {
 								setSearchQuery(e.target.value);
-								setCurrentPage(1);
+								setPage(1);
 							}}
 							className="w-full bg-zinc-50 dark:bg-[#0d0e12]/60 border border-zinc-200 dark:border-white/5 rounded-xl pl-11 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-800 dark:text-white"
 						/>
@@ -358,7 +358,7 @@ export default function AdminMobilesPage() {
 					{/* View Toggle */}
 					<div className="flex border border-zinc-200 dark:border-zinc-850 p-0.5 rounded-xl gap-0.5 bg-zinc-50 dark:bg-zinc-950 shrink-0">
 						<button
-							onClick={() => { setViewMode("grid"); setLimit(9); setCurrentPage(1); }}
+							onClick={() => { setViewMode("grid"); setPage(1); }}
 							className={`p-2 rounded-lg transition-all cursor-pointer ${
 								viewMode === "grid"
 									? "bg-white dark:bg-zinc-900 shadow-sm text-indigo-600 dark:text-indigo-400"
@@ -371,7 +371,7 @@ export default function AdminMobilesPage() {
 							</svg>
 						</button>
 						<button
-							onClick={() => { setViewMode("table"); setLimit(10); setCurrentPage(1); }}
+							onClick={() => { setViewMode("table"); setPage(1); }}
 							className={`p-2 rounded-lg transition-all cursor-pointer ${
 								viewMode === "table"
 									? "bg-white dark:bg-zinc-900 shadow-sm text-indigo-600 dark:text-indigo-400"
@@ -391,7 +391,7 @@ export default function AdminMobilesPage() {
 							value={brandFilter}
 							onChange={(e) => {
 								setBrandFilter(e.target.value);
-								setCurrentPage(1);
+								setPage(1);
 							}}
 							className="w-full bg-zinc-50 dark:bg-[#0d0e12]/60 border border-zinc-200 dark:border-white/5 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-zinc-800 dark:text-white cursor-pointer"
 						>
