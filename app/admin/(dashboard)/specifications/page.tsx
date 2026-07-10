@@ -6,6 +6,7 @@ import Link from "next/link";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { formatDate } from "@/utils/date";
 import PaginationComponent from "@/components/ui/Pagination";
+import { Select } from "@/components/ui/select";
 import { useAdminAuth } from "@/context/admin/auth-context";
 import {
 	getAdminSpecSummaryAction,
@@ -24,6 +25,10 @@ import {
 	updateAdminModelStatusAction,
 	reorderAdminRamsAction,
 	reorderAdminStoragesAction,
+	createAdminBrandAction,
+	createAdminRamAction,
+	createAdminStorageAction,
+	createAdminModelAction,
 } from "@/actions/admin-specs";
 
 // ─────────────────────────────────────────────
@@ -706,16 +711,18 @@ function ModelTable({
 						className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-[#13151a] border border-zinc-200 dark:border-white/5 rounded-xl text-zinc-800 dark:text-gray-100 placeholder-zinc-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all"
 					/>
 				</div>
-				<select
+				<Select
 					value={statusFilter}
 					onChange={(e) => onStatusFilterChange(e.target.value as any)}
-					className="px-4 py-2.5 text-sm bg-white dark:bg-[#13151a] border border-zinc-200 dark:border-white/5 rounded-xl text-zinc-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all"
-				>
-					<option value="">All Status</option>
-					<option value="pending">Pending</option>
-					<option value="active">Active</option>
-					<option value="inactive">Inactive</option>
-				</select>
+					options={[
+						{ value: "", label: "All Status" },
+						{ value: "pending", label: "Pending" },
+						{ value: "active", label: "Active" },
+						{ value: "inactive", label: "Inactive" },
+					]}
+					placeholder="All Status"
+					className="w-[150px]"
+				/>
 				{pagination && (
 					<span className="text-xs text-zinc-500 dark:text-gray-400 ml-auto">{pagination.totalCount} total</span>
 				)}
@@ -797,6 +804,14 @@ export default function AdminSpecificationsPage() {
 		brandId: number;
 	}>({ open: false, model: null, name: "", brandId: 0 });
 
+	const [addModalData, setAddModalData] = useState<{
+		open: boolean;
+		tab: ActiveTab;
+		name: string;
+		brandId: number;
+		status: "active" | "inactive";
+	}>({ open: false, tab: "brands", name: "", brandId: 0, status: "active" });
+
 	const [allBrands, setAllBrands] = useState<{ id: number; name: string }[]>([]);
 	const [isLoadingBrands, setIsLoadingBrands] = useState(false);
 
@@ -838,6 +853,60 @@ export default function AdminSpecificationsPage() {
 				await fetchItems();
 			} else {
 				toast.error(res.message || "Failed to update model.");
+			}
+		} catch (err) {
+			toast.error("Something went wrong.");
+		} finally {
+			setIsConfirmLoading(false);
+		}
+	};
+
+	const handleAddNewClick = () => {
+		setAddModalData({
+			open: true,
+			tab: activeTab,
+			name: "",
+			brandId: allBrands.length > 0 ? allBrands[0].id : 0,
+			status: "active",
+		});
+	};
+
+	const handleSaveNewSpec = async () => {
+		const { tab, name, brandId, status } = addModalData;
+		if (!name.trim()) {
+			toast.error("Please fill in all fields.");
+			return;
+		}
+		if (tab === "models" && !brandId) {
+			toast.error("Please select a brand.");
+			return;
+		}
+		setIsConfirmLoading(true);
+		try {
+			let res;
+			if (tab === "brands") {
+				res = await createAdminBrandAction(name.trim(), status);
+			} else if (tab === "rams") {
+				res = await createAdminRamAction(name.trim(), status);
+			} else if (tab === "storages") {
+				res = await createAdminStorageAction(name.trim(), status);
+			} else {
+				res = await createAdminModelAction({
+					name: name.trim(),
+					brand_id: brandId,
+					status,
+				});
+			}
+
+			if (res.success && res.data?.success) {
+				toast.success(`${tab.slice(0, -1).charAt(0).toUpperCase() + tab.slice(1, -1)} added successfully.`);
+				setAddModalData({ open: false, tab: "brands", name: "", brandId: 0, status: "active" });
+				await Promise.all([fetchItems(), fetchSummary()]);
+				if (tab === "brands") {
+					await fetchAllActiveBrands();
+				}
+			} else {
+				toast.error(res.message || "Failed to add specification.");
 			}
 		} catch (err) {
 			toast.error("Something went wrong.");
@@ -1115,12 +1184,23 @@ export default function AdminSpecificationsPage() {
 						Review and approve dealer-submitted specification requests for brands, RAM and storage options.
 					</p>
 				</div>
-				{summary && summary.totalPending > 0 && (
-					<div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl shrink-0">
-						<span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-						<span className="text-sm font-semibold text-amber-700 dark:text-amber-400">{summary.totalPending} pending review</span>
-					</div>
-				)}
+				<div className="flex items-center gap-3 shrink-0">
+					{summary && summary.totalPending > 0 && (
+						<div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+							<span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+							<span className="text-sm font-semibold text-amber-700 dark:text-amber-400">{summary.totalPending} pending review</span>
+						</div>
+					)}
+					<button
+						onClick={handleAddNewClick}
+						className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+					>
+						<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+						</svg>
+						Add {activeTab === "brands" ? "Brand" : activeTab === "rams" ? "RAM" : activeTab === "storages" ? "Storage" : "Model"}
+					</button>
+				</div>
 			</div>
 
 			{/* Summary Cards */}
@@ -1313,18 +1393,13 @@ export default function AdminSpecificationsPage() {
 							</div>
 							<div>
 								<label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Brand</label>
-								<select
+								<Select
 									value={editModelData.brandId}
 									onChange={(e) => setEditModelData(prev => ({ ...prev, brandId: Number(e.target.value) }))}
-									className="w-full px-4 py-2.5 text-sm bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-xl text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-								>
-									<option value="" disabled className="dark:bg-[#13151a]">Select a brand</option>
-									{allBrands.map((b) => (
-										<option key={b.id} value={b.id} className="dark:bg-[#13151a]">
-											{b.name}
-										</option>
-									))}
-								</select>
+									options={allBrands.map((b) => ({ value: b.id, label: b.name }))}
+									placeholder="Select a brand"
+									showSearch={true}
+								/>
 							</div>
 						</div>
 						<div className="flex gap-3 mt-6">
@@ -1341,6 +1416,94 @@ export default function AdminSpecificationsPage() {
 								className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm text-white shadow-lg shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
 							>
 								{isConfirmLoading ? "Saving..." : "Save Changes"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Add Specification Modal */}
+			{addModalData.open && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+					<div className="w-full max-w-md bg-white dark:bg-[#13151a] border border-zinc-200 dark:border-white/5 rounded-2xl p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+						<div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-white/5">
+							<h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+								Add New {addModalData.tab === "brands" ? "Brand" : addModalData.tab === "rams" ? "RAM Size" : addModalData.tab === "storages" ? "Storage Size" : "Device Model"}
+							</h3>
+							<button
+								onClick={() => setAddModalData(prev => ({ ...prev, open: false }))}
+								className="text-zinc-400 hover:text-zinc-550 dark:hover:text-zinc-300 cursor-pointer"
+							>
+								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						</div>
+						<div className="mt-4 space-y-4">
+							<div>
+								<label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
+									{addModalData.tab === "brands" ? "Brand Name" : addModalData.tab === "rams" ? "RAM Size Value" : addModalData.tab === "storages" ? "Storage Size Value" : "Model Name"}
+								</label>
+								<input
+									type="text"
+									value={addModalData.name}
+									onChange={(e) => setAddModalData(prev => ({ ...prev, name: e.target.value }))}
+									placeholder={
+										addModalData.tab === "brands" ? "e.g., Apple, Samsung" :
+										addModalData.tab === "rams" ? "e.g., 8 GB, 12 GB" :
+										addModalData.tab === "storages" ? "e.g., 128 GB, 256 GB" :
+										"e.g., iPhone 15 Pro, Galaxy S24"
+									}
+									className="w-full px-4 py-2.5 text-sm bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-xl text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+								/>
+							</div>
+
+							{addModalData.tab === "models" && (
+								<div>
+									<label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Brand</label>
+									{allBrands.length === 0 ? (
+										<div className="text-xs text-red-500 dark:text-red-400 font-medium mt-1">
+											No active brands found. Please add and activate a brand first.
+										</div>
+									) : (
+										<Select
+											value={addModalData.brandId}
+											onChange={(e) => setAddModalData(prev => ({ ...prev, brandId: Number(e.target.value) }))}
+											options={allBrands.map((b) => ({ value: b.id, label: b.name }))}
+											placeholder="Select a brand"
+											showSearch={true}
+										/>
+									)}
+								</div>
+							)}
+
+							<div>
+								<label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Initial Status</label>
+								<Select
+									value={addModalData.status}
+									onChange={(e) => setAddModalData(prev => ({ ...prev, status: e.target.value as any }))}
+									options={[
+										{ value: "active", label: "Active (Available Immediately)" },
+										{ value: "inactive", label: "Inactive (Hidden)" }
+									]}
+									placeholder="Select initial status"
+								/>
+							</div>
+						</div>
+						<div className="flex gap-3 mt-6">
+							<button
+								onClick={() => setAddModalData(prev => ({ ...prev, open: false }))}
+								disabled={isConfirmLoading}
+								className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-white/5 font-semibold text-sm text-zinc-700 dark:text-gray-300 transition-all cursor-pointer disabled:opacity-50"
+							>
+								Cancel
+							</button>
+							<button
+								onClick={handleSaveNewSpec}
+								disabled={isConfirmLoading || !addModalData.name.trim() || (addModalData.tab === "models" && !addModalData.brandId)}
+								className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm text-white shadow-lg shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
+							>
+								{isConfirmLoading ? "Adding..." : "Add Entry"}
 							</button>
 						</div>
 					</div>

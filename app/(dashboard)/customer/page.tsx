@@ -78,6 +78,8 @@ export default function CustomerPage() {
 		id: string;
 		name: string;
 	} | null>(null);
+	const [existingCustomerWarning, setExistingCustomerWarning] = useState<any | null>(null);
+
 
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
 
@@ -236,8 +238,12 @@ export default function CustomerPage() {
 				kycDocumentImg: formKycDocImg || null,
 			});
 			if (result.success) {
-				triggerToast(`Successfully registered ${formName}`);
-				setIsFormOpen(false);
+				if ((result as any).existsGlobally) {
+					setExistingCustomerWarning((result as any).customer);
+				} else {
+					triggerToast(`Successfully registered ${formName}`);
+					setIsFormOpen(false);
+				}
 			} else {
 				if (result.errors) {
 					setFieldErrors(result.errors);
@@ -245,6 +251,27 @@ export default function CustomerPage() {
 					setFormError(result.message || "Failed to register customer.");
 				}
 			}
+		}
+	};
+
+	const handleAddExistingCustomer = async () => {
+		if (!existingCustomerWarning) return;
+		setFormError("");
+		try {
+			const result = await addCustomer({
+				name: existingCustomerWarning.name,
+				phone: existingCustomerWarning.phone,
+				associateExisting: true,
+			});
+			if (result.success) {
+				triggerToast(`Successfully added ${existingCustomerWarning.name} to your customer list.`);
+				setExistingCustomerWarning(null);
+				setIsFormOpen(false);
+			} else {
+				setFormError(result.message || "Failed to add existing customer.");
+			}
+		} catch (err: any) {
+			setFormError(err.message || "An unexpected error occurred.");
 		}
 	};
 
@@ -966,6 +993,91 @@ export default function CustomerPage() {
 				itemName={deletingCustomer?.name || ""}
 				warningText="This action cannot be undone."
 			/>
+
+			{/* Existing Customer Warning Modal */}
+			<Modal
+				isOpen={!!existingCustomerWarning}
+				onClose={() => setExistingCustomerWarning(null)}
+				title="Customer Already Exists"
+			>
+				<div className="space-y-6 pt-3">
+					<div className="p-4 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20 text-sm font-medium">
+						This customer is already registered in our system. You can view their profile and add them to your customer list, but you will not see their transaction history with other dealers.
+					</div>
+
+					{existingCustomerWarning && (
+						<div className="space-y-4">
+							<div className="flex items-center gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/80">
+								{existingCustomerWarning.profileImg ? (
+									<img
+										src={existingCustomerWarning.profileImg}
+										alt={existingCustomerWarning.name}
+										className="h-12 w-12 rounded-xl object-cover border border-zinc-200 dark:border-zinc-800"
+									/>
+								) : (
+									<div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center font-bold text-zinc-700 dark:text-zinc-300 uppercase">
+										{existingCustomerWarning.name
+											.split(" ")
+											.map((n: string) => n[0])
+											.join("")
+											.slice(0, 2)}
+									</div>
+								)}
+								<div>
+									<h4 className="font-extrabold text-zinc-900 dark:text-white leading-tight">
+										{existingCustomerWarning.name}
+									</h4>
+									<p className="text-sm text-zinc-500 mt-1">
+										{existingCustomerWarning.phone}
+									</p>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+								<div className="p-3.5 rounded-xl border border-zinc-200/60 dark:border-zinc-850 bg-white/50 dark:bg-zinc-900/30">
+									<span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">Email Address</span>
+									<span className="font-medium mt-1 block truncate text-zinc-700 dark:text-zinc-300">
+										{existingCustomerWarning.email || "—"}
+									</span>
+								</div>
+								<div className="p-3.5 rounded-xl border border-zinc-200/60 dark:border-zinc-850 bg-white/50 dark:bg-zinc-900/30">
+									<span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">KYC Status</span>
+									<span className="font-semibold mt-1 block text-zinc-700 dark:text-zinc-300">
+										{existingCustomerWarning.kycStatus || "Not Verified / No KYC"}
+									</span>
+								</div>
+								<div className="p-3.5 rounded-xl border border-zinc-200/60 dark:border-zinc-850 bg-white/50 dark:bg-zinc-900/30 md:col-span-2">
+									<span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">Address</span>
+									<span className="font-medium mt-1 block text-zinc-700 dark:text-zinc-300">
+										{existingCustomerWarning.address || "No address specified"}
+									</span>
+								</div>
+							</div>
+						</div>
+					)}
+
+					<ErrorMessage message={formError} />
+
+					<div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-850">
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => setExistingCustomerWarning(null)}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="button"
+							variant="gradient"
+							size="sm"
+							onClick={handleAddExistingCustomer}
+						>
+							Add to My Customer List
+						</Button>
+					</div>
+				</div>
+			</Modal>
 		</>
 	);
 }

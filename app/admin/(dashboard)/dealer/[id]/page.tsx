@@ -47,10 +47,9 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 	const [actionLoading, setActionLoading] = useState(false);
 
 	// Tabs state
-	const [activeTab, setActiveTab] = useState<"overview" | "models" | "inventory" | "transactions" | "repairs">("overview");
+	const [activeTab, setActiveTab] = useState<"overview" | "inventory" | "transactions" | "repairs">("overview");
 
 	// Search states
-	const [searchModel, setSearchModel] = useState("");
 	const [searchMobile, setSearchMobile] = useState("");
 	const [searchTx, setSearchTx] = useState("");
 	const [searchRepair, setSearchRepair] = useState("");
@@ -279,17 +278,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 		ongoingRepairs: vendor.repairs?.filter((r: any) => r.status !== "Delivered" && r.status !== "Cancelled").length || 0,
 	};
 
-	// ─────────────────────────────────────────────
-	// FILTERED LISTS
-	// ─────────────────────────────────────────────
 
-	const filteredModels = vendor.models?.filter((m: any) => {
-		const term = searchModel.toLowerCase();
-		return (
-			m.name.toLowerCase().includes(term) ||
-			(m.brand?.name || "").toLowerCase().includes(term)
-		);
-	}) || [];
 
 	const filteredMobiles = vendor.mobiles?.filter((m: any) => {
 		const term = searchMobile.toLowerCase();
@@ -338,32 +327,7 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 	// DATATABLE COLUMNS
 	// ─────────────────────────────────────────────
 
-	const modelColumns = [
-		{
-			key: "name",
-			title: "Model Name",
-			className: "py-4 px-6 font-semibold text-zinc-800 dark:text-zinc-200 text-xs",
-			render: (m: any) => m.name
-		},
-		{
-			key: "brand",
-			title: "Brand",
-			className: "py-4 px-6 text-zinc-650 dark:text-zinc-350 text-xs",
-			render: (m: any) => m.brand?.name || "N/A"
-		},
-		{
-			key: "slug",
-			title: "Slug",
-			className: "py-4 px-6 text-zinc-500 dark:text-zinc-400 font-mono text-xs",
-			render: (m: any) => m.slug || "-"
-		},
-		{
-			key: "created_at",
-			title: "Created At",
-			className: "py-4 px-6 text-zinc-500 dark:text-zinc-400 text-xs",
-			render: (m: any) => new Date(m.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-		}
-	];
+
 
 	const mobileColumns = [
 		{
@@ -780,20 +744,10 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 							className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer whitespace-nowrap ${
 								activeTab === "overview"
 									? "border-indigo-655 text-indigo-600 dark:text-indigo-400"
-									: "border-transparent text-zinc-400 dark:text-gray-500 hover:text-zinc-650 dark:hover:text-gray-300"
-							}`}
-						>
-							Overview & Profile
-						</button>
-						<button
-							onClick={() => setActiveTab("models")}
-							className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-								activeTab === "models"
-									? "border-indigo-655 text-indigo-600 dark:text-indigo-400"
 									: "border-transparent text-zinc-400 dark:text-gray-500 hover:text-zinc-655 dark:hover:text-gray-300"
 							}`}
 						>
-							Device Models ({vendor.models?.length || 0})
+							Overview & Profile
 						</button>
 						<button
 							onClick={() => setActiveTab("inventory")}
@@ -913,28 +867,6 @@ export default function VendorDetailsPage({ params }: { params?: any }) {
 										<p className="text-sm font-bold text-zinc-800 dark:text-gray-200 mt-1">{vendor.businessDetail?.payment_methods || "N/A"}</p>
 									</div>
 								</div>
-							</div>
-						</div>
-					)}
-
-					{activeTab === "models" && (
-						<div className="bg-white dark:bg-[#13151a]/50 border border-zinc-200/80 dark:border-white/5 rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-6 animate-fadeIn">
-							<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-								<h3 className="text-sm font-bold text-zinc-950 dark:text-white">Device Models Catalog</h3>
-								<input
-									type="text"
-									placeholder="Search models..."
-									value={searchModel}
-									onChange={(e) => setSearchModel(e.target.value)}
-									className="bg-[#f4f4f5] dark:bg-[#1c1e24] border border-zinc-200/50 dark:border-white/5 px-3.5 py-1.5 text-xs text-zinc-800 dark:text-white rounded-xl focus:outline-none focus:border-indigo-500 transition-colors w-full sm:w-64 h-9"
-								/>
-							</div>
-							<div className="overflow-x-auto rounded-xl border border-zinc-200/50 dark:border-white/5 bg-white dark:bg-[#13151a] text-left">
-								<DataTable
-									columns={modelColumns}
-									data={filteredModels}
-									emptyMessage="No device models found for this dealer."
-								/>
 							</div>
 						</div>
 					)}

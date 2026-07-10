@@ -120,9 +120,17 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await createCustomerAction(data);
       if (res.success && res.data && res.data.success) {
+        if (res.data.data && res.data.data.existsGlobally) {
+          return {
+            success: true,
+            existsGlobally: true,
+            customer: res.data.data.customer,
+            message: res.data.message
+          };
+        }
         const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
         await refreshCustomers(parsed, true);
-        return { success: true, customer: res.data.customer };
+        return { success: true, customer: res.data.data?.customer };
       } else {
         console.error("[CustomerContext] Create customer failed:", res.message);
         return { success: false, message: res.message || "Failed to create customer.", errors: res.errors };
