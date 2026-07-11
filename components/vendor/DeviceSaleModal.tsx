@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { PartnerSelector } from "@/components/vendor/PartnerSelector";
@@ -45,16 +45,23 @@ export function DeviceSaleModal({
 	const [sellErrors, setSellErrors] = useState<Record<string, string>>({});
 	const [sellFormError, setSellFormError] = useState("");
 
+	const hasInitializedRef = useRef(false);
+
 	// Initialize form when device changes or modal opens
 	useEffect(() => {
-		if (isOpen && device) {
-			setSellPrice("");
-			setSellCustomer(customers[0]?.name || "");
-			setSellDate(new Date().toISOString().split("T")[0]);
-			setSellNotes(`Sold from inventory catalog.`);
-			setIsCourierSale(false);
-			setSellErrors({});
-			setSellFormError("");
+		if (isOpen) {
+			if (!hasInitializedRef.current && device) {
+				setSellPrice("");
+				setSellCustomer(customers[0]?.name ? `Customer:${customers[0].name}` : "");
+				setSellDate(new Date().toISOString().split("T")[0]);
+				setSellNotes(`Sold from inventory catalog.`);
+				setIsCourierSale(false);
+				setSellErrors({});
+				setSellFormError("");
+				hasInitializedRef.current = true;
+			}
+		} else {
+			hasInitializedRef.current = false;
 		}
 	}, [isOpen, device, customers]);
 
@@ -311,6 +318,20 @@ export function DeviceSaleModal({
 						valueType="name"
 						error={sellErrors.sellCustomer}
 					/>
+					{sellCustomer.startsWith("Vendor:") && (
+						<div className="flex items-center gap-2 mt-2">
+							<input
+								type="checkbox"
+								id="isCourierSale"
+								checked={isCourierSale}
+								onChange={(e) => setIsCourierSale(e.target.checked)}
+								className="rounded border-zinc-200 dark:border-zinc-800 text-primary focus:ring-primary h-4 w-4"
+							/>
+							<label htmlFor="isCourierSale" className="text-xs text-zinc-600 dark:text-zinc-400 font-bold select-none cursor-pointer">
+								Ship via Courier (2-3 days delivery)
+							</label>
+						</div>
+					)}
 
 					{/* Price & Date */}
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -421,21 +442,6 @@ export function DeviceSaleModal({
 									</span>
 								</div>
 							</div>
-						</div>
-					)}
-
-					{sellCustomer.startsWith("Vendor:") && (
-						<div className="flex items-center gap-2 mt-2">
-							<input
-								type="checkbox"
-								id="isCourierSale"
-								checked={isCourierSale}
-								onChange={(e) => setIsCourierSale(e.target.checked)}
-								className="rounded border-zinc-200 dark:border-zinc-800 text-primary focus:ring-primary h-4 w-4"
-							/>
-							<label htmlFor="isCourierSale" className="text-xs text-zinc-600 dark:text-zinc-400 font-bold select-none cursor-pointer">
-								Ship via Courier (2-3 days delivery)
-							</label>
 						</div>
 					)}
 				</div>

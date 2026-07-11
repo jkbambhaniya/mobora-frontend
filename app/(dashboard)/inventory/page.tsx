@@ -896,17 +896,25 @@ export default function InventoryPage() {
 												: "-"}
 										</td>
 										<td className="py-4 px-6 text-center">
-											<span
-												className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${
-													d.status === "Available"
-														? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-														: "bg-zinc-500/15 text-zinc-550 dark:text-zinc-400"
-												}`}
-											>
-												{d.status === "Available"
-													? "Available"
-													: d.status}
-											</span>
+											{(() => {
+												let statusClass = "bg-zinc-500/15 text-zinc-550 dark:text-zinc-400";
+												let label = d.status;
+												if (d.status === "Available") {
+													statusClass = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+													label = "Available";
+												} else if (d.status === "Pending") {
+													statusClass = "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+													label = "Courier Pending";
+												} else if (d.status === "Shipped") {
+													statusClass = "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+													label = "Shipped";
+												}
+												return (
+													<span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${statusClass}`}>
+														{label}
+													</span>
+												);
+											})()}
 										</td>
 										<td className="py-4 px-6 text-center">
 											<div className="flex items-center justify-center gap-2">
@@ -969,6 +977,29 @@ export default function InventoryPage() {
 															/>
 														</svg>
 													</button>
+												)}
+												{(d.status === "Pending" || d.status === "Shipped") && (
+													<Link href="/courier">
+														<button
+															disabled={isSubmitting}
+															title="Manage Courier Order"
+															className="p-1.5 rounded-lg border border-amber-250 dark:border-amber-900/50 bg-amber-500/5 hover:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:scale-105 transition-all cursor-pointer shadow-sm animate-fadeIn disabled:opacity-50"
+														>
+															<svg
+																className="w-4 h-4"
+																fill="none"
+																viewBox="0 0 24 24"
+																stroke="currentColor"
+																strokeWidth="2"
+															>
+																<path
+																	strokeLinecap="round"
+																	strokeLinejoin="round"
+																	d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+																/>
+															</svg>
+														</button>
+													</Link>
 												)}
 												<button
 													disabled={isSubmitting}

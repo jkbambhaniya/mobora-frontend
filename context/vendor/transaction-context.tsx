@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ExchangeRequest, OrderRecord, TradeTransaction, InvoiceRecord, Mobile } from "./types";
 import { useUi } from "./ui-context";
 import { useInventory } from "./inventory-context";
@@ -34,7 +34,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
   const [trades, setTrades] = useState<TradeTransaction[]>([]);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
 
-  const refreshTrades = async () => {
+  const refreshTrades = useCallback(async () => {
     if (!vendor) return;
     try {
       const res = await getTransactionsAction();
@@ -44,7 +44,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } catch (err) {
       console.error("[TransactionContext] Error refreshing trades:", err);
     }
-  };
+  }, [vendor]);
 
   useEffect(() => {
     if (vendor) {
@@ -52,7 +52,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } else {
       setTrades([]);
     }
-  }, [vendor]);
+  }, [vendor, refreshTrades]);
 
   const handleAcceptExchange = (id: string, name: string, offer: number, target: string, price: number) => {
     triggerToast(`Exchange offer accepted!`);

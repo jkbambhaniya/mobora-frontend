@@ -9,6 +9,7 @@ import { isValidPhoneNumber } from "libphonenumber-js";
 import { toast } from "react-hot-toast";
 
 import { KycDocumentUpload } from "@/components/vendor/profile/KycDocumentUpload";
+import { checkCustomerPhoneAction } from "@/actions/customer";
 
 const quickCustomerSchema = yup.object().shape({
 	name: yup.string().trim().required("Full Name is required."),
@@ -34,6 +35,7 @@ interface PartnerSelectorProps {
 	placeholder?: string;
 	required?: boolean;
 	valueType?: "name" | "id"; // "name" returns customer/vendor name, "id" returns customer ID
+	allowedType?: "Customer" | "Vendor" | "Both";
 	error?: string;
 }
 
@@ -44,6 +46,7 @@ export function PartnerSelector({
 	placeholder = "-- Choose Partner --",
 	required = false,
 	valueType = "name",
+	allowedType = "Both",
 	error,
 }: PartnerSelectorProps) {
 	const { customers, addCustomer, fetchVendors, refreshCustomers } = useDashboard();
@@ -62,10 +65,14 @@ export function PartnerSelector({
 	const [custErrors, setCustErrors] = useState<Record<string, string>>({});
 	const [custFormError, setCustFormError] = useState("");
 
+	// Global Customer Check States
+	const [globalCustomer, setGlobalCustomer] = useState<any | null>(null);
+	const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+
 	useEffect(() => {
 		const loadData = async () => {
 			try {
-				if (typeof fetchVendors === "function") {
+				if (allowedType !== "Customer" && typeof fetchVendors === "function") {
 					const list = await fetchVendors();
 					setSystemVendors(list || []);
 				}
@@ -77,28 +84,93 @@ export function PartnerSelector({
 			}
 		};
 		loadData();
-	}, [fetchVendors, refreshCustomers]);
+	}, [fetchVendors, refreshCustomers, allowedType]);
 
 	// Clean input phone for comparison
 	const cleanInput = useMemo(() => inputPhone.replace(/[\s\-\+\(\)]/g, ""), [inputPhone]);
 
 	// Check if any customer matches the current typed phone number
 	const matchedCustomer = useMemo(() => {
-		if (cleanInput.length < 9) return null;
+		if (allowedType === "Vendor" || cleanInput.length < 9) return null;
 		return customers.find((c) => {
 			const cleanPhone = (c.phone || "").replace(/[\s\-\+\(\)]/g, "");
 			return cleanPhone && (cleanPhone === cleanInput || cleanPhone.endsWith(cleanInput) || cleanInput.endsWith(cleanPhone));
 		});
-	}, [cleanInput, customers]);
+	}, [cleanInput, customers, allowedType]);
 
 	// Check if any vendor matches the current typed phone number
 	const matchedVendor = useMemo(() => {
-		if (cleanInput.length < 9) return null;
+		if (allowedType === "Customer" || cleanInput.length < 9) return null;
 		return systemVendors.find((v) => {
 			const cleanPhone = (v.phone || "").replace(/[\s\-\+\(\)]/g, "");
 			return cleanPhone && (cleanPhone === cleanInput || cleanPhone.endsWith(cleanInput) || cleanInput.endsWith(cleanPhone));
 		});
-	}, [cleanInput, systemVendors]);
+	}, [cleanInput, systemVendors, allowedType]);
+
+	// Debounced check if phone number exists globally
+	useEffect(() => {
+		if (matchedCustomer || matchedVendor) {
+			setGlobalCustomer(null);
+			return;
+		}
+
+		if (cleanInput.length < 9) {
+			if (globalCustomer) {
+				setGlobalCustomer(null);
+				setNewCustName("");
+				setNewCustAddress("");
+				setNewCustIdType("");
+				setNewCustIdNumber("");
+				setNewCustKycDocImg(null);
+			}
+			return;
+		}
+
+		const isPhoneValid = isValidPhoneNumber(inputPhone);
+		if (!isPhoneValid) {
+			if (globalCustomer) {
+				setGlobalCustomer(null);
+				setNewCustName("");
+				setNewCustAddress("");
+				setNewCustIdType("");
+				setNewCustIdNumber("");
+				setNewCustKycDocImg(null);
+			}
+			return;
+		}
+
+		const delayDebounce = setTimeout(async () => {
+			setIsCheckingPhone(true);
+			try {
+				const res = await checkCustomerPhoneAction(inputPhone);
+				if (res.success && res.data?.exists) {
+					const gc = res.data.customer;
+					setGlobalCustomer(gc);
+					setNewCustName(gc.name || "");
+					setNewCustAddress(gc.address || "");
+					setNewCustIdType(gc.idType || "");
+					setNewCustIdNumber(gc.idNumber || "");
+					setNewCustKycDocImg(gc.kycDocumentImg || null);
+				} else {
+					if (globalCustomer) {
+						setGlobalCustomer(null);
+						setNewCustName("");
+						setNewCustAddress("");
+						setNewCustIdType("");
+						setNewCustIdNumber("");
+						setNewCustKycDocImg(null);
+					}
+				}
+			} catch (err) {
+				console.error("Error checking global customer:", err);
+				setGlobalCustomer(null);
+			} finally {
+				setIsCheckingPhone(false);
+			}
+		}, 600);
+
+		return () => clearTimeout(delayDebounce);
+	}, [cleanInput, matchedCustomer, matchedVendor, inputPhone]);
 
 	// Auto-select if matching customer or vendor is found
 	useEffect(() => {
@@ -136,12 +208,17 @@ export function PartnerSelector({
 				};
 			}
 		} else if (type === "Vendor") {
-			const vend = systemVendors.find(v => String(v.id) === key || v.name === key);
+			const vend = systemVendors.find(v => 
+				String(v.id) === key || 
+				v.name === key ||
+				(v.shop_name ? `${v.shop_name} (${v.name})` : v.name) === key
+			);
 			if (vend) {
 				return {
 					name: vend.name,
 					shopName: vend.shop_name,
 					type: "Vendor",
+					phone: vend.phone,
 				};
 			}
 		}
@@ -194,6 +271,7 @@ export function PartnerSelector({
 				idType: newCustIdType || null,
 				idNumber: newCustIdNumber || null,
 				kycDocumentImg: newCustKycDocImg || null,
+				associateExisting: !!globalCustomer,
 			});
 
 			if (res.success && res.customer) {
@@ -255,6 +333,7 @@ export function PartnerSelector({
 								setNewCustIdType("");
 								setNewCustIdNumber("");
 								setNewCustKycDocImg(null);
+								setGlobalCustomer(null);
 							}}
 							className="text-xs text-red-500 hover:text-red-600 font-bold hover:underline cursor-pointer"
 						>
@@ -266,7 +345,11 @@ export function PartnerSelector({
 				<div className="space-y-3">
 					<div className="space-y-1">
 						<label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide block">
-							Select Customer / Dealer by Phone *
+							{allowedType === "Customer" 
+								? "Select Customer by Phone *" 
+								: allowedType === "Vendor" 
+								? "Select Dealer by Phone *" 
+								: "Select Customer / Dealer by Phone *"}
 						</label>
 						<PhoneInputField
 							value={inputPhone}
@@ -277,9 +360,23 @@ export function PartnerSelector({
 
 					{showCreateForm && (
 						<div className="space-y-3 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 animate-scaleUp">
-							<div className="p-3 bg-primary/5 border border-primary/10 rounded-xl text-[11px] text-primary font-semibold">
-								ℹ️ This phone number is not registered. Please fill in the details below to quick-register this customer.
-							</div>
+							{isCheckingPhone ? (
+								<div className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-[11px] text-zinc-500 font-semibold flex items-center gap-1.5">
+									<svg className="animate-spin h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24">
+										<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+										<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+									</svg>
+									<span>Checking customer details in system...</span>
+								</div>
+							) : globalCustomer ? (
+								<div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+									ℹ️ Customer details found in system. Please verify details below and update if needed.
+								</div>
+							) : (
+								<div className="p-3 bg-primary/5 border border-primary/10 rounded-xl text-[11px] text-primary font-semibold">
+									ℹ️ This phone number is not registered. Please fill in the details below to quick-register this customer.
+								</div>
+							)}
 							
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 								<div className="space-y-1">
@@ -371,7 +468,7 @@ export function PartnerSelector({
 
 							<button
 								type="button"
-								disabled={isSubmitting}
+								disabled={isSubmitting || isCheckingPhone}
 								onClick={handleCreateCustomer}
 								className="w-full py-2 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer h-9"
 							>
@@ -381,10 +478,10 @@ export function PartnerSelector({
 											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
 											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
 										</svg>
-										<span>Saving Customer...</span>
+										<span>{globalCustomer ? "Verifying..." : "Saving Customer..."}</span>
 									</>
 								) : (
-									"Save and Select"
+									globalCustomer ? "Verify and Select" : "Save and Select"
 								)}
 							</button>
 							{custFormError && (

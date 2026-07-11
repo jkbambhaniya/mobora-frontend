@@ -755,16 +755,36 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 									</div>
 									<div className="col-span-2 md:col-span-3">
 										<span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Status</span>
-										<span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold mt-1 ${
-											foundDevice.status === "Available"
-												? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-												: "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-										}`}>
-											<span className={`h-1.5 w-1.5 rounded-full ${
-												foundDevice.status === "Available" ? "bg-emerald-500" : "bg-amber-500"
-											}`} />
-											{foundDevice.status}
-										</span>
+										{(() => {
+											let bgTextClass = "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400";
+											let dotClass = "bg-zinc-500";
+											let label = foundDevice.status;
+
+											if (foundDevice.status === "Available") {
+												bgTextClass = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+												dotClass = "bg-emerald-500";
+												label = "Available";
+											} else if (foundDevice.status === "Pending") {
+												bgTextClass = "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+												dotClass = "bg-amber-500";
+												label = "Courier Pending";
+											} else if (foundDevice.status === "Shipped") {
+												bgTextClass = "bg-blue-500/10 text-blue-600 dark:text-blue-400";
+												dotClass = "bg-blue-500";
+												label = "Shipped (In Transit)";
+											} else if (foundDevice.status === "Sold") {
+												bgTextClass = "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400";
+												dotClass = "bg-zinc-500";
+												label = "Sold";
+											}
+
+											return (
+												<span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold mt-1 ${bgTextClass}`}>
+													<span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+													{label}
+												</span>
+											);
+										})()}
 									</div>
 								</div>
 
@@ -920,12 +940,28 @@ export function ImeiSearchModal({ isOpen, onClose, initialImei = "" }: ImeiSearc
 														setSellPrice(foundDevice.price?.toString() || "");
 														setActiveAction("sell");
 													}}
-													className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-1.5 rounded-xl text-[10px]"
+													className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-770 text-white font-extrabold px-4 py-1.5 rounded-xl text-[10px]"
 												>
 													<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
 														<path strokeLinecap="round" strokeLinejoin="round" d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z" />
 													</svg>
 													Sell Device
+												</Button>
+											) : (foundDevice.status === "Pending" || foundDevice.status === "Shipped") ? (
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													onClick={() => {
+														router.push("/courier");
+														onClose();
+													}}
+													className="flex items-center gap-1.5 border-amber-500/50 hover:bg-amber-50/10 text-amber-600 dark:text-amber-400 font-extrabold px-4 py-1.5 rounded-xl text-[10px]"
+												>
+													<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+														<path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+													</svg>
+													Manage Courier
 												</Button>
 											) : (
 												<Button

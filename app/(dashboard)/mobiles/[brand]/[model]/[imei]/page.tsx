@@ -47,7 +47,8 @@ export default function ImeiDetailsPage() {
 		if (typeof refreshTrades === "function") {
 			refreshTrades();
 		}
-	}, [refreshDevices, refreshTrades]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const handleSuccess = async () => {
 		if (typeof refreshDevices === "function") {
@@ -128,6 +129,39 @@ export default function ImeiDetailsPage() {
 		const lastEvent = timelineEvents[timelineEvents.length - 1];
 		return lastEvent?.type === "Sale" ? "Sold" : "Available";
 	}, [device, timelineEvents]);
+
+	const statusConfig = useMemo(() => {
+		switch (currentStatus) {
+			case "Sold":
+				return {
+					dotClass: "bg-zinc-500",
+					pingClass: "bg-zinc-400",
+					textClass: "text-zinc-500 dark:text-zinc-400",
+					label: "Sold",
+				};
+			case "Pending":
+				return {
+					dotClass: "bg-amber-500",
+					pingClass: "bg-amber-450",
+					textClass: "text-amber-500",
+					label: "Courier Pending",
+				};
+			case "Shipped":
+				return {
+					dotClass: "bg-blue-500",
+					pingClass: "bg-blue-450",
+					textClass: "text-blue-550 dark:text-blue-400",
+					label: "Shipped (In Transit)",
+				};
+			default:
+				return {
+					dotClass: "bg-emerald-500",
+					pingClass: "bg-emerald-450",
+					textClass: "text-emerald-500",
+					label: "Available",
+				};
+		}
+	}, [currentStatus]);
 
 	// Helper to find customer profile details
 	const findCustomerProfile = (name: string): Customer | undefined => {
@@ -210,6 +244,28 @@ export default function ImeiDetailsPage() {
 							</svg>
 							Device Buy
 						</Button>
+					) : (currentStatus === "Pending" || currentStatus === "Shipped") ? (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => router.push("/courier")}
+							className="border-amber-500/50 hover:bg-amber-50/10 text-amber-600 dark:text-amber-400 font-extrabold cursor-pointer flex items-center justify-center gap-2 rounded-xl text-xs py-2.5 px-5 shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 w-full sm:w-auto"
+						>
+							<svg
+								className="w-4.5 h-4.5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								strokeWidth="2.5"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+								/>
+							</svg>
+							Manage Courier Order
+						</Button>
 					) : (
 						<Button
 							variant="gradient"
@@ -278,18 +334,12 @@ export default function ImeiDetailsPage() {
 									Current Inventory Status
 								</span>
 								<div className="flex items-center gap-2">
-									<span className={`relative flex h-2 w-2`}>
-										<span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-											currentStatus === "Sold" ? "bg-zinc-400" : "bg-emerald-450"
-										}`}></span>
-										<span className={`relative inline-flex rounded-full h-2 w-2 ${
-											currentStatus === "Sold" ? "bg-zinc-500" : "bg-emerald-500"
-										}`}></span>
+									<span className="relative flex h-2 w-2">
+										<span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${statusConfig.pingClass}`}></span>
+										<span className={`relative inline-flex rounded-full h-2 w-2 ${statusConfig.dotClass}`}></span>
 									</span>
-									<span className={`text-sm font-black ${
-										currentStatus === "Sold" ? "text-zinc-500 dark:text-zinc-400" : "text-emerald-500"
-									}`}>
-										{currentStatus === "Sold" ? "Sold" : "Available"}
+									<span className={`text-sm font-black ${statusConfig.textClass}`}>
+										{statusConfig.label}
 									</span>
 								</div>
 							</div>

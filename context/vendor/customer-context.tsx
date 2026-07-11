@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { Customer } from "./types";
 import { useAuth } from "./auth-context";
 import {
@@ -62,10 +62,10 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(10);
   const [metrics, setMetrics] = useState({ totalCustomers: 0, activeCustomers: 0, totalSpent: 0 });
-  const [activeFilters, setActiveFilters] = useState<string | null>(null);
+  const activeFiltersRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const refreshCustomers = async (
+  const refreshCustomers = useCallback(async (
     filters?: {
       search?: string;
       status?: string;
@@ -81,7 +81,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
 
     const currentFilters = { ...DEFAULT_FILTERS, ...filters };
     const filtersStr = JSON.stringify(currentFilters);
-    if (!force && activeFilters === filtersStr) return; // Skip redundant fetches
+    if (!force && activeFiltersRef.current === filtersStr) return; // Skip redundant fetches
 
     setIsLoading(true);
     try {
@@ -94,7 +94,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
         if (res.data.metrics) {
           setMetrics(res.data.metrics);
         }
-        setActiveFilters(filtersStr);
+        activeFiltersRef.current = filtersStr;
       } else {
         console.warn("[CustomerContext] Failed to load customers:", res.message);
       }
@@ -103,7 +103,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [vendor]);
 
   useEffect(() => {
     if (vendor) {
@@ -111,9 +111,9 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     } else {
       setCustomers([]);
       setMetrics({ totalCustomers: 0, activeCustomers: 0, totalSpent: 0 });
-      setActiveFilters(null);
+      activeFiltersRef.current = null;
     }
-  }, [vendor]);
+  }, [vendor, refreshCustomers]);
 
   const addCustomer = async (data: any) => {
     setIsLoading(true);
@@ -128,7 +128,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
             message: res.data.message
           };
         }
-        const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
+        const parsed = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
         await refreshCustomers(parsed, true);
         return { success: true, customer: res.data.data?.customer };
       } else {
@@ -148,7 +148,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await updateCustomerAction(id, data);
       if (res.success && res.data && res.data.success) {
-        const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
+        const parsed = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
         await refreshCustomers(parsed, true);
         return { success: true };
       } else {
@@ -168,7 +168,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await deleteCustomerAction(id);
       if (res.success && res.data && res.data.success) {
-        const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
+        const parsed = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
         await refreshCustomers(parsed, true);
         return true;
       } else {
@@ -188,7 +188,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await bulkDeleteCustomersAction(ids);
       if (res.success && res.data && res.data.success) {
-        const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
+        const parsed = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
         await refreshCustomers(parsed, true);
         return true;
       } else {
@@ -208,7 +208,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await bulkUpdateStatusAction(ids, status);
       if (res.success && res.data && res.data.success) {
-        const parsed = activeFilters ? JSON.parse(activeFilters) : undefined;
+        const parsed = activeFiltersRef.current ? JSON.parse(activeFiltersRef.current) : undefined;
         await refreshCustomers(parsed, true);
         return true;
       } else {

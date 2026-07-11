@@ -657,17 +657,27 @@ export default function ModelDetailsPage() {
 			sortable: true,
 			headerClassName: "text-center",
 			className: "text-center",
-			render: (d) => (
-				<span
-					className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${
-						d.status === "Available"
-							? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-							: "bg-zinc-500/15 text-zinc-500 dark:text-zinc-400"
-					}`}
-				>
-					{d.status === "Available" ? "Available" : d.status}
-				</span>
-			),
+			render: (d) => {
+				let statusClass = "bg-zinc-500/15 text-zinc-500 dark:text-zinc-400";
+				let displayStatus = d.status;
+
+				if (d.status === "Available") {
+					statusClass = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+					displayStatus = "Available";
+				} else if (d.status === "Pending") {
+					statusClass = "bg-amber-500/15 text-amber-600 dark:text-amber-400";
+					displayStatus = "Courier Pending";
+				} else if (d.status === "Shipped") {
+					statusClass = "bg-blue-500/15 text-blue-600 dark:text-blue-400";
+					displayStatus = "Shipped";
+				}
+
+				return (
+					<span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block ${statusClass}`}>
+						{displayStatus}
+					</span>
+				);
+			},
 		},
 		{
 			key: "actions",

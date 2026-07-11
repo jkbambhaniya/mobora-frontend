@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -55,35 +55,50 @@ export function DeviceBuyModal({
 		createdAt?: string;
 	} | null>(null);
 
+	const hasInitializedRef = useRef(false);
+
 	// Find past buyer of this IMEI to prefill customer name if possible
 	useEffect(() => {
-		if (isOpen && device) {
-			let originalBuyer = "";
-			if (device.imei) {
-				const saleTrade = trades
-					.filter(
-						(t) =>
-							t.deviceBrand.toLowerCase() === device.brand.toLowerCase() &&
-							t.deviceModel.toLowerCase() === device.model.toLowerCase() &&
-							t.type === "Sale",
-					)
-					.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-				if (saleTrade) {
-					originalBuyer = saleTrade.customerName;
+		if (isOpen) {
+			if (!hasInitializedRef.current && device) {
+				let originalBuyer = "";
+				if (device.imei) {
+					let saleTrade = trades
+						.filter((t) => t.imei === device.imei && t.type === "Sale" && t.partnerType !== "Vendor")
+						.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+					if (!saleTrade) {
+						saleTrade = trades
+							.filter(
+								(t) =>
+									t.deviceBrand.toLowerCase() === device.brand.toLowerCase() &&
+									t.deviceModel.toLowerCase() === device.model.toLowerCase() &&
+									t.type === "Sale" &&
+									t.partnerType !== "Vendor",
+							)
+							.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+					}
+
+					if (saleTrade) {
+						originalBuyer = `Customer:${saleTrade.customerName}`;
+					}
 				}
+
+				setBuybackPrice("");
+				setBuybackCustomer(originalBuyer || (customers[0]?.name ? `Customer:${customers[0].name}` : ""));
+				setBuybackDate(new Date().toISOString().split("T")[0]);
+				setBuybackCondition(device.condition || "OLD");
+				setBuybackBattery(device.batteryHealth ? device.batteryHealth.toString() : "90");
+				setBuybackNotes(`Re-acquired device from customer.`);
+				setRepairingCost(device.repairingCost ? device.repairingCost.toString() : "");
+
+				setBuybackErrors({});
+				setBuybackFormError("");
+				setBlacklistWarning(null);
+				hasInitializedRef.current = true;
 			}
-
-			setBuybackPrice("");
-			setBuybackCustomer(originalBuyer || customers[0]?.name || "");
-			setBuybackDate(new Date().toISOString().split("T")[0]);
-			setBuybackCondition(device.condition || "OLD");
-			setBuybackBattery(device.batteryHealth ? device.batteryHealth.toString() : "90");
-			setBuybackNotes(`Re-acquired device from customer.`);
-			setRepairingCost(device.repairingCost ? device.repairingCost.toString() : "");
-
-			setBuybackErrors({});
-			setBuybackFormError("");
-			setBlacklistWarning(null);
+		} else {
+			hasInitializedRef.current = false;
 		}
 	}, [isOpen, device, customers, trades]);
 
@@ -158,6 +173,8 @@ export function DeviceBuyModal({
 		try {
 			const priceNum = parseFloat(buybackPrice);
 			const repairCostNum = parseFloat(repairingCost) || 0;
+			const descriptionVal = buybackNotes || `Re-acquired from ${buybackCustomer}.`;
+
 			const result = await editDevice(device.id, {
 				status: "Available",
 				purchase_price: priceNum,
@@ -165,7 +182,7 @@ export function DeviceBuyModal({
 				price: Math.round(priceNum * 1.2), // Auto markup price by 20%
 				condition: buybackCondition,
 				battery_health: parseInt(buybackBattery) || 90,
-				description: buybackNotes || `Re-acquired from ${buybackCustomer}.`
+				description: descriptionVal
 			});
 
 			if (result.success) {
@@ -182,7 +199,7 @@ export function DeviceBuyModal({
 					partnerType: partnerType,
 					amount: priceNum,
 					date: buybackDate,
-					notes: buybackNotes || '',
+					notes: descriptionVal,
 					storage: device.storage,
 					ram: device.ram,
 					color: device.color,
@@ -302,6 +319,7 @@ export function DeviceBuyModal({
 							placeholder="-- Choose Partner --"
 							required={true}
 							valueType="name"
+							allowedType="Customer"
 							error={buybackErrors.buybackCustomer}
 						/>
 

@@ -152,3 +152,18 @@ export async function rejectCustomerKycAction(id: string) {
     };
   }
 }
+
+/**
+ * Check if customer with phone number exists globally
+ */
+export async function checkCustomerPhoneAction(phone: string) {
+  try {
+    const response = await apiClient.get("/vendor/customers/check-phone", { params: { phone } });
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || "Failed to check customer phone number.",
+    };
+  }
+}
